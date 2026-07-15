@@ -6,25 +6,21 @@ using EscapeFromWork.Weapons;
 namespace EscapeFromWork.Player
 {
     /// <summary>
-    /// Central player combat controller. Manages health, three weapon slots
+    /// Central player combat controller. Manages three weapon slots
     /// (A / C / Melee), shooting, melee (tap-instant / hold-charge), weapon
-    /// cycling, reloading, and death (equipment drop, dog-tag spawn, GameManager
-    /// notification).
+    /// cycling, and reloading.
     ///
-    /// <para>Implements <see cref="IDamageable"/> so that enemies can damage
-    /// the player through the same interface used for other damageable entities.</para>
+    /// <para>Health is owned by <see cref="PlayerHealth"/>; this component
+    /// forwards damage to it and exposes health properties for HUD binding.</para>
     /// </summary>
     [RequireComponent(typeof(Collider))]
-    public class PlayerCombat : MonoBehaviour, IDamageable
+    public class PlayerCombat : MonoBehaviour
     {
         // ---- Health --------------------------------------------------------------
 
         [Header("Health")]
-        [Tooltip("Maximum health points.")]
-        [SerializeField] private float maxHealth = 100f;
-
-        [Tooltip("Current health. Starts at maxHealth.")]
-        [SerializeField] private float currentHealth;
+        [Tooltip("Reference to the PlayerHealth component (sole IDamageable authority).")]
+        [SerializeField] private PlayerHealth playerHealth;
 
         // ---- Aim -----------------------------------------------------------------
 
@@ -46,6 +42,27 @@ namespace EscapeFromWork.Player
         [Header("Weapon Slots")]
         [Tooltip("Slot A — primary ranged weapon.")]
         [SerializeField] private WeaponBase slotA;
+        public WeaponBase SlotA => slotA;
+        public WeaponBase SlotC => slotC;
+        public WeaponBase SlotMelee => slotMelee;
+        public ItemData SlotArmor => slotArmor;
+        public ItemData SlotBackpack => slotBackpack;
+
+        public void ClearSlot(GearSlot s)
+        {
+            switch (s) { case GearSlot.WeaponA: slotA = null; break; case GearSlot.WeaponC: slotC = null; break; case GearSlot.Melee: slotMelee = null; _currentMelee = null; break; case GearSlot.Armor: slotArmor = null; break; case GearSlot.Backpack: slotBackpack = null; break; }
+        }
+
+        public void SetSlotItem(GearSlot s, ItemData item)
+        {
+            switch (s) { case GearSlot.Armor: slotArmor = item; break; case GearSlot.Backpack: slotBackpack = item; break; }
+        }
+
+        public void SetSlotWeapon(WeaponBase w)
+        {
+            if (w?.Data == null) return;
+            switch (w.Data.Slot) { case WeaponSlot.A: slotA = w; break; case WeaponSlot.C: slotC = w; break; case WeaponSlot.Melee: slotMelee = w; _currentMelee = w as MeleeWeapon; break; }
+        }
 
         [Tooltip("Slot C — creative / special-effect weapon.")]
         [SerializeField] private WeaponBase slotC;
@@ -53,11 +70,11 @@ namespace EscapeFromWork.Player
         [Tooltip("Melee slot — always available.")]
         [SerializeField] private WeaponBase slotMelee;
 
-        // ---- Death drops ---------------------------------------------------------
+        [Tooltip("Armor item slot — damage reduction.")]
+        [SerializeField] private ItemData slotArmor;
 
-        [Header("Death Drops")]
-        [Tooltip("Dog-tag prefab spawned at the player's death position.")]
-        [SerializeField] private GameObject dogTagPrefab;
+        [Tooltip("Backpack item slot — determines inventory capacity.")]
+        [SerializeField] private ItemData slotBackpack;
 
         // ---- Private state -------------------------------------------------------
 
@@ -70,14 +87,14 @@ namespace EscapeFromWork.Player
         // ---- Public properties ---------------------------------------------------
 
         /// <summary>
-        /// Maximum health pool.
+        /// Maximum health pool, forwarded from <see cref="PlayerHealth"/>.
         /// </summary>
-        public float MaxHealth => maxHealth;
+        public float MaxHealth => playerHealth != null ? playerHealth.MaxHealth : 100f;
 
         /// <summary>
-        /// Current health value. Clamped to [0, maxHealth].
+        /// Current health value, forwarded from <see cref="PlayerHealth"/>.
         /// </summary>
-        public float CurrentHealth => currentHealth;
+        public float CurrentHealth => playerHealth != null ? playerHealth.CurrentHealth : 100f;
 
         /// <summary>
         /// The weapon in the currently active slot, or null if the slot is empty.
@@ -85,39 +102,53 @@ namespace EscapeFromWork.Player
         public WeaponBase CurrentWeapon => GetWeaponInSlot(_currentSlotIndex);
 
         /// <summary>
-        /// True when the player is dead (health has reached zero).
+        /// True when the player is dead, forwarded from <see cref="PlayerHealth"/>.
         /// </summary>
-        public bool IsDead { get; private set; }
+        public bool IsDead => playerHealth != null && playerHealth.IsDead;
 
         // ---- Unity lifecycle ----------------------------------------------------
 
         private void Awake()
         {
-            currentHealth = maxHealth;
-            IsDead = false;
+            // Auto-wire references if not set in the inspector.
+            if (playerAim == null)
+            {
+                playerAim = GetComponent<PlayerAim>();
+                if (playerAim == null)
+                    Debug.LogWarning("[PlayerCombat] No PlayerAim found — aiming will use mouse fallback.", this);
+            }
+
+            if (playerHealth == null)
+            {
+                playerHealth = GetComponent<PlayerHealth>();
+                if (playerHealth == null)
+                    Debug.LogWarning("[PlayerCombat] No PlayerHealth found — damage forwarding disabled.", this);
+            }
         }
 
         private void Update()
         {
+            // Disable combat input when loot UI is open
+            var lootUI = FindObjectOfType<EscapeFromWork.UI.LootContainerUI>();
+            if (lootUI != null && lootUI.IsOpen) return;
+
             PollShootInput();
             PollMeleeInput();
             PollSwapWeaponInput();
             PollReloadInput();
         }
 
-        // ---- IDamageable ---------------------------------------------------------
+        // ---- Damage forwarding ---------------------------------------------------
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Forwards damage to <see cref="PlayerHealth"/>, the sole health authority.
+        /// Kept for any external code that still calls PlayerCombat.TakeDamage().
+        /// </summary>
         public void TakeDamage(float amount, GameObject source)
         {
-            if (IsDead)
-                return;
-
-            currentHealth = Mathf.Max(0f, currentHealth - amount);
-
-            if (currentHealth <= 0f)
+            if (playerHealth != null)
             {
-                Die();
+                playerHealth.TakeDamage(amount, source);
             }
         }
 
@@ -262,8 +293,26 @@ namespace EscapeFromWork.Player
                     return toAim.normalized;
             }
 
-            // Fallback: forward.
-            return transform.forward;
+            // Fallback: aim toward the mouse cursor on the ground plane (Y = 0).
+            // In a top-down game, transform.forward is a fixed world direction
+            // and does NOT represent where the player is looking.
+            Camera cam = Camera.main;
+            if (cam != null)
+            {
+                Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+                Plane ground = new Plane(Vector3.up, Vector3.zero);
+                if (ground.Raycast(ray, out float enter))
+                {
+                    Vector3 mousePoint = ray.GetPoint(enter);
+                    Vector3 dir = mousePoint - transform.position;
+                    dir.y = 0f;
+                    if (dir.sqrMagnitude > 0.001f)
+                        return dir.normalized;
+                }
+            }
+
+            // Absolute last resort — world forward (Z+).
+            return Vector3.forward;
         }
 
         /// <summary>
@@ -346,59 +395,9 @@ namespace EscapeFromWork.Player
         // ---- Death ---------------------------------------------------------------
 
         /// <summary>
-        /// Handle player death: drop equipment on dangerous floors, spawn a
-        /// dog tag, and notify <see cref="GameManager"/>.
-        /// </summary>
-        private void Die()
-        {
-            if (IsDead)
-                return;
-
-            IsDead = true;
-            currentHealth = 0f;
-
-            int currentFloor = GameManager.Instance != null
-                ? GameManager.Instance.CurrentFloorNumber
-                : 0;
-
-            bool isDangerousFloor = !IsSafeFloor(currentFloor);
-
-            // Drop equipped weapons on dangerous floors (permadeath penalty).
-            if (isDangerousFloor)
-            {
-                DropEquipment();
-            }
-
-            // Spawn dog tag (工牌) at death location.
-            if (dogTagPrefab != null)
-            {
-                Instantiate(dogTagPrefab, transform.position, Quaternion.identity);
-            }
-
-            // Build death context and notify GameManager.
-            DeathContext ctx = new DeathContext
-            {
-                floorNumber = currentFloor,
-                isSafeFloor = !isDangerousFloor,
-                characterName = gameObject.name,
-                causeOfDeath = "Combat",
-                lootValueReturned = 0
-            };
-
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.PlayerDied(ctx);
-            }
-            else
-            {
-                Debug.LogError("[PlayerCombat] GameManager.Instance is null — death not reported.");
-            }
-        }
-
-        /// <summary>
         /// Drops equipped weapon prefabs at the player's death position so they
-        /// can potentially be recovered on a future run. Public so
-        /// <see cref="PlayerHealth"/> can invoke it during the death sequence.
+        /// can potentially be recovered on a future run. Called by
+        /// <see cref="PlayerHealth"/> during the death sequence.
         /// </summary>
         public void DropEquipment()
         {
@@ -419,19 +418,6 @@ namespace EscapeFromWork.Player
 
                 Instantiate(prefab, dropPos, Quaternion.identity);
             }
-        }
-
-        /// <summary>
-        /// Determines whether a floor number represents a safe floor where
-        /// equipment is preserved on death. Safe floors occur every 5 levels
-        /// (5, 10, 15, ..., 50). The lobby (floor 50) is always safe.
-        /// </summary>
-        /// <param name="floorNumber">The floor to check (1-50).</param>
-        /// <returns>True when the floor is a safe zone.</returns>
-        private static bool IsSafeFloor(int floorNumber)
-        {
-            // Every 5th floor and the starting lobby are safe rooms / rest stops.
-            return floorNumber % 5 == 0 || floorNumber == 50;
         }
 
         // ---- Gizmos -------------------------------------------------------------

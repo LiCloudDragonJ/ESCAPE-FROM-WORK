@@ -62,9 +62,10 @@ namespace EscapeFromWork.Level
 
         private void Awake()
         {
-            // FloorManager instances are created per-floor; the most recent
-            // one becomes the singleton.
             Instance = this;
+            // Ensure State is never null — LootContainer and HUD depend on it.
+            if (State == null)
+                State = FloorState.LoadOrCreate(floorNumber);
         }
 
         private void OnDestroy()
@@ -166,8 +167,9 @@ namespace EscapeFromWork.Level
         /// </param>
         public void Extract(bool useFireEscape)
         {
-            // Persist floor state.
-            State.Save();
+            // Persist floor state (safe to skip if not yet initialised).
+            if (State != null)
+                State.Save();
 
             Debug.Log($"[FloorManager] Extracting from floor {floorNumber} " +
                       $"via {(useFireEscape ? "fire escape" : "normal stairs")}.");

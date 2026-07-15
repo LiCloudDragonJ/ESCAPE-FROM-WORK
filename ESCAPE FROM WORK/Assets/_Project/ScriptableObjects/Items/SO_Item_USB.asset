@@ -12,11 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4bacdf69a12409f4ca975cdf33936a48, type: 3}
   m_Name: SO_Item_USB
   m_EditorClassIdentifier: 
-  itemName: "U\u76D8"
+  itemName: "\u52A0\u5BC6U\u76D8"
   description: 
-  itemType: 3
+  itemType: 4
   ammoType: 0
+  gearSlot: 0
+  backpackWidth: 0
+  backpackHeight: 0
+  width: 1
+  height: 1
   icon: {fileID: 0}
+  rarity: 1
   maxStackSize: 5
   baseValue: 500
   isUsableInRaid: 0

@@ -1,45 +1,44 @@
 # Session State — ESCAPE FROM WORK
 
-## Current Status: Phase 1 Core Prototype — COMPLETE
+## Current Status: Phase 1 Core Prototype — Playable
 
-**Date:** 2026-07-15
+**Date:** 2026-07-16
 
-### What's Built
-- ✅ 27 C# scripts across 8 namespaces (Core, Player, Weapons, Enemies, Level, Loot, UI, Data)
-- ✅ 7 ScriptableObject assets (4 items, 2 weapons, 1 enemy, 1 loot table)
-- ✅ 8 Prefabs (Player, KPIZombie, 5 room types, Projectile)
-- ✅ Playable scene: `Assets/Scenes/SampleScene.scene`
-- ✅ Movement (WASD), aiming (mouse), dodge (Space), shoot (LMB), melee (RMB)
-- ✅ 5×5 floor grid with colored tiles, boundary walls, dark ground
-- ✅ 5 KPI zombie enemies with patrol/chase/attack AI
-- ✅ Top-down camera with follow + boundary clamping
-- ✅ CCGS agents + skills framework deployed
+### ✅ Complete
+- Player: WASD, aim (Left Shift toggle), shoot, melee, dodge
+- Enemies: KPI zombie AI (patrol/chase/attack), floating damage numbers
+- Floor: 5×5 grid, boundary walls, dark ground
+- Camera: 2.5D perspective (SimpleCameraFollow)
+- HUD: health bar, ammo, floor info, extraction warning, interaction prompt
+- Loot containers: 5 types (desk/cabinet/safe/supply/server), progressive loading
+- Container UI: 3-column (equip|backpack|container), double-click/drag/F-key transfer
+- Equipment: weapons/armor/backpack slots, equip/unequip via drag
+- Backpack: grid display with stack counts, Tab to open
+- Extraction points: stairs (SW) + fire escape (NE)
+- Loose loot: 8 big valuables, floating+rotating
+- 30+ item types across 6 rarities (white/green/blue/purple/gold/red)
+- Scene builder: one-click Build Scene menu
 
-### Build Steps (in Unity Editor)
+### Build Steps (Unity Editor)
 1. `ESCAPE FROM WORK → Build Scene`
-2. `ESCAPE FROM WORK → Wire Weapons`
-3. Play
+2. Play
 
 ### Key Files
 - GDD: `design/gdd/game-concept.md`
-- Plan: `docs/superpowers/plans/2026-07-15-phase-1-core-prototype.md`
 - Scene: `Assets/Scenes/SampleScene.scene`
-- Code: `Assets/_Project/Scripts/`
-
-### Known Issues
-- Auto-aim finds enemies but bullets fly straight (direction fix needed)
-- Enemy AI needs EnemyData SO wired (Wire Weapons handles this)
-- No HUD Canvas yet (HUDManager.cs exists but not instantiated)
-- No loot containers in scene (LootContainer code exists)
+- Main code: `Assets/_Project/Scripts/`
+- Editor: `Assets/_Project/Scripts/Editor/SceneWirer.cs`
+- Loot UI: `Assets/_Project/Scripts/UI/LootContainerUI.cs`
 
 ### Next Steps
-- Fix aiming direction (bullets → mouse cursor)
-- Build HUD Canvas (health, ammo, floor display)
-- Add loot containers to scene
-- Test full extraction loop (enter → loot → fight → extract)
+1. Fix shooting direction (bullets → mouse cursor)
+2. Random floor generation per save
+3. Test full extraction loop (enter → fight → loot → extract)
+4. Tea room base / hideout building system
+5. Code cleanup: split bloated SceneWirer.cs, remove BENGLAOTOU imports
 
 <!-- STATUS -->
 Epic: Core Prototype
-Feature: Combat + Movement
-Task: Fix aiming + build HUD
+Feature: Loot & Inventory System
+Task: Container state + equipment equip/unequip
 <!-- /STATUS -->

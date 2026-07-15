@@ -16,7 +16,13 @@ MonoBehaviour:
   description: 
   itemType: 0
   ammoType: 0
+  gearSlot: 0
+  backpackWidth: 0
+  backpackHeight: 0
+  width: 1
+  height: 1
   icon: {fileID: 0}
+  rarity: 0
   maxStackSize: 999
   baseValue: 1
   isUsableInRaid: 0

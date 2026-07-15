@@ -20,18 +20,23 @@ namespace EscapeFromWork.Core
 
         void Awake()
         {
-            // --- CAMERA: kill all, create one clean ---
-            foreach (var c in FindObjectsOfType<Camera>()) Destroy(c.gameObject);
-            var camGo = new GameObject("Main Camera");
-            camGo.tag = "MainCamera";
-            _cam = camGo.AddComponent<Camera>();
-            camGo.AddComponent<AudioListener>();
-            _cam.orthographic = true;
-            _cam.orthographicSize = 25f;
-            _cam.transform.position = new Vector3(50f, 50f, 50f);
-            _cam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            _cam.nearClipPlane = 0.1f;
-            _cam.farClipPlane = 300f;
+            // --- CAMERA: one camera, one follow script ---
+            _cam = Camera.main;
+            if (_cam == null)
+            {
+                var camGo = new GameObject("Main Camera");
+                camGo.tag = "MainCamera";
+                _cam = camGo.AddComponent<Camera>();
+                camGo.AddComponent<AudioListener>();
+            }
+            // Remove any duplicate cameras.
+            var allCams = FindObjectsOfType<Camera>();
+            foreach (var c in allCams)
+            {
+                if (c != _cam) Destroy(c.gameObject);
+            }
+            if (_cam.GetComponent<AudioListener>() == null)
+                _cam.gameObject.AddComponent<AudioListener>();
 
             // --- PLAYER ---
             var existing = GameObject.Find("Player");
@@ -45,7 +50,12 @@ namespace EscapeFromWork.Core
             rb.useGravity = false;
             rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            rb.isKinematic = false;
+            // Disable physics collision so the player can move freely between tiles.
+            // Enemies use triggers for detection, so this doesn't break combat.
+            var playerCol = _player.GetComponent<Collider>();
+            if (playerCol != null) playerCol.isTrigger = true;
             // Player scripts
             _player.AddComponent<PlayerController>();
             _player.AddComponent<PlayerAim>();
@@ -59,9 +69,9 @@ namespace EscapeFromWork.Core
             mr.material.color = Color.yellow;
 
             // --- CAMERA FOLLOW ---
-            var cf = camGo.AddComponent<SimpleCameraFollow>();
+            var cf = _cam.GetComponent<SimpleCameraFollow>();
+            if (cf == null) cf = _cam.gameObject.AddComponent<SimpleCameraFollow>();
             SetPrivate(cf, "target", _player.transform);
-            SetPrivate(cf, "followSpeed", 10f);
         }
 
         void Start()
@@ -75,6 +85,13 @@ namespace EscapeFromWork.Core
             fg.GetType().GetMethod("GenerateFloor", BindingFlags.Public | BindingFlags.Instance)
               ?.Invoke(fg, new object[] { Random.Range(0, 99999) });
             Debug.Log("[QuickStart] Floor generated: 5x5 grid, 20x20 tiles");
+
+            // Make all non-player, non-enemy colliders triggers so walls don't block movement.
+            foreach (var col in FindObjectsOfType<Collider>())
+            {
+                if (col.CompareTag("Player") || col.CompareTag("Enemy")) continue;
+                col.isTrigger = true;
+            }
 
             // --- ENEMIES ---
             var es = gameObject.AddComponent<EnemySpawner>();
@@ -91,6 +108,17 @@ namespace EscapeFromWork.Core
             es.SpawnFloorEnemies();
             Debug.Log($"[QuickStart] Enemies spawned: {es.CountLivingEnemies()}");
 
+            // --- FLOOR MANAGER ---
+            var fm = gameObject.AddComponent<FloorManager>();
+            SetPrivate(fm, "floorGenerator", fg);
+            SetPrivate(fm, "enemySpawner", es);
+            fm.InitializeFloor(50, Random.Range(0, 99999));
+            Debug.Log("[QuickStart] FloorManager initialized");
+
+            // --- EXTRACTION TRIGGERS ---
+            CreateExtractionTrigger("Extraction_Stairs", new Vector3(10f, 1f, 10f), new Vector3(5f, 2f, 5f), false);
+            CreateExtractionTrigger("Extraction_FireEscape", new Vector3(90f, 1f, 90f), new Vector3(5f, 2f, 5f), true);
+
             // --- GAME STATE ---
             if (GameManager.Instance == null) gameObject.AddComponent<GameManager>();
             GameManager.Instance.StartRaid(50);
@@ -101,6 +129,23 @@ namespace EscapeFromWork.Core
         {
             var f = obj.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance);
             if (f != null) f.SetValue(obj, value);
+        }
+
+        void CreateExtractionTrigger(string name, Vector3 pos, Vector3 scale, bool useFireEscape)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.position = pos;
+            go.transform.localScale = scale;
+            var col = go.GetComponent<Collider>();
+            col.isTrigger = true;
+            var trigger = go.AddComponent<ExtractionTrigger>();
+            SetPrivate(trigger, "useFireEscape", useFireEscape);
+            // Make it visible: green for stairs, orange for fire escape.
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mr.material.color = useFireEscape ? new Color(1f, 0.5f, 0f, 0.4f) : new Color(0f, 1f, 0f, 0.4f);
+            Debug.Log($"[QuickStart] Created {name} at {pos}");
         }
     }
 }

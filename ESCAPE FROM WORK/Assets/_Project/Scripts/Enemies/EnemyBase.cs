@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using EscapeFromWork.Core;
 using EscapeFromWork.Data;
@@ -60,6 +61,35 @@ namespace EscapeFromWork.Enemies
         /// <summary>Last <see cref="Time.time"/> value at which an attack was performed.</summary>
         protected float _lastAttackTime;
 
+        // ---- Hit feedback --------------------------------------------------------
+
+        /// <summary>Cached Renderer for optional hit-flash and death-dissolve effects.</summary>
+        private Renderer _renderer;
+
+        /// <summary>Original material colour, captured at start for flash reset.</summary>
+        private Color _originalColor;
+
+        /// <summary>Remaining seconds of the hit-flash visual.</summary>
+        private float _flashTimer;
+
+        /// <summary>Colour the enemy flashes to on hit.</summary>
+        private static readonly Color HitFlashColor = Color.white;
+
+        /// <summary>Duration of the hit flash in seconds.</summary>
+        private const float HitFlashDuration = 0.15f;
+
+        /// <summary>Distance pushed away from the attacker on each hit.</summary>
+        private const float KnockbackDistance = 0.5f;
+
+        /// <summary>Duration of the death shrink-and-fade animation in seconds.</summary>
+        private const float DeathAnimDuration = 0.4f;
+
+        /// <summary>Original scale before hit bounce, captured on first hit.</summary>
+        private Vector3 _originalScale;
+
+        /// <summary>Whether a hit bounce is currently in progress.</summary>
+        private bool _isBouncing;
+
         // ---- Status effects -----------------------------------------------------
 
         /// <summary>True when the enemy cannot see the player (blind effect active).</summary>
@@ -110,6 +140,20 @@ namespace EscapeFromWork.Enemies
         {
             _currentHealth = MaxHealth;
             _state = EnemyState.Patrol;
+            _originalScale = transform.localScale;
+
+            // Cache the renderer for hit-flash and death-dissolve effects.
+            // Try self first, then children — enemies may have nested meshes.
+            _renderer = GetComponent<Renderer>()
+                        ?? GetComponentInChildren<Renderer>();
+            if (_renderer != null)
+            {
+                _originalColor = _renderer.material.color;
+            }
+            else
+            {
+                Debug.LogWarning($"[EnemyBase] No Renderer found on {name} — hit flash and death dissolve disabled.", this);
+            }
         }
 
         /// <summary>
@@ -119,6 +163,7 @@ namespace EscapeFromWork.Enemies
         protected virtual void Update()
         {
             UpdateStatusEffects();
+            UpdateHitFlash();
 
             if (_state == EnemyState.Dead)
                 return;
@@ -220,6 +265,7 @@ namespace EscapeFromWork.Enemies
         /// <summary>
         /// Apply damage to this enemy. Triggers <see cref="Die"/> when health
         /// reaches zero. Already-dead enemies ignore all damage.
+        /// Also applies hit-flash and knockback for game feel.
         /// </summary>
         /// <param name="damage">Raw damage value before resistance calculations.</param>
         /// <param name="source">The GameObject that originated the damage (projectile, melee swing, etc.). Optional.</param>
@@ -230,7 +276,34 @@ namespace EscapeFromWork.Enemies
 
             _currentHealth = Mathf.Max(0f, _currentHealth - damage);
 
-            // If blind and not already chasing, set the damage source as target.
+            // ---- Hit feedback: scale bounce (always works, no material needed) ----
+            if (!_isBouncing)
+            {
+                StartCoroutine(HitBounceRoutine());
+            }
+
+            // ---- Hit feedback: material flash (optional, needs Renderer with tintable material) ----
+            if (_renderer != null)
+            {
+                _renderer.material.color = HitFlashColor;
+                _flashTimer = HitFlashDuration;
+            }
+
+            // ---- Hit feedback: knockback away from attacker ----
+            if (source != null)
+            {
+                Vector3 knockDir = transform.position - source.transform.position;
+                knockDir.y = 0f;
+                if (knockDir.sqrMagnitude > 0.001f)
+                {
+                    transform.position += knockDir.normalized * KnockbackDistance;
+                }
+            }
+
+            // ---- Floating damage text ----
+            FloatingDamageText.Spawn(transform.position, damage);
+
+            // If not blind and not already chasing, set the damage source as target.
             if (!_isBlinded && source != null && _state != EnemyState.Chase && _state != EnemyState.Attack)
             {
                 SetTarget(source.transform);
@@ -246,10 +319,8 @@ namespace EscapeFromWork.Enemies
         // ---- Death & loot -------------------------------------------------------
 
         /// <summary>
-        /// Handle death: spawn the guaranteed 工牌 (work-badge) drop, roll each
-        /// <see cref="EnemyData.PossibleDrops"/> entry against
-        /// <see cref="EnemyData.DropChance"/>, and destroy this GameObject after
-        /// a short delay.
+        /// Handle death: spawn loot drops, play shrink-and-fade animation, then
+        /// destroy this GameObject.
         ///
         /// <para>Subclasses can override to add death VFX / SFX; they should call
         /// base.Die() to preserve loot logic.</para>
@@ -258,7 +329,7 @@ namespace EscapeFromWork.Enemies
         {
             if (data == null)
             {
-                Destroy(gameObject, 0.5f);
+                StartCoroutine(DeathDissolveRoutine());
                 return;
             }
 
@@ -280,8 +351,79 @@ namespace EscapeFromWork.Enemies
                 }
             }
 
-            // -- Destroy after delay so death effects / ragdolls can play --
-            Destroy(gameObject, 2f);
+            // Notify FloorManager
+            if (EscapeFromWork.Level.FloorManager.Instance != null)
+                EscapeFromWork.Level.FloorManager.Instance.OnEnemyKilled();
+
+            // -- Shrink-and-fade death animation --
+            StartCoroutine(DeathDissolveRoutine());
+        }
+
+        /// <summary>
+        /// Briefly scales the enemy up then back to normal for a "flinch" effect.
+        /// Works regardless of material or renderer — pure transform animation.
+        /// </summary>
+        private IEnumerator HitBounceRoutine()
+        {
+            _isBouncing = true;
+            Vector3 baseScale = _originalScale;
+            Vector3 punchScale = baseScale * 1.3f;
+            float duration = 0.12f;
+            float elapsed = 0f;
+
+            // Scale up quickly.
+            while (elapsed < duration * 0.5f)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / (duration * 0.5f);
+                transform.localScale = Vector3.Lerp(baseScale, punchScale, t);
+                yield return null;
+            }
+
+            // Scale back to normal.
+            elapsed = 0f;
+            while (elapsed < duration * 0.5f)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / (duration * 0.5f);
+                transform.localScale = Vector3.Lerp(punchScale, baseScale, t);
+                yield return null;
+            }
+
+            transform.localScale = baseScale;
+            _isBouncing = false;
+        }
+
+        /// <summary>
+        /// Shrinks the enemy to zero scale while fading the material alpha,
+        /// then destroys the GameObject. Provides visual feedback for death
+        /// without requiring animations or particle assets.
+        /// </summary>
+        private IEnumerator DeathDissolveRoutine()
+        {
+            Vector3 startScale = transform.localScale;
+            float elapsed = 0f;
+
+            while (elapsed < DeathAnimDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / DeathAnimDuration;
+
+                // Shrink.
+                transform.localScale = Vector3.Lerp(startScale, Vector3.zero, t);
+
+                // Fade the material.
+                if (_renderer != null)
+                {
+                    Color c = _renderer.material.color;
+                    c.a = 1f - t;
+                    _renderer.material.color = c;
+                }
+
+                yield return null;
+            }
+
+            Destroy(gameObject);
         }
 
         /// <summary>
@@ -459,6 +601,20 @@ namespace EscapeFromWork.Enemies
                     _tauntTimer = 0f;
                 }
             }
+        }
+
+        /// <summary>
+        /// Fades the hit-flash colour back to the original material colour over
+        /// <see cref="HitFlashDuration"/>. Called each frame from <see cref="Update"/>.
+        /// </summary>
+        private void UpdateHitFlash()
+        {
+            if (_flashTimer <= 0f || _renderer == null)
+                return;
+
+            _flashTimer -= Time.deltaTime;
+            float t = _flashTimer / HitFlashDuration; // 1 → 0 as flash fades.
+            _renderer.material.color = Color.Lerp(_originalColor, HitFlashColor, t);
         }
 
         // ---- Trigger detection --------------------------------------------------
