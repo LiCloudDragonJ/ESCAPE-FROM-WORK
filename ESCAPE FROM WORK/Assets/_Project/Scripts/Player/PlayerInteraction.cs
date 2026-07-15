@@ -34,7 +34,7 @@ namespace EscapeFromWork.Player
 
         [Header("Interaction")]
         [Tooltip("Maximum 3D distance at which the player can interact with objects.")]
-        [SerializeField] private float interactRange = 3f;
+        [SerializeField] private float interactRange = 1.5f;
 
         [Tooltip("Layers to check for interactable objects.")]
         [SerializeField] private LayerMask interactableMask = ~0;

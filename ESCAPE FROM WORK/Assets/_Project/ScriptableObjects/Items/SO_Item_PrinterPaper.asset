@@ -14,9 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: "\u6253\u5370\u7EB8"
   description: 
-  itemType: 1
+  itemType: 5
   ammoType: 0
+  gearSlot: 0
+  backpackWidth: 0
+  backpackHeight: 0
+  width: 1
+  height: 1
   icon: {fileID: 0}
+  rarity: 0
   maxStackSize: 200
   baseValue: 2
   isUsableInRaid: 0

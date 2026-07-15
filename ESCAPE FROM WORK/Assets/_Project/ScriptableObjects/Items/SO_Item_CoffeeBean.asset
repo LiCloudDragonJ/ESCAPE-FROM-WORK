@@ -16,8 +16,14 @@ MonoBehaviour:
   description: 
   itemType: 2
   ammoType: 0
+  gearSlot: 0
+  backpackWidth: 0
+  backpackHeight: 0
+  width: 1
+  height: 1
   icon: {fileID: 0}
+  rarity: 0
   maxStackSize: 20
-  baseValue: 0
+  baseValue: 5
   isUsableInRaid: 0
   freshnessDurationMinutes: 30

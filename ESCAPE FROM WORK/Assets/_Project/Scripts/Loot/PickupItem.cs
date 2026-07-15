@@ -13,10 +13,10 @@ namespace EscapeFromWork.Loot
         // ---- Private state -------------------------------------------------------
 
         /// <summary>The item data this pickup represents.</summary>
-        private EscapeFromWork.Data.ItemData _item;
+        [SerializeField] private EscapeFromWork.Data.ItemData _item;
 
         /// <summary>How many copies of the item this pickup contains.</summary>
-        private int _count;
+        [SerializeField] private int _count;
 
         // ---- Initialization ------------------------------------------------------
 
@@ -82,7 +82,7 @@ namespace EscapeFromWork.Loot
                 return string.Empty;
             }
 
-            return $"[F] {_item.ItemName} x{_count}";
+            return $"[E] {_item.ItemName} x{_count}";
         }
     }
 }

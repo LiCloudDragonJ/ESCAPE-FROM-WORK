@@ -17,6 +17,21 @@ namespace EscapeFromWork.Weapons
         private const float FullArcDamagePenalty = 0.6f;
 
         /// <summary>
+        /// How long the swing arc visual persists before fading, in seconds.
+        /// </summary>
+        private const float SwingArcDuration = 0.1f;
+
+        /// <summary>
+        /// Number of line segments used to draw the swing arc. More = smoother.
+        /// </summary>
+        private const int SwingArcSegments = 16;
+
+        /// <summary>
+        /// Colour of the swing arc visual.
+        /// </summary>
+        private static readonly Color SwingArcColor = new Color(1f, 0.85f, 0.2f, 0.7f);
+
+        /// <summary>
         /// Whether the player is currently charging a heavy attack.
         /// </summary>
         private bool _isCharging;
@@ -146,7 +161,48 @@ namespace EscapeFromWork.Weapons
 
             _lastFireTime = Time.time;
 
-            // TODO: Play swing sound effect and spawn VFX at impact points.
+            DrawSwingArc(from, forward, range, arc);
+        }
+
+        // ---- Swing arc visual ---------------------------------------------------
+
+        /// <summary>
+        /// Draws a temporary arc on the XZ plane using a <see cref="LineRenderer"/>
+        /// to show the melee weapon's swing path. The arc self-destructs after
+        /// <see cref="SwingArcDuration"/> seconds.
+        /// </summary>
+        /// <param name="origin">World-space center of the arc.</param>
+        /// <param name="facing">Forward direction of the swing on the XZ plane.</param>
+        /// <param name="radius">Reach of the weapon.</param>
+        /// <param name="arcDegrees">Total arc angle in degrees.</param>
+        private void DrawSwingArc(Vector3 origin, Vector3 facing, float radius, float arcDegrees)
+        {
+            GameObject arcObj = new GameObject("SwingArc");
+            arcObj.transform.position = origin;
+
+            LineRenderer lr = arcObj.AddComponent<LineRenderer>();
+            lr.startWidth = 0.06f;
+            lr.endWidth = 0.02f;
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = SwingArcColor;
+            lr.endColor = new Color(SwingArcColor.r, SwingArcColor.g, SwingArcColor.b, 0f);
+            lr.positionCount = SwingArcSegments + 1;
+            lr.useWorldSpace = true;
+
+            float halfArc = arcDegrees * 0.5f * Mathf.Deg2Rad;
+            float baseAngle = Mathf.Atan2(facing.x, facing.z);
+            float startAngle = baseAngle - halfArc;
+            float step = (arcDegrees * Mathf.Deg2Rad) / SwingArcSegments;
+
+            for (int i = 0; i <= SwingArcSegments; i++)
+            {
+                float angle = startAngle + step * i;
+                float x = origin.x + Mathf.Sin(angle) * radius;
+                float z = origin.z + Mathf.Cos(angle) * radius;
+                lr.SetPosition(i, new Vector3(x, origin.y + 0.1f, z));
+            }
+
+            Object.Destroy(arcObj, SwingArcDuration);
         }
 
         // ---- Reload --------------------------------------------------------------

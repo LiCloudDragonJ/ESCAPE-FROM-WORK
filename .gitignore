@@ -9,12 +9,15 @@
 Thumbs.db
 Desktop.ini
 
-# === Claude Code Game Studios (tool, not game content) ===
-.claude/
+# === Claude Code Game Studios (integrated into repo) ===
+.claude/settings.local.json
 CCGS\ Skill\ Testing\ Framework/
 .github/
 CLAUDE.local.md
 production/session-logs/
+production/sprints/
+production/epics/
+production/playtests/
 
 # === Internal Planning (not for public) ===
 expansions/

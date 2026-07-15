@@ -80,7 +80,7 @@ namespace EscapeFromWork.Player
         {
             _rb = GetComponent<Rigidbody>();
             _rb.useGravity = false;
-            _rb.constraints = RigidbodyConstraints.FreezeRotation;
+            _rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
 
             _mainCamera = Camera.main;

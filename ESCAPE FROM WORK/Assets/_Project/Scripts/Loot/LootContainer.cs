@@ -1,4 +1,7 @@
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+using EscapeFromWork.Data;
 using EscapeFromWork.Player;
 using EscapeFromWork.Level;
 
@@ -13,6 +16,10 @@ namespace EscapeFromWork.Loot
     {
         // ---- Serialized fields ---------------------------------------------------
 
+        [Header("Container")]
+        [Tooltip("Container type — determines grid size and loot category.")]
+        [SerializeField] private ContainerType containerType = ContainerType.Desk;
+
         [Header("Loot")]
         [Tooltip("The loot table this container draws from.")]
         [SerializeField] private LootTable lootTable;
@@ -26,11 +33,14 @@ namespace EscapeFromWork.Loot
 
         // ---- Private state -------------------------------------------------------
 
-        /// <summary>Whether this container has been looted this raid.</summary>
-        private bool _isLooted;
-
-        /// <summary>
-        /// Cached instance ID used as the key in FloorManager.State's looted
+        /// <summary>Items not yet revealed (still loading).</summary>
+        private List<EscapeFromWork.Data.ItemData> _pendingItems = new List<EscapeFromWork.Data.ItemData>();
+        /// <summary>Items already revealed in the container grid.</summary>
+        private List<EscapeFromWork.Data.ItemData> _loadedItems = new List<EscapeFromWork.Data.ItemData>();
+        /// <summary>True after first roll — prevents re-rolling on every open.</summary>
+        private bool _hasGenerated;
+        /// <summary>Coroutine currently loading items.</summary>
+        private Coroutine _loadingRoutine;
         /// container tracking.
         /// </summary>
         private int _containerId;
@@ -47,9 +57,10 @@ namespace EscapeFromWork.Loot
             // If the floor state already marks us as looted (e.g., after a scene
             // reload or save restore), sync visuals immediately.
             if (FloorManager.Instance != null &&
+                FloorManager.Instance.State != null &&
                 FloorManager.Instance.State.IsContainerLooted(_containerId))
             {
-                _isLooted = true;
+                _hasGenerated = true;
             }
 
             UpdateVisuals();
@@ -60,84 +71,67 @@ namespace EscapeFromWork.Loot
         /// <inheritdoc />
         public void Interact(GameObject interactor)
         {
-            // Guard: already looted?
-            if (_isLooted)
+            PlayerInventory inventory = interactor?.GetComponent<PlayerInventory>();
+            if (inventory == null) return;
+            if (lootTable == null) { Debug.LogWarning($"[LootContainer] No LootTable on '{name}'", this); return; }
+
+            // First open: roll loot
+            if (!_hasGenerated)
             {
-                return;
+                var drops = lootTable.Roll();
+                foreach (var d in drops)
+                    if (d.item != null && d.count > 0)
+                        for (int i = 0; i < System.Math.Min(d.count, 5); i++)
+                            _pendingItems.Add(d.item);
+                _hasGenerated = true;
+                Debug.Log($"[LootContainer] Generated {_pendingItems.Count} items");
             }
 
-            // Guard: check floor-level looted state (defence in depth).
-            if (FloorManager.Instance != null &&
-                FloorManager.Instance.State.IsContainerLooted(_containerId))
+            var containerUI = FindObjectOfType<EscapeFromWork.UI.LootContainerUI>();
+            if (containerUI != null)
             {
-                _isLooted = true;
-                UpdateVisuals();
-                return;
+                containerUI.OpenWithState(_loadedItems, new List<EscapeFromWork.Data.ItemData>(_pendingItems), inventory, containerType, this);
+                if (_loadingRoutine == null)
+                    _loadingRoutine = StartCoroutine(LoadRoutine(containerUI));
             }
-
-            // Resolve the interactor's inventory.
-            PlayerInventory inventory = interactor != null
-                ? interactor.GetComponent<PlayerInventory>()
-                : null;
-
-            if (inventory == null)
+            else
             {
-                Debug.LogWarning(
-                    $"[LootContainer] Interactor '{interactor?.name}' has no PlayerInventory.",
-                    this
-                );
-                return;
+                // Fallback: instant pickup all loaded + pending
+                foreach (var item in _loadedItems) inventory.AddItem(item, 1);
+                foreach (var item in _pendingItems) inventory.AddItem(item, 1);
+                _loadedItems.Clear(); _pendingItems.Clear(); _hasGenerated = false;
             }
+        }
 
-            // Roll the loot table.
-            if (lootTable == null)
+        /// <summary>Called by UI when an item is transferred from container to player.</summary>
+        public void OnItemTransferred(EscapeFromWork.Data.ItemData item)
+        {
+            _loadedItems.Remove(item);
+        }
+
+        private System.Collections.IEnumerator LoadRoutine(EscapeFromWork.UI.LootContainerUI ui)
+        {
+            while (_pendingItems.Count > 0)
             {
-                Debug.LogWarning(
-                    $"[LootContainer] No LootTable assigned to '{name}'.",
-                    this
-                );
-                return;
-            }
-
-            (EscapeFromWork.Data.ItemData item, int count)[] drops = lootTable.Roll();
-
-            foreach ((EscapeFromWork.Data.ItemData item, int count) in drops)
-            {
-                if (item == null || count <= 0)
+                var item = _pendingItems[0];
+                _pendingItems.RemoveAt(0);
+                float delay = item.Rarity switch
                 {
-                    continue;
-                }
-
-                // Track how many of this item were already in the backpack
-                // before attempting to add, so we can compute the true overflow.
-                int carriedBefore = inventory.GetItemCount(item);
-                inventory.AddItem(item, count);
-                int carriedAfter = inventory.GetItemCount(item);
-
-                int actuallyAdded = carriedAfter - carriedBefore;
-                int overflow = count - actuallyAdded;
-
-                if (overflow > 0)
-                {
-                    SpawnPickupItem(item, overflow, interactor.transform.position);
-                }
+                    Rarity.Mythic => 3f, Rarity.Legendary => 2f, Rarity.Epic => 1f,
+                    Rarity.Rare => 0.5f, Rarity.Uncommon => 0.2f, _ => 0.1f
+                };
+                yield return new WaitForSeconds(delay);
+                _loadedItems.Add(item);
+                ui.RefreshFromContainer();
             }
-
-            // Mark as looted both locally and in the floor state.
-            _isLooted = true;
-
-            if (FloorManager.Instance != null)
-            {
-                FloorManager.Instance.State.MarkContainerLooted(_containerId);
-            }
-
-            UpdateVisuals();
+            _loadingRoutine = null;
+            UpdateVisuals(); // mark as fully looted
         }
 
         /// <inheritdoc />
         public string GetPromptText()
         {
-            return _isLooted ? "[空]" : "[F] 搜刮";
+            return _hasGenerated ? "[空]" : "[E] 搜刮";
         }
 
         // ---- Visuals -------------------------------------------------------------
@@ -149,12 +143,12 @@ namespace EscapeFromWork.Loot
         {
             if (openVisual != null)
             {
-                openVisual.SetActive(_isLooted);
+                openVisual.SetActive(_hasGenerated);
             }
 
             if (closedVisual != null)
             {
-                closedVisual.SetActive(!_isLooted);
+                closedVisual.SetActive(!_hasGenerated);
             }
         }
 

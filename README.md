@@ -38,10 +38,11 @@
 
 ## 技术
 
-- **引擎**：Unity 6（6000.x）+ URP
+- **引擎**：团结引擎 1.9.3（Tuanjie Engine）+ URP
 - **语言**：C#
-- **视角**：俯视角 2.5D
+- **视角**：俯视角 2.5D 透视
 - **平台**：PC（Windows）
+- **AI 辅助**：Claude Code Game Studios（49 Agent + 73 Skill）
 
 ## 快速开始
 
@@ -49,7 +50,10 @@
 git clone https://github.com/LiCloudDragonJ/ESCAPE-FROM-WORK.git
 ```
 
-用 Unity Hub 打开 `ESCAPE FROM WORK/` 目录，加载完成后打开场景即可运行。
+1. 用团结引擎 Hub 打开 `ESCAPE FROM WORK/` 目录
+2. 安装 Coplay MCP（Unity → Package Manager → `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main`）
+3. 菜单：`ESCAPE FROM WORK → Build Scene`
+4. 打开 `Assets/Scenes/SampleScene.scene` → Play
 
 ## 项目结构
 
@@ -59,21 +63,20 @@ git clone https://github.com/LiCloudDragonJ/ESCAPE-FROM-WORK.git
 ├── ESCAPE FROM WORK/            # Unity 工程
 │   └── Assets/_Project/
 │       ├── Scripts/             # C# 代码
-│       │   ├── Core/            # 核心系统（GameManager、事件、相机）
-│       │   ├── Player/          # 玩家（移动、战斗、背包、交互）
+│       │   ├── Core/            # 核心系统（GameManager、事件、相机、提取）
+│       │   ├── Player/          # 玩家（移动、战斗、背包、交互、血量）
 │       │   ├── Enemies/         # 敌人（KPI 丧尸、敌人生成器）
 │       │   ├── Weapons/         # 武器（近战、远程、投射物）
-│       │   ├── Level/           # 楼层生成
-│       │   ├── Loot/            # 战利品系统
-│       │   ├── UI/              # HUD、死亡界面、纪念墙
-│       │   └── Editor/          # 编辑器工具
-│       ├── Prefabs/             # 预制体
-│       └── ScriptableObjects/   # 数据资产（武器、敌人、物品）
+│       │   ├── Level/           # 楼层生成、状态管理
+│       │   ├── Loot/            # 战利品容器、掉落表、露天物资
+│       │   ├── UI/              # HUD、三栏容器面板、死亡界面
+│       │   ├── Data/            # ScriptableObject 数据定义
+│       │   └── Editor/          # 场景构建器
+│       ├── Prefabs/             # 预制体（玩家、敌人、房间、武器）
+│       └── ScriptableObjects/   # 35+ 物品、5+ 掉落表、武器/敌人数据
 ├── design/                      # 游戏设计文档
-│   ├── gdd/                     # 设计文档
-│   └── registry/                # 实体注册表
+│   └── gdd/                     # 设计文档
 ├── docs/                        # 参考文档
-│   ├── engine-reference/        # Unity 引擎参考
 │   ├── superpowers/             # 开发计划
 │   └── tooling/                 # 工具参考
 └── production/                  # 开发管理
@@ -82,15 +85,26 @@ git clone https://github.com/LiCloudDragonJ/ESCAPE-FROM-WORK.git
 
 ## 开发状态
 
-当前处于 **原型阶段**（Phase 1）。已完成：
+当前处于 **原型阶段**（Phase 1 完成）。
 
-- 玩家移动、瞄准、射击、近战
-- 楼层生成（模块拼接）
-- 敌人 AI（KPI 丧尸）
-- 战利品系统
-- 武器系统（近战 + 远程）
-- 基础 UI（HUD、死亡界面）
-- 纪念墙系统
+| 系统 | 状态 |
+|------|------|
+| 玩家移动/瞄准/射击/近战/闪避 | ✅ |
+| 双模式瞄准（自动/手动 Left Shift 切换） | ✅ |
+| 敌人 AI（KPI 丧尸巡逻/追击/攻击） | ✅ |
+| 浮动伤害数字 | ✅ |
+| 5×5 程序化楼层 + 边界墙 | ✅ |
+| 2.5D 透视摄像机 + 地图边界 | ✅ |
+| HUD（血量、弹药、楼层、交互提示） | ✅ |
+| 5 种战利品容器（办公桌/文件柜/补给柜/保险柜/服务器） | ✅ |
+| 渐进式加载（按稀有度，可中断可续接） | ✅ |
+| 三栏搜刮面板（装备\|背包\|容器）+ 拖拽/双击/F全收 | ✅ |
+| 装备装卸（武器/护甲/背包） | ✅ |
+| 35+ 物品 × 6 稀有度（白绿蓝紫金红） | ✅ |
+| 5 个独立掉落表 | ✅ |
+| 露天大货（浮动旋转拾取） | ✅ |
+| 提取点（楼梯 + 消防通道） | ✅ |
+| 一键 Build Scene | ✅ |
 
 
 ## 许可证

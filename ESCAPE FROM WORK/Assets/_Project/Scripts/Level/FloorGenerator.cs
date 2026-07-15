@@ -138,6 +138,13 @@ namespace EscapeFromWork.Level
                 module.roomType = RoomType.Stairwell;
             }
 
+            // Disable all colliders on room tiles so the player can move freely.
+            // Walls are visual-only at this prototype stage.
+            foreach (var col in instance.GetComponentsInChildren<Collider>())
+            {
+                col.isTrigger = true;
+            }
+
             _grid[x, y] = module;
             return module;
         }

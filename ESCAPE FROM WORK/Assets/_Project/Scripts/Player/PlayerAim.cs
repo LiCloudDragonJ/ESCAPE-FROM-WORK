@@ -7,7 +7,7 @@ namespace EscapeFromWork.Player
     /// <list type="bullet">
     ///   <item><b>Auto-aim</b> (default): finds the nearest enemy within
     ///     <see cref="autoAimRadius"/> and locks onto their Transform.</item>
-    ///   <item><b>Manual aim</b>: activated by holding right mouse. Freely aim
+    ///   <item><b>Manual aim</b>: toggled by pressing Left Shift. Freely aim
     ///     at the mouse world position on the ground plane (Y = 0).</item>
     /// </list>
     /// Auto-aim lock-in has a configurable delay (<see cref="autoAimLockDelay"/>)
@@ -40,7 +40,7 @@ namespace EscapeFromWork.Player
         // ---- Public properties ---------------------------------------------------
 
         /// <summary>
-        /// True when the player is holding the manual-aim button (right mouse).
+        /// True when manual-aim mode is toggled on (Left Shift).
         /// When false, auto-aim is active.
         /// </summary>
         public bool IsManualAim => _isManualAim;
@@ -66,6 +66,11 @@ namespace EscapeFromWork.Player
         private void Awake()
         {
             _mainCamera = Camera.main;
+
+            // Initialize AimPoint to a forward projection so that GetAimDirection()
+            // in PlayerCombat never reads Vector3.zero on the first frame (before
+            // the first UpdateAutoAim / UpdateManualAim call populates it).
+            AimPoint = transform.position + Vector3.forward * 10f;
         }
 
         private void Update()
@@ -169,13 +174,17 @@ namespace EscapeFromWork.Player
         // ---- Input polling ------------------------------------------------------
 
         /// <summary>
-        /// Polls the manual-aim button (right mouse button).
-        /// Manual aim is active while the button is held.
+        /// Toggles manual-aim mode when Left Shift is pressed.
+        /// RMB is reserved for melee — the two no longer conflict.
         /// Called from <see cref="Update"/>.
         /// </summary>
         private void PollManualAimInput()
         {
-            _isManualAim = Input.GetMouseButton(1);
+            if (Input.GetKeyDown(KeyCode.LeftShift))
+            {
+                _isManualAim = !_isManualAim;
+                Debug.Log($"[PlayerAim] Manual aim: {(_isManualAim ? "ON (free aim)" : "OFF (auto-lock)")}");
+            }
         }
 
         // ---- Public methods -----------------------------------------------------

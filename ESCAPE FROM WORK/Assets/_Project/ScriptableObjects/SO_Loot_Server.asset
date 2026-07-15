@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:yousandi.cn,2023:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c68f05ee52193b74f97151dccaaf95a0, type: 3}
+  m_Name: SO_Loot_Server
+  m_EditorClassIdentifier: 
+  entries:
+  - item: {fileID: 11400000, guid: 8a58bb8562c012b4a862f0860c1553ee, type: 2}
+    weight: 0.3
+    minCount: 1
+    maxCount: 3
+  - item: {fileID: 11400000, guid: fd6d61d28dcdd734a8615497c386b1d3, type: 2}
+    weight: 0.2
+    minCount: 1
+    maxCount: 2
+  - item: {fileID: 11400000, guid: cc279358d715a8f4bab309a0846ccdda, type: 2}
+    weight: 0.15
+    minCount: 1
+    maxCount: 1
+  - item: {fileID: 11400000, guid: a18644a1813557a40b8f34601062c70c, type: 2}
+    weight: 0.1
+    minCount: 1
+    maxCount: 1
+  - item: {fileID: 11400000, guid: 77b3b55948f748240986f872f4e9fdab, type: 2}
+    weight: 0.15
+    minCount: 1
+    maxCount: 3
+  - item: {fileID: 11400000, guid: cfe83f636b13dbc4cb1c4f2d7847cc15, type: 2}
+    weight: 0.1
+    minCount: 1
+    maxCount: 3
+  minRolls: 2
+  maxRolls: 5
