@@ -4,7 +4,7 @@ namespace EscapeFromWork.Core
 {
     /// <summary>
     /// 2.5D camera: follows the target with an offset, looks at the target,
-    /// clamps to map bounds. Based on BENGLAOTOU CameraFollow25D approach.
+    /// clamps to map bounds.
     ///
     /// Offset-based positioning (e.g. (0, 10, -10) = behind + above) with
     /// natural LookRotation tilt. No manual pitch/FOV math needed.
