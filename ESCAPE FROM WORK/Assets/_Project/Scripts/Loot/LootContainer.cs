@@ -24,6 +24,9 @@ namespace EscapeFromWork.Loot
         [Tooltip("The loot table this container draws from.")]
         [SerializeField] private LootTable lootTable;
 
+        /// <summary>Public setter for procedural loot binding (FurniturePlacer).</summary>
+        public LootTable LootTable { get => lootTable; set => lootTable = value; }
+
         [Header("Visuals")]
         [Tooltip("Visual GameObject shown when the container has been looted (open/empty).")]
         [SerializeField] private GameObject openVisual;

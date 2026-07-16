@@ -7,6 +7,10 @@
     "unityMCP": {
       "type": "http",
       "url": "http://localhost:8080/mcp"
+    },
+    "comfy-mcp": {
+      "command": "C:/Users/17613/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0/LocalCache/local-packages/Python312/Scripts/comfy-mcp.exe",
+      "args": ["--comfyui-server", "127.0.0.1:8188"]
     }
   }
 }

@@ -111,6 +111,41 @@ public static partial class SceneWirer
         var promptTxt = MakeText("PromptText", promptRt, 18, TextAnchor.MiddleCenter);
         promptTxt.text = "";
 
+        // ---- Center: Crosshair (manual — no background panel) ----
+        var crossGo = new GameObject("Crosshair", typeof(RectTransform));
+        crossGo.transform.SetParent(canvasGo.transform, false);
+        var crossRt = crossGo.GetComponent<RectTransform>();
+        crossRt.anchorMin = new Vector2(0.5f, 0.5f); crossRt.anchorMax = new Vector2(0.5f, 0.5f);
+        crossRt.pivot = new Vector2(0.5f, 0.5f);
+        crossRt.sizeDelta = new Vector2(24, 24); crossRt.anchoredPosition = Vector2.zero;
+
+        // Simple + crosshair using 4 line segments.
+        float chSize = 8f, chThick = 2f;
+        Color chColor = new Color(0f, 1f, 0.4f, 0.85f); // green tint
+
+        void AddCrossLine(string lineName, Vector2 size)
+        {
+            var go = new GameObject(lineName, typeof(RectTransform));
+            go.transform.SetParent(crossRt, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0.5f); rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = size; rt.anchoredPosition = Vector2.zero;
+            var img = go.AddComponent<Image>();
+            img.color = chColor;
+            img.raycastTarget = false;
+        }
+        AddCrossLine("CrossH", new Vector2(chSize, chThick));  // horizontal
+        AddCrossLine("CrossV", new Vector2(chThick, chSize));  // vertical
+
+        var crosshairUI = canvasGo.AddComponent<EscapeFromWork.UI.CrosshairUI>();
+        var chSO = new SerializedObject(crosshairUI);
+        chSO.FindProperty("horizontalLine").objectReferenceValue =
+            crossRt.Find("CrossH")?.GetComponent<Image>();
+        chSO.FindProperty("verticalLine").objectReferenceValue =
+            crossRt.Find("CrossV")?.GetComponent<Image>();
+        chSO.ApplyModifiedProperties();
+
         // ---- Loot Container UI (3 equal columns: equip | backpack | container) ----
         float panelW = 1450, panelH = 820;
         var lcPanelRt = MakePanel(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(panelW, panelH), new Color(0.05f, 0.05f, 0.08f, 0.95f));
