@@ -280,39 +280,30 @@ namespace EscapeFromWork.Player
         }
 
         /// <summary>
-        /// Returns the world-space aim direction (XZ plane) based on the current
-        /// targeting mode.
+        /// Returns the world-space aim direction. Third-person: uses screen-center
+        /// crosshair raycast — shoot where you're looking.
         /// </summary>
         private Vector3 GetAimDirection()
         {
-            if (playerAim != null)
-            {
-                Vector3 toAim = playerAim.AimPoint - transform.position;
-                toAim.y = 0f;
-                if (toAim.sqrMagnitude > 0.001f)
-                    return toAim.normalized;
-            }
-
-            // Fallback: aim toward the mouse cursor on the ground plane (Y = 0).
-            // In a top-down game, transform.forward is a fixed world direction
-            // and does NOT represent where the player is looking.
             Camera cam = Camera.main;
             if (cam != null)
             {
-                Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+                // Screen center crosshair.
+                Ray ray = new Ray(cam.transform.position, cam.transform.forward);
                 Plane ground = new Plane(Vector3.up, Vector3.zero);
                 if (ground.Raycast(ray, out float enter))
                 {
-                    Vector3 mousePoint = ray.GetPoint(enter);
-                    Vector3 dir = mousePoint - transform.position;
+                    Vector3 hitPoint = ray.GetPoint(enter);
+                    Vector3 dir = hitPoint - transform.position;
                     dir.y = 0f;
                     if (dir.sqrMagnitude > 0.001f)
                         return dir.normalized;
                 }
             }
 
-            // Absolute last resort — world forward (Z+).
-            return Vector3.forward;
+            // Fallback: player's facing direction.
+            Vector3 fwd = transform.forward; fwd.y = 0;
+            return fwd.sqrMagnitude > 0.001f ? fwd.normalized : Vector3.forward;
         }
 
         /// <summary>
