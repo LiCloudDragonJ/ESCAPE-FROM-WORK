@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:yousandi.cn,2023:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c4c37f53200d574dbe3b45f68f39737, type: 3}
+  m_Name: SO_Enemy_CEOTrueBody
+  m_EditorClassIdentifier: 
+  enemyName: New Enemy
+  backstory: 
+  maxHealth: 100
+  moveSpeed: 3
+  attackDamage: 10
+  attackRange: 1.5
+  attackCooldown: 1.5
+  detectionRange: 15
+  detectionAngle: 120
+  guaranteedDrop: {fileID: 0}
+  possibleDrops: []
+  dropChance: 0.3
+  minCurrencyDrop: 0
+  maxCurrencyDrop: 10
+  prefab: {fileID: 0}

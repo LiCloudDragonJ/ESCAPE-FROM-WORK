@@ -7,8 +7,8 @@ namespace EscapeFromWork.Player
 {
     /// <summary>
     /// Central player combat controller. Manages three weapon slots
-    /// (A / C / Melee), shooting, melee (tap-instant / hold-charge), weapon
-    /// cycling, and reloading.
+    /// (A / C / Melee), shooting, melee (V quick-melee / LMB when melee-slot),
+    /// weapon cycling, reloading, and the stamina resource system.
     ///
     /// <para>Health is owned by <see cref="PlayerHealth"/>; this component
     /// forwards damage to it and exposes health properties for HUD binding.</para>
@@ -30,6 +30,48 @@ namespace EscapeFromWork.Player
 
         [Tooltip("Maximum distance at which a shot can be considered a headshot against the lock target.")]
         [SerializeField] private float headshotDistanceThreshold = 5f;
+
+        // ---- Stamina -------------------------------------------------------------
+
+        [Header("Stamina")]
+        [Tooltip("Maximum stamina pool.")]
+        [SerializeField] private float maxStamina = 100f;
+
+        [Tooltip("Stamina recovered per second after the regen delay.")]
+        [SerializeField] private float staminaRegenRate = 15f;
+
+        [Tooltip("Seconds after last stamina drain before regen begins.")]
+        [SerializeField] private float staminaRegenDelay = 0.5f;
+
+        [Tooltip("Stamina drained per dodge.")]
+        [SerializeField] private float dodgeStaminaCost = 25f;
+
+        [Tooltip("Stamina drained per second while holding manual aim.")]
+        [SerializeField] private float manualAimStaminaRate = 8f;
+
+        /// <summary>Current stamina value.</summary>
+        private float _currentStamina;
+
+        /// <summary>Time.unscaledTime of the last stamina drain.</summary>
+        private float _lastStaminaDrainTime = float.MinValue;
+
+        /// <summary>
+        /// Current stamina (0–maxStamina). Read by HUD.
+        /// </summary>
+        public float CurrentStamina => _currentStamina;
+
+        /// <summary>
+        /// Maximum stamina pool. Read by HUD.
+        /// </summary>
+        public float MaxStamina => maxStamina;
+
+        /// <summary>
+        /// True when stamina is fully depleted — blocks dodge, melee, manual aim.
+        /// </summary>
+        public bool IsStaminaEmpty => _currentStamina <= 0f;
+
+        /// <summary>Stamina cost of a dodge (read by PlayerController for TryDodge).</summary>
+        public float DodgeStaminaCost => dodgeStaminaCost;
 
         // ---- Inventory (forward reference) ---------------------------------------
 
@@ -110,6 +152,8 @@ namespace EscapeFromWork.Player
 
         private void Awake()
         {
+            _currentStamina = maxStamina;
+
             // Auto-wire references if not set in the inspector.
             if (playerAim == null)
             {
@@ -132,10 +176,68 @@ namespace EscapeFromWork.Player
             var lootUI = FindObjectOfType<EscapeFromWork.UI.LootContainerUI>();
             if (lootUI != null && lootUI.IsOpen) return;
 
+            TickStamina();
             PollShootInput();
-            PollMeleeInput();
+            PollQuickMeleeInput();
             PollSwapWeaponInput();
             PollReloadInput();
+        }
+
+        // ---- Stamina --------------------------------------------------------------
+
+        /// <summary>
+        /// Apply stamina regen each frame. Drain is applied immediately by action
+        /// methods. Manual aim drain is continuous (per-frame while holding RMB).
+        /// </summary>
+        private void TickStamina()
+        {
+            // Continuous drain: manual aim costs stamina per second.
+            if (playerAim != null && playerAim.IsManualAim && _currentStamina > 0f)
+            {
+                DrainStamina(manualAimStaminaRate * Time.deltaTime);
+                if (_currentStamina <= 0f)
+                {
+                    // Force exit manual aim when stamina runs out (GDD edge case #8).
+                    // PlayerAim polls RMB each frame, but with no stamina it can't sustain.
+                }
+            }
+
+            // Regen: only after the delay has elapsed.
+            if (_currentStamina < maxStamina && Time.time - _lastStaminaDrainTime >= staminaRegenDelay)
+            {
+                _currentStamina = Mathf.Min(maxStamina, _currentStamina + staminaRegenRate * Time.deltaTime);
+            }
+        }
+
+        /// <summary>
+        /// Consume stamina for an action. Returns true if sufficient stamina was available.
+        /// If insufficient, drains to 0 and returns false (action should be blocked).
+        /// </summary>
+        /// <param name="amount">Stamina to drain.</param>
+        /// <returns>True if the full amount was available and consumed.</returns>
+        public bool DrainStamina(float amount)
+        {
+            if (amount <= 0f) return true;
+
+            _lastStaminaDrainTime = Time.time;
+
+            if (_currentStamina >= amount)
+            {
+                _currentStamina -= amount;
+                return true;
+            }
+
+            _currentStamina = 0f;
+            return false;
+        }
+
+        /// <summary>
+        /// Returns true if the player has enough stamina for an action without
+        /// actually consuming it. Used for input gating (block before drain).
+        /// </summary>
+        public bool HasStamina(float amount)
+        {
+            return _currentStamina >= amount;
         }
 
         // ---- Damage forwarding ---------------------------------------------------
@@ -256,27 +358,77 @@ namespace EscapeFromWork.Player
         // ---- Shooting ------------------------------------------------------------
 
         /// <summary>
-        /// Fire the current weapon. Polled via left mouse button in Update.
-        /// Determines manual-aim status and headshot eligibility before firing.
+        /// Fire the current weapon (LMB). When melee slot is active, LMB triggers
+        /// melee light/charge/heavy instead of shooting.
         /// </summary>
         private void PollShootInput()
         {
-            if (!Input.GetMouseButtonDown(0) || IsDead)
+            if (IsDead)
                 return;
 
             WeaponBase weapon = CurrentWeapon;
-            if (weapon == null || (weapon.Data != null && weapon.Data.IsMelee))
-                return;
-
-            if (weapon.Data != null && weapon.Data.IsMelee)
+            if (weapon == null)
                 return;
 
             Vector3 from = transform.position;
             Vector3 direction = GetAimDirection();
             bool isManualAim = playerAim != null && playerAim.IsManualAim;
-            bool isHeadshot = DetermineHeadshot();
 
+            // Melee-slot LMB: light tap or hold-to-charge.
+            if (weapon.Data != null && weapon.Data.IsMelee)
+            {
+                MeleeWeapon melee = weapon as MeleeWeapon;
+                if (melee == null) return;
+
+                if (Input.GetMouseButtonDown(0))
+                {
+                    // Check stamina before starting melee.
+                    float cost = melee.Data != null ? melee.Data.MeleeLightStaminaCost : 15f;
+                    if (!HasStamina(cost)) return;
+                    DrainStamina(cost);
+                    melee.Fire(from, direction, false, false);
+                }
+                else if (Input.GetMouseButtonUp(0))
+                {
+                    if (melee.IsCharging)
+                    {
+                        melee.ReleaseCharge(from, direction);
+                    }
+                }
+                return;
+            }
+
+            // Ranged: LMB single-shot.
+            if (!Input.GetMouseButtonDown(0))
+                return;
+
+            bool isHeadshot = DetermineHeadshot();
             weapon.Fire(from, direction, isManualAim, isHeadshot);
+        }
+
+        // ---- Quick Melee (V key) --------------------------------------------------
+
+        /// <summary>
+        /// V-key quick melee: instant light attack with the melee-slot weapon
+        /// without switching away from the current ranged slot.
+        /// </summary>
+        private void PollQuickMeleeInput()
+        {
+            if (!Input.GetKeyDown(KeyCode.V) || IsDead)
+                return;
+
+            MeleeWeapon melee = slotMelee as MeleeWeapon;
+            if (melee == null)
+                return;
+
+            float cost = melee.Data != null ? melee.Data.MeleeLightStaminaCost : 15f;
+            if (!HasStamina(cost)) return;
+
+            DrainStamina(cost);
+
+            Vector3 from = transform.position;
+            Vector3 direction = GetAimDirection();
+            melee.Fire(from, direction, false, false);
         }
 
         /// <summary>
@@ -322,45 +474,6 @@ namespace EscapeFromWork.Player
 
             float distance = Vector3.Distance(transform.position, playerAim.LockTarget.position);
             return distance <= headshotDistanceThreshold;
-        }
-
-        // ---- Melee ---------------------------------------------------------------
-
-        /// <summary>
-        /// Melee attack input polled via right mouse button in Update.
-        /// On button press: swaps to the melee slot and either performs an instant
-        /// swing (no-charge weapons) or begins charging (charge weapons).
-        /// On button release: releases the charged swing.
-        /// </summary>
-        private void PollMeleeInput()
-        {
-            if (IsDead)
-                return;
-
-            Vector3 from = transform.position;
-            Vector3 direction = GetAimDirection();
-
-            if (Input.GetMouseButtonDown(1))
-            {
-                // Button pressed — swap to melee slot.
-                SwapToMeleeSlot();
-
-                MeleeWeapon melee = slotMelee as MeleeWeapon;
-                if (melee != null)
-                {
-                    _currentMelee = melee;
-                    // Fire begins charging (charge weapons) or instant-swings (no-charge).
-                    melee.Fire(from, direction, false, false);
-                }
-            }
-            else if (Input.GetMouseButtonUp(1))
-            {
-                // Button released — if charging, release the heavy attack.
-                if (_currentMelee != null && _currentMelee.IsCharging)
-                {
-                    _currentMelee.ReleaseCharge(from, direction);
-                }
-            }
         }
 
         // ---- Reload --------------------------------------------------------------

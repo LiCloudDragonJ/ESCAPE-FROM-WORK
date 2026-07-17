@@ -25,32 +25,399 @@
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
 version: 1
-last_updated: ""
+last_updated: "2026-07-17"
 
-requirements: []
+requirements:
 
-# --- EXAMPLE ENTRIES (remove when first real entries are added) ---
-#
-# - id: TR-combat-001
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Player takes damage from enemies based on attack power minus defence"
-#   created: 2026-03-10
-#   revised: ""
-#   status: active
-#
-# - id: TR-combat-002
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Combo window timing is 0.4 seconds between hits"
-#   created: 2026-03-10
-#   revised: "2026-04-01"
-#   status: active
-#
-# - id: TR-combat-003
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Old damage formula using raw stats"
-#   created: 2026-03-10
-#   revised: ""
-#   status: superseded-by: TR-combat-001
+  # ─── Combat System ──────────────────────────────────────────────────────
+  - id: TR-combat-001
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Stamina resource system: 100 max, drain on dodge(25)/melee(15/30)/aim(8/s), regen 15/s after 0.5s delay, empty=no dodge/melee/manual aim"
+    domain: Core/Resources
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-002
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Dual-mode aiming: auto-aim (35m, 120° cone, body shots, no crit) + manual aim (hold RMB, free-aim, headshot ×1.5, legshot slow 30% 2s, stamina 8/s)"
+    domain: Input/Rendering
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-003
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Damage pipeline: weapon fire → projectile flight → collision → tag check (Enemy/Player) → IDamageable.TakeDamage(damage, source) → FloatingDamageText → death check"
+    domain: Core/Events
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-004
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Cover system: proximity <1m to furniture → hitbox reduction 40%, distance-based (not raycast) for MVP, half-body-in-cover = cover active"
+    domain: Physics/Collision
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-005
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Dodge mechanic: Space key, 0.2s duration, 0.8s cooldown, 10 m/s speed, direction=movement input or backward if stationary, -25% distance during auto-lock"
+    domain: Input/Physics
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-006
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Weapon slot system: 1A + 1C + 1Melee loadout, scroll-wheel cycling A→C→Melee→A, V-key quick melee (15 stamina, no weapon swap)"
+    domain: Input/Weapons
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-007
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Death flow: HP≤0 → death animation → DropEquipment() → spawn corpse + badge → GameManager → Dead state → return to base (character select)"
+    domain: Core/State
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-008
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Reload interrupt: dodge during reload → cancel reload, retain partially loaded rounds, must re-reload to fill magazine"
+    domain: Weapons/State
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-combat-009
+    system: combat
+    gdd: design/gdd/combat-system.md
+    requirement: "Melee charge auto-release: hold charge max 2s → auto-fire heavy attack in current aim direction, prevents infinite hold"
+    domain: Weapons/Input
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  # ─── Weapon System ──────────────────────────────────────────────────────
+  - id: TR-weapon-001
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "Data-driven weapons: WeaponData ScriptableObject with damage, fireRate(30-600 RPM), spread(0-15°), magazineSize(3-200), reloadTime(0.5-5s), range(5-60m)"
+    domain: Data/Assets
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-weapon-002
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "Four damage patterns: semi/scatter projectile, continuous beam (dmg×deltaTime), AOE (parabolic, 3m radius), melee (light 5-30 / heavy 20-120)"
+    domain: Combat/Physics
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-weapon-003
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "Ammo system: 8 ammo types (Staple/Keycap/BulbLife/Mug/PPTPage/MeetingLink/JunkMail/CoffeeBean), per-type backpack stack limits (20-200), stash ×10 multiplier"
+    domain: Data/Inventory
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-weapon-004
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "Reload mechanic: weapon-specific reloadTime (1.5-3s), dodge-interruptible, round-by-round vs full-magazine behavior per weapon type"
+    domain: Weapons/State
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-weapon-005
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "C-class special effects: blind(2s, screen white), root(3s, 5m radius), delayed explosion+taunt(2s delay/5s taunt, 4m radius), self-buff(8s, +30% atk spd +20% move)"
+    domain: Combat/Effects
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-weapon-006
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "Mod system: MVP 1 slot (sights: -20% spread OR +5m auto-aim range), architecture reserves 3 slots (ammo conversion, special配件), mod data structure as array for future-proofing"
+    domain: Data/Progression
+    priority: P2
+    created: 2026-07-17
+    status: active
+
+  - id: TR-weapon-007
+    system: weapon
+    gdd: design/gdd/weapon-system.md
+    requirement: "Weapon acquisition: initial loadout configuration + loot drops from containers/enemies + NPC vendor purchase + base weapon rack display/selection"
+    domain: Loot/Economy
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  # ─── Enemy AI System ────────────────────────────────────────────────────
+  - id: TR-enemy-001
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "Enemy FSM: Idle/Patrol → Chase → Attack → Dead, detection params (vision 15m/120° cone, hearing 8m, chase max 30m, attackRange 1.5m melee / 10m ranged, attackCooldown 1.5s)"
+    domain: AI/State
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-enemy-002
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "Floor-scaling: HP = baseHP × (1 + (50-floor) × 0.03), Damage = baseDamage × (1 + (50-floor) × 0.02), Speed = baseSpeed × (1 + (50-floor) × 0.01), floor 1 caps at ~×2.47 HP"
+    domain: AI/Balance
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-enemy-003
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "Random variant system: 30% chance per enemy spawn, 5 variants (Elite/Swift/Tanky/Explosive/Regenerating) with weighted probability (8/8/8/5/5 vs Normal=66), variants stack with floor scaling (multiplication TBD)"
+    domain: AI/Data
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-enemy-004
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "Boss system: multi-phase fights (1-3 phases), phase-specific skills, HP threshold triggers, phase transition VFX/audio, boss-specific UI (top-center HP bar + phase indicator)"
+    domain: AI/Combat
+    priority: P2
+    created: 2026-07-17
+    status: active
+
+  - id: TR-enemy-005
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "Drop system: guaranteed badge + 1-3 paperclips per kill, probabilistic drops from EnemyData.possibleDrops[] with independent dropChance (0-1.0), boss guaranteed special badge (permanent progress)"
+    domain: Loot/Economy
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-enemy-006
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "EnemyData ScriptableObject: HP, damage, speed, detectionRadius, detectionAngle, attackRange, attackCooldown, patrolRadius, possibleDrops[], variantAffix — all data-driven per enemy type"
+    domain: Data/Assets
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-enemy-007
+    system: enemy
+    gdd: design/gdd/enemy-system.md
+    requirement: "Tag requirement: all enemy GameObjects must have 'Enemy' tag for auto-aim lock-on system; tag removed on death to prevent dead-target lock"
+    domain: Core/Tags
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  # ─── Floor Generation ───────────────────────────────────────────────────
+  - id: TR-floor-001
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "Deterministic seed generation: floorSeed = runSeed + floorNumber, Random.InitState(floorSeed), all subsequent Random calls deterministic, same seed = identical layout"
+    domain: Core/Algorithm
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-floor-002
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "Three layout archetypes: RingStandard(45%), OpenPlan(30%), Cellular(25%) — weighted random from seed hash, distinct room allocation rules per archetype"
+    domain: Algorithm
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-floor-003
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "Corridor-first pipeline: 1)place 8 stair anchors, 2)build core筒(16m×12m)+ring corridor(1.8m), 3)apply archetype room allocation, 4)place pillars(12m spacing ±2m jitter), 5)place furniture via FurniturePlacer, 6)BFS validate entry-to-exit path"
+    domain: Algorithm
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-floor-004
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "Stairwell system: 8 anchors (4 sides × 2 each, 6m×6m), entry stair = random, exit stair = BFS farthest from entry, fire escape at diagonal (one-way: exit only, not enter)"
+    domain: Algorithm/Nav
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-floor-005
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "11 room types: Stairwell/TeaRoom/Office/ConferenceRoom/ServerRoom/CEOOffice/HROffice/FinanceOffice/Reception/PrintRoom/Storage — each with min/max dimensions, placement rules, and RoomFurnitureSet binding"
+    domain: Data/Level
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-floor-006
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "Special floor override: 10 hand-designed special floors (game-concept §5) bypass procedural generation; FloorManager checks floorNumber against special floor list and loads hand-authored layout"
+    domain: Level/Data
+    priority: P2
+    created: 2026-07-17
+    status: active
+
+  - id: TR-floor-007
+    system: floorgen
+    gdd: design/gdd/floor-generation.md
+    requirement: "High-value zone: exactly 1 per floor, type by segment (CEO office 40-50F / HR archives 30-39F / server room 20-29F / finance vault 10-19F / grand lobby 1-9F), special loot table + visual indicator"
+    domain: Level/Loot
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  # ─── Loot & Economy ─────────────────────────────────────────────────────
+  - id: TR-loot-001
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "LootTable ScriptableObject: minRolls(1-10)/maxRolls(2-20), LootEntry[] with ItemData reference + weight(float) + minCount/maxCount(int), weighted random selection per roll"
+    domain: Data/Algorithm
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-loot-002
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "Progressive container loading: 6 rarity delays (0/1/2/4/8/12s for Common→Mythic), items move pending→loaded per delay, interruptible on close, resumable on reopen, supports partial loot mid-load"
+    domain: UI/State
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-loot-003
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "Grid inventory: cellSize 60px (loot)/80px (weapon rack), items occupy width×height cells, stacking (same ItemData, below maxStackSize), drag-drop transfer, double-click instant transfer, F-key take-all (rarity-descending), R-key rotate during drag"
+    domain: UI/Data
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-loot-004
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "10 item types: Currency/Ammo/Consumable/Construction/Electronics/OfficeSupply/Luxury/Intel/KeyItem/Collectible, 6 rarities: Common(grey)/Uncommon(green)/Rare(blue)/Epic(purple)/Legendary(gold)/Mythic(red)"
+    domain: Data
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-loot-005
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "Container persistence: container state (_pendingItems, _loadedItems) must survive scene transitions, serialize per container ID, restore on scene load for 'leave and return' gameplay loop"
+    domain: State/Persistence
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-loot-006
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "Coffee freshness: real-time decay 30min(100% effect)→2hr(70%)→4hr(40%)→>4hr(0% effect, sell-only), persists across sessions, timer based on real-world clock with quit/reload handling"
+    domain: Economy/Time
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-loot-007
+    system: loot
+    gdd: design/gdd/loot-economy.md
+    requirement: "Ammo safety net: trigger when total ammo across all types < 10 rounds, next floor entry spawns emergency supply cabinet near entry stairwell, one-time per trigger condition"
+    domain: Economy/Balance
+    priority: P2
+    created: 2026-07-17
+    status: active
+
+  # ─── UI / HUD ───────────────────────────────────────────────────────────
+  - id: TR-ui-001
+    system: ui
+    gdd: design/gdd/ui-hud.md
+    requirement: "Combat HUD: health bar(top-left 480×30, smooth lerp 0.1), stamina bar(below health 480×20, real-time), ammo display(top-left text '{current}/{reserve}'), floor info(top-right 330×100), crosshair(center 24×24, auto=semi-transparent/manual=solid), interaction prompt(bottom-center), extraction warning(center)"
+    domain: UI/Rendering
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-ui-002
+    system: ui
+    gdd: design/gdd/ui-hud.md
+    requirement: "Loot panel: 3-column layout (equipment 18% | backpack 41% | container 37%, 1450×820px total), drag-drop, double-click transfer, F-take-all (rarity-descending), item tooltip (name/rarity color/description/value), discard zone (bottom red bar)"
+    domain: UI/Input
+    priority: P0
+    created: 2026-07-17
+    status: active
+
+  - id: TR-ui-003
+    system: ui
+    gdd: design/gdd/ui-hud.md
+    requirement: "Base UI panels: stash(3-column, equipment|backpack|stash), weapon rack(grid 80×80 cells + loadout slots A/C/Melee, drag-to-equip), bulletin board(quest list|detail|active, 3-column), workbench(mod UI, Phase 2)"
+    domain: UI/Input
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-ui-004
+    system: ui
+    gdd: design/gdd/ui-hud.md
+    requirement: "Death screen: character name, death floor, cause of death, lost equipment list (icons+names), retained resources summary, memorial wall badge preview, 'Select New Character' button → returns to base character select"
+    domain: UI/State
+    priority: P1
+    created: 2026-07-17
+    status: active
+
+  - id: TR-ui-005
+    system: ui
+    gdd: design/gdd/ui-hud.md
+    requirement: "Memorial wall: tea room wall location, vertical scrollable list of dead character badges, each showing name/death floor/cause/loot value brought back, persistent across all runs"
+    domain: UI/Data
+    priority: P2
+    created: 2026-07-17
+    status: active
+
+  - id: TR-ui-006
+    system: ui
+    gdd: design/gdd/ui-hud.md
+    requirement: "UGUI Canvas: Scale With Screen Size mode, reference resolution 1920×1080, panel-open disables player movement input (IsOpen check on LootContainerUI), single panel at a time (new panel closes old)"
+    domain: UI/Rendering
+    priority: P0
+    created: 2026-07-17
+    status: active

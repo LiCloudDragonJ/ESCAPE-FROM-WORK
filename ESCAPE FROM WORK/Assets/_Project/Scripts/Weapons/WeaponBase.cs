@@ -38,6 +38,32 @@ namespace EscapeFromWork.Weapons
         /// </summary>
         public int CurrentAmmo => currentAmmo;
 
+        // ---- Reload state ---------------------------------------------------------
+
+        /// <summary>True while a reload is in progress.</summary>
+        protected bool _isReloading;
+
+        /// <summary>Countdown timer for the current reload.</summary>
+        protected float _reloadTimer;
+
+        /// <summary>
+        /// True when the weapon is currently reloading (HUD display gating).
+        /// </summary>
+        public bool IsReloading => _isReloading;
+
+        /// <summary>
+        /// Progress of the current reload (0–1). Used by HUD for the circular
+        /// reload indicator.
+        /// </summary>
+        public float ReloadProgress
+        {
+            get
+            {
+                if (!_isReloading || data == null || data.ReloadTime <= 0f) return 0f;
+                return 1f - (_reloadTimer / data.ReloadTime);
+            }
+        }
+
         // ---- Initialization ------------------------------------------------------
 
         /// <summary>
@@ -79,6 +105,44 @@ namespace EscapeFromWork.Weapons
             return Time.time - _lastFireTime >= cooldown;
         }
 
+        // ---- Reload lifecycle -----------------------------------------------------
+
+        /// <summary>
+        /// Ticks the reload timer. Subclasses that override Update must call
+        /// base.Update() to keep reload timing.
+        /// </summary>
+        protected virtual void Update()
+        {
+            if (!_isReloading) return;
+
+            _reloadTimer -= Time.deltaTime;
+            if (_reloadTimer <= 0f)
+            {
+                CompleteReload();
+            }
+        }
+
+        /// <summary>
+        /// Called when the reload timer expires. Subclasses override to apply
+        /// weapon-specific reload logic (fill magazine from reserve etc.).
+        /// </summary>
+        protected virtual void CompleteReload()
+        {
+            _isReloading = false;
+            _reloadTimer = 0f;
+        }
+
+        /// <summary>
+        /// Interrupt an in-progress reload. Called when the player dodges or
+        /// switches weapons. Partially loaded rounds are preserved.
+        /// </summary>
+        public virtual void CancelReload()
+        {
+            if (!_isReloading) return;
+            _isReloading = false;
+            _reloadTimer = 0f;
+        }
+
         // ---- Abstract contract ---------------------------------------------------
 
         /// <summary>
@@ -93,8 +157,8 @@ namespace EscapeFromWork.Weapons
         public abstract void Fire(Vector3 from, Vector3 direction, bool isManualAim, bool isHeadshot);
 
         /// <summary>
-        /// Reload the weapon. Ranged weapons refill the magazine; melee weapons
-        /// are a no-op (stamina management is external).
+        /// Reload the weapon. Ranged weapons refill the magazine from reserve ammo;
+        /// melee weapons are a no-op (stamina management is external).
         /// </summary>
         public abstract void Reload();
     }

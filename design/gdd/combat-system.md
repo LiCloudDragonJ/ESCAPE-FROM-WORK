@@ -50,7 +50,7 @@ Combat System 服务于两个设计支柱：
 |------|-----|
 | 输入 | V 键 |
 | 行为 | 瞬发轻击，不切换当前武器槽 |
-| 体力消耗 | 15 |
+| 体力消耗 | 15（每把武器独立设定，详见 Weapon System） |
 | 弹药 | 不消耗 |
 
 #### 4. 近战武器槽
@@ -58,8 +58,8 @@ Combat System 服务于两个设计支柱：
 | 属性 | 值 |
 |------|-----|
 | 切换 | 鼠标滚轮切到近战槽位 |
-| 轻击 | 鼠标左键点击 = 瞬间挥击（体力 15） |
-| 蓄力 | 鼠标左键按住 = 蓄力（最多 2 秒），释放 = 重击（体力 30） |
+| 轻击 | 鼠标左键点击 = 瞬间挥击（体力消耗由武器决定） |
+| 蓄力 | 鼠标左键按住 = 蓄力（最多由武器决定），释放 = 重击（体力消耗由武器决定） |
 | 蓄力中断 | 闪避或切换武器取消蓄力 |
 | 弹药 | 不消耗 |
 
@@ -193,8 +193,8 @@ stamina = clamp(stamina + delta, 0, 100)
 | 变量 | 符号 | 类型 | 值 | 描述 |
 |------|------|------|-----|------|
 | 闪避消耗 | dodgeCost | float | 25 | 每次闪避 |
-| 轻击消耗 | meleeLightCost | float | 15 | 每次快速近战 |
-| 重击消耗 | meleeHeavyCost | float | 30 | 每次蓄力近战 |
+| 轻击消耗 | meleeLightCost | float | 武器决定 | 每次快速近战（由 WeaponData 定义） |
+| 重击消耗 | meleeHeavyCost | float | 武器决定 | 每次蓄力近战（由 WeaponData 定义） |
 | 瞄准消耗率 | aimRate | float | 8/s | 按住右键时按帧扣除 |
 | 恢复开始延迟 | recoveryDelay | float | 0.5s | 停止消耗后等待 |
 | 恢复速度 | recoveryRate | float | 15/s | 延迟结束后恢复 |
@@ -271,8 +271,8 @@ actualSpread = baseSpread × aimModeMultiplier
 |------|--------|---------|------|
 | maxStamina | 100 | 80–150 | 体力上限 |
 | dodgeCost | 25 | 15–35 | 闪避消耗 |
-| meleeLightCost | 15 | 10–25 | 轻击消耗 |
-| meleeHeavyCost | 30 | 20–45 | 重击消耗 |
+| meleeLightCost | 武器决定 | 10–25 | 轻击消耗（每武器独立） |
+| meleeHeavyCost | 武器决定 | 20–45 | 重击消耗（每武器独立） |
 | aimStaminaRate | 8/s | 5–15/s | 手动瞄准体力消耗率 |
 | recoveryRate | 15/s | 10–25/s | 体力恢复速度 |
 | recoveryDelay | 0.5s | 0.3–1.0s | 恢复开始等待时间 |

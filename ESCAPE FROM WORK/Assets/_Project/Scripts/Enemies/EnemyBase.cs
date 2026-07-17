@@ -157,6 +157,22 @@ namespace EscapeFromWork.Enemies
         }
 
         /// <summary>
+        /// Initialize this enemy from an EnemyData ScriptableObject.
+        /// Called by EnemySpawner during data-driven spawning.
+        /// </summary>
+        public virtual void InitializeFromData(EnemyData enemyData)
+        {
+            data = enemyData;
+            _currentHealth = MaxHealth;
+            _state = EnemyState.Patrol;
+            if (_renderer == null)
+            {
+                _renderer = GetComponent<Renderer>() ?? GetComponentInChildren<Renderer>();
+                if (_renderer != null) _originalColor = _renderer.material.color;
+            }
+        }
+
+        /// <summary>
         /// Per-frame AI tick. Expires status effects first, then delegates to the
         /// active state behaviour. Dead enemies skip all processing.
         /// </summary>

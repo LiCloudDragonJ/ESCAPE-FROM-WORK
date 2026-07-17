@@ -6,6 +6,16 @@ using EscapeFromWork.Weapons;
 namespace EscapeFromWork.Player
 {
     /// <summary>
+    /// Inspector-friendly entry for configuring initial ammo reserve on the player prefab.
+    /// </summary>
+    [System.Serializable]
+    public class AmmoReserveEntry
+    {
+        public AmmoType ammoType;
+        public int count;
+    }
+
+    /// <summary>
     /// A single slot in the player's backpack, holding a stack of a single item type.
     /// </summary>
     [System.Serializable]
@@ -35,6 +45,16 @@ namespace EscapeFromWork.Player
         [Header("Backpack")]
         [Tooltip("Number of backpack slots available for carrying items.")]
         [SerializeField] private int backpackSlots = 16;
+
+        [Header("Ammo Reserve")]
+        [Tooltip("Ammo carried outside the grid (not occupying backpack slots).")]
+        [SerializeField] private AmmoReserveEntry[] initialAmmoReserve;
+
+        /// <summary>
+        /// Ammo reserve indexed by AmmoType. Ammo lives outside the grid for
+        /// performance — no grid search on every shot. Reload pulls from here.
+        /// </summary>
+        private Dictionary<AmmoType, int> _ammoReserve = new Dictionary<AmmoType, int>();
 
         [Header("References")]
         [Tooltip("Reference to the PlayerCombat component for weapon equipping.")]
@@ -75,6 +95,16 @@ namespace EscapeFromWork.Player
             for (int i = 0; i < backpackSlots; i++)
             {
                 _backpack.Add(new InventorySlot());
+            }
+
+            // Initialize ammo reserve from inspector-configured starting ammo.
+            if (initialAmmoReserve != null)
+            {
+                foreach (var entry in initialAmmoReserve)
+                {
+                    if (entry.ammoType != AmmoType.None && entry.count > 0)
+                        _ammoReserve[entry.ammoType] = entry.count;
+                }
             }
         }
 
@@ -346,6 +376,57 @@ namespace EscapeFromWork.Player
                 total += slot.count * slot.item.BaseValue;
             }
 
+            return total;
+        }
+
+        // ---- Ammo Reserve ---------------------------------------------------------
+
+        /// <summary>
+        /// Add ammo to the reserve. Called when picking up ammo items.
+        /// </summary>
+        public void AddAmmo(AmmoType type, int count)
+        {
+            if (type == AmmoType.None || count <= 0) return;
+
+            if (_ammoReserve.ContainsKey(type))
+                _ammoReserve[type] += count;
+            else
+                _ammoReserve[type] = count;
+        }
+
+        /// <summary>
+        /// Consume ammo from the reserve. Called during reload to transfer
+        /// reserve → magazine. Returns the amount actually consumed.
+        /// </summary>
+        public int ConsumeAmmo(AmmoType type, int requested)
+        {
+            if (type == AmmoType.None || requested <= 0) return 0;
+
+            if (!_ammoReserve.TryGetValue(type, out int available)) return 0;
+
+            int taken = Mathf.Min(available, requested);
+            _ammoReserve[type] = available - taken;
+            if (_ammoReserve[type] <= 0)
+                _ammoReserve.Remove(type);
+            return taken;
+        }
+
+        /// <summary>
+        /// Returns the current ammo reserve count for a specific type.
+        /// </summary>
+        public int GetAmmoCount(AmmoType type)
+        {
+            if (type == AmmoType.None) return 0;
+            return _ammoReserve.TryGetValue(type, out int count) ? count : 0;
+        }
+
+        /// <summary>
+        /// Total ammo across all types. Used for the ammo safety net check (GDD: <10 → emergency cabinet).
+        /// </summary>
+        public int GetTotalAmmoCount()
+        {
+            int total = 0;
+            foreach (var kvp in _ammoReserve) total += kvp.Value;
             return total;
         }
 

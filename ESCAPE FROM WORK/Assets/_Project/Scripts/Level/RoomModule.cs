@@ -5,26 +5,111 @@ namespace EscapeFromWork.Level
     /// <summary>
     /// Classification of room function within the office tower.
     /// Determines enemy density, loot distribution, and extraction rules.
+    ///
+    /// <para>Organised by spatial zone:
+    ///   Public → SemiPublic → Workspace → Secure → Facility → Core</para>
     /// </summary>
     public enum RoomType
     {
-        /// <summary>Cubicle farm — high enemy count, moderate loot.</summary>
-        Office,
+        // ── Public zone (entry side, Y=72-80) ──────────────────────────
+        /// <summary>Front desk / lobby — the player's entry point.</summary>
+        Reception,
 
-        /// <summary>Corridor connecting rooms — low enemies, minimal loot.</summary>
-        Hallway,
+        /// <summary>Visitor waiting area — sofas, coffee tables, magazines.</summary>
+        WaitingArea,
+
+        // ── Semi-public zone (Y=60-72) ──────────────────────────────────
+        /// <summary>Large meeting space — glass walls, conference table cover.</summary>
+        ConferenceRoom,
 
         /// <summary>Break area with vending machines — moderate enemies, food/utility loot.</summary>
         TeaRoom,
 
-        /// <summary>Vertical transit between floors — extraction point for normal exit.</summary>
+        // ── Workspace zone (Y=28-60) ────────────────────────────────────
+        /// <summary>Open-plan cubicle farm — desk sea with low partitions.</summary>
+        OpenOffice,
+
+        /// <summary>Single-person office — supervisor/manager desk + filing cabinet.</summary>
+        PrivateOffice,
+
+        /// <summary>Corner / large executive office — big desk, wine cabinet, safe.</summary>
+        ExecutiveOffice,
+
+        // ── Secure / back-of-house zone (Y=0-28) ────────────────────────
+        /// <summary>IT infrastructure — server racks, UPS, patch panels. High-value electronic loot.</summary>
+        ServerRoom,
+
+        /// <summary>Dense filing-cabinet maze — HR/finance records.</summary>
+        ArchiveRoom,
+
+        /// <summary>General storage — random supplies, janitorial equipment.</summary>
+        StorageRoom,
+
+        /// <summary>High-security vault — top-tier loot, requires key/password.</summary>
+        VaultRoom,
+
+        // ── Facility / transit ──────────────────────────────────────────
+        /// <summary>Fire-escape stairwell — may serve as extraction point.</summary>
         Stairwell,
 
-        /// <summary>Large meeting space — low enemies, high-value executive loot.</summary>
-        ConferenceRoom,
+        /// <summary>Elevator lobby — stable extraction point near core筒.</summary>
+        ElevatorLobby,
 
-        /// <summary>IT infrastructure room — high-value electronic loot, moderate enemies.</summary>
-        ServerRoom
+        /// <summary>Corridor connecting rooms — low enemies, minimal loot.</summary>
+        Hallway,
+
+        /// <summary>Restroom — tight quarters, ambush risk.</summary>
+        Restroom,
+
+        // ── Core筒 interior (fixed per floor, no room allocation) ───────
+        /// <summary>Core筒 internal staircase.</summary>
+        CoreStairs,
+
+        /// <summary>Core筒 elevator shaft.</summary>
+        CoreElevator,
+
+        /// <summary>Core筒 restroom.</summary>
+        CoreRestroom,
+
+        /// <summary>Core筒 mechanical / riser closet.</summary>
+        CoreMechanical,
+
+        // ── Legacy compatibility (map to new types) ─────────────────────
+        /// <summary>[Legacy] Maps to <see cref="OpenOffice"/>.</summary>
+        Office = OpenOffice,
+    }
+
+    /// <summary>
+    /// Spatial zone within a floor. Determines the player's exploration
+    /// progression from entry (Public) to deepest loot (Secure).
+    /// </summary>
+    public enum ZoneLevel
+    {
+        /// <summary>Entry area — reception, waiting.</summary>
+        Public,
+
+        /// <summary>Near-entry — meeting rooms, tea rooms.</summary>
+        SemiPublic,
+
+        /// <summary>Main floor body — open offices, private offices.</summary>
+        Workspace,
+
+        /// <summary>Deepest area — executive suites, vaults, server rooms.</summary>
+        Secure,
+
+        /// <summary>Fixed facility — stairs, elevators, restrooms, core筒.</summary>
+        Facility,
+    }
+
+    /// <summary>
+    /// Which side of a room the door is on.
+    /// </summary>
+    public enum DoorDirection
+    {
+        North,  // +Z wall
+        South,  // -Z wall
+        East,   // +X wall
+        West,   // -X wall
     }
 
     /// <summary>

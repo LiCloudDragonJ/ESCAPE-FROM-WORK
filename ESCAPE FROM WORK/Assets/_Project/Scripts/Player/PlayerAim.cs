@@ -174,17 +174,14 @@ namespace EscapeFromWork.Player
         // ---- Input polling ------------------------------------------------------
 
         /// <summary>
-        /// Toggles manual-aim mode when Left Shift is pressed.
-        /// RMB is reserved for melee — the two no longer conflict.
+        /// Manual aim: hold RMB to enter free-aim mode, release to return to auto-aim.
+        /// While active, stamina drains at 8/s (enforced by PlayerCombat).
         /// Called from <see cref="Update"/>.
         /// </summary>
         private void PollManualAimInput()
         {
-            if (Input.GetKeyDown(KeyCode.LeftShift))
-            {
-                _isManualAim = !_isManualAim;
-                Debug.Log($"[PlayerAim] Manual aim: {(_isManualAim ? "ON (free aim)" : "OFF (auto-lock)")}");
-            }
+            // RMB hold = manual aim (GDD: combat-system.md §1)
+            _isManualAim = Input.GetMouseButton(1);
         }
 
         // ---- Public methods -----------------------------------------------------

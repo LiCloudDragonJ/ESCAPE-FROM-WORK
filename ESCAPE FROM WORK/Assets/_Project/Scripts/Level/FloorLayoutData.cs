@@ -69,8 +69,34 @@ namespace EscapeFromWork.Level
         /// <summary>Width (X) × Depth (Z) in world units.</summary>
         public Vector2 size;
 
-        /// <summary>World position of the door.</summary>
+        /// <summary>World position of the door centre.</summary>
         public Vector2 doorPos;
+
+        // ── Spatial attributes (Phase 2) ────────────────────────────────
+
+        /// <summary>Which spatial zone this room belongs to.</summary>
+        public ZoneLevel zoneLevel;
+
+        /// <summary>True when the room touches an exterior wall (has windows).</summary>
+        public bool hasWindows;
+
+        /// <summary>Department cluster tag, e.g. "HR", "Finance", "IT", "Executive".</summary>
+        public string departmentTag;
+
+        /// <summary>Lock level: 0 = none, 1 = standard lock, 2 = keypad, 3 = electronic.</summary>
+        public int lockLevel;
+
+        /// <summary>Password / key code if locked. Null when lockLevel = 0.</summary>
+        public string lockPassword;
+
+        /// <summary>Label of the room where the password hint can be found.</summary>
+        public string passwordHintRoomLabel;
+
+        /// <summary>Labels of rooms sharing a wall with this room.</summary>
+        public List<string> connectedRoomLabels = new List<string>();
+
+        /// <summary>Which side the door is on (for AI / sound / sightline queries).</summary>
+        public DoorDirection doorSide;
     }
 
     /// <summary>

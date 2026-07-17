@@ -26,23 +26,16 @@ namespace EscapeFromWork.Level
 
         // ---- Inspector references -----------------------------------------------
 
-        /// <summary>Generates the procedural room layout for this floor.</summary>
-        [SerializeField] private FloorGenerator floorGenerator;
-
-        /// <summary>Spawns enemies into the generated rooms.</summary>
+        /// <summary>Spawns enemies into the generated floor.</summary>
         [SerializeField] private EnemySpawner enemySpawner;
 
         // ---- Public state -------------------------------------------------------
 
-        /// <summary>Which floor of the tower this is (1 = top, 50 = ground/lobby).</summary>
+        /// <summary>Which floor of the tower this is (50 = top, 1 = ground/lobby).</summary>
         public int floorNumber;
 
-        /// <summary>
-        /// Design-time data for this floor (enemy composition, loot tables,
-        /// boss presence, etc.). Placeholder — define FloorTemplateData as a
-        /// ScriptableObject when the content pipeline is ready.
-        /// </summary>
-        // TODO: Replace with actual FloorTemplateData ScriptableObject reference.
+        /// <summary>The generated layout data for this floor.</summary>
+        public FloorLayoutData Layout { get; private set; }
 
         /// <summary>Per-floor persistent state (cleared, looted, visit count).</summary>
         public FloorState State { get; private set; }
@@ -55,7 +48,6 @@ namespace EscapeFromWork.Level
 
         // ---- Private state ------------------------------------------------------
 
-        /// <summary>Number of living enemies remaining on this floor.</summary>
         private int _enemiesRemaining;
 
         // ---- Unity lifecycle ----------------------------------------------------
@@ -63,7 +55,6 @@ namespace EscapeFromWork.Level
         private void Awake()
         {
             Instance = this;
-            // Ensure State is never null — LootContainer and HUD depend on it.
             if (State == null)
                 State = FloorState.LoadOrCreate(floorNumber);
         }
@@ -77,14 +68,14 @@ namespace EscapeFromWork.Level
         // ---- Public API ---------------------------------------------------------
 
         /// <summary>
-        /// Initialise the floor: generate the procedural layout, spawn enemies,
-        /// count the enemy population, and record the entry in floor state.
+        /// Initialise the floor: generate the procedural layout via
+        /// <see cref="FloorBuilder"/>, assemble GameObjects via
+        /// <see cref="FloorAssembler"/>, spawn enemies, and record the entry.
         /// </summary>
-        /// <param name="floorNum">Floor number (1-50).</param>
+        /// <param name="floorNum">Floor number (50 = top, 1 = ground).</param>
         /// <param name="seed">
-        /// Deterministic seed for the procedural generation. Typically derived
-        /// from the floor number or a run seed so that the same floor always
-        /// generates the same layout within a run.
+        /// Deterministic seed. Typically derived from the run seed so the same
+        /// floor generates the same layout within a run.
         /// </param>
         public void InitializeFloor(int floorNum, int seed)
         {
@@ -94,20 +85,15 @@ namespace EscapeFromWork.Level
             State = FloorState.LoadOrCreate(floorNumber);
             State.RecordEntry();
 
-            // Generate the room grid.
-            if (floorGenerator != null)
-            {
-                floorGenerator.GenerateFloor(seed);
-            }
-            else
-            {
-                Debug.LogWarning("[FloorManager] No FloorGenerator assigned — floor will have no rooms.");
-            }
+            // Generate layout data (pure data, no GameObjects).
+            Layout = FloorBuilder.Build(floorNumber);
 
-            // Spawn enemies into the generated rooms.
+            // Assemble floor GameObjects from layout data.
+            FloorAssembler.Assemble(Layout);
+
+            // Spawn enemies. Collect spawn zones from the newly-built rooms.
             if (enemySpawner != null)
             {
-                // Collect spawn zones from all generated rooms.
                 GatherSpawnZones();
                 enemySpawner.SpawnFloorEnemies();
             }
@@ -119,15 +105,13 @@ namespace EscapeFromWork.Level
             // Count living enemies after spawning.
             _enemiesRemaining = CountLivingEnemies();
 
-            Debug.Log($"[FloorManager] Floor {floorNumber} initialised. " +
-                      $"Rooms: {CountRooms()}, Enemies: {_enemiesRemaining}, " +
-                      $"Safe: {State.isCleared}");
+            Debug.Log($"[FloorManager] Floor {floorNumber} [{Layout.archetype}] initialised. " +
+                      $"Rooms: {Layout.rooms?.Count ?? 0}, Enemies: {_enemiesRemaining}, " +
+                      $"Safe: {State.isCleared}, Entry: {Layout.entryPos}, Extract: {Layout.extractPos}");
         }
 
         /// <summary>
         /// Called when an enemy on this floor is killed.
-        /// Decrements the remaining count; when it reaches zero the floor
-        /// is marked as cleared and the GameManager is notified.
         /// </summary>
         public void OnEnemyKilled()
         {
@@ -136,8 +120,6 @@ namespace EscapeFromWork.Level
 
             _enemiesRemaining = Mathf.Max(0, _enemiesRemaining - 1);
 
-            // Reconcile with actual scene state to catch edge cases
-            // (e.g. enemies killed through non-standard means).
             if (_enemiesRemaining <= 0)
             {
                 _enemiesRemaining = CountLivingEnemies();
@@ -157,17 +139,13 @@ namespace EscapeFromWork.Level
 
         /// <summary>
         /// Trigger extraction from the current floor.
-        /// Saves the floor state and delegates to
-        /// <see cref="GameManager.ExtractFromFloor"/>.
         /// </summary>
         /// <param name="useFireEscape">
-        /// True if extracting via the fire-escape stairwell (diagonal exit);
-        /// false for the normal stairwell entry point. Affects narrative
-        /// and may affect the next floor's entry point.
+        /// True if extracting via a fire-escape stairwell;
+        /// false for the elevator / normal stairwell.
         /// </param>
         public void Extract(bool useFireEscape)
         {
-            // Persist floor state (safe to skip if not yet initialised).
             if (State != null)
                 State.Save();
 
@@ -186,44 +164,21 @@ namespace EscapeFromWork.Level
 
         // ---- Internal helpers ---------------------------------------------------
 
-        /// <summary>
-        /// Collect enemy spawn-zone transforms from all generated rooms
-        /// for future integration with a per-room spawn-zone system.
-        /// Currently logs the count; the EnemySpawner uses its own
-        /// inspector-assigned spawn zones.
-        /// </summary>
         private void GatherSpawnZones()
         {
-            if (floorGenerator == null || enemySpawner == null)
+            if (Layout?.rooms == null || enemySpawner == null)
                 return;
 
-            RoomModule[,] grid = floorGenerator.Grid;
-            if (grid == null)
-                return;
-
-            int totalZones = 0;
-            for (int x = 0; x < grid.GetLength(0); x++)
-            {
-                for (int y = 0; y < grid.GetLength(1); y++)
-                {
-                    RoomModule room = grid[x, y];
-                    if (room != null && room.enemySpawnZones != null)
-                        totalZones += room.enemySpawnZones.Length;
-                }
-            }
-
+            // Collect all enemy spawn zones from the newly-built rooms.
+            // After FloorAssembler builds the floor, each stairwell/conference/etc.
+            // room has its own area — for Phase 1, enemies spawn across the whole map.
+            int totalZones = Layout.rooms.Count;
             if (totalZones > 0)
             {
-                Debug.Log($"[FloorManager] Gathered {totalZones} spawn zones across {CountRooms()} rooms.");
+                Debug.Log($"[FloorManager] Floor has {totalZones} rooms available for enemy spawn zones.");
             }
         }
 
-        /// <summary>
-        /// Count living enemies currently in the scene.
-        /// Delegates to <see cref="EnemySpawner.CountLivingEnemies"/> when
-        /// available; otherwise falls back to a tag-based lookup.
-        /// </summary>
-        /// <returns>Number of active GameObjects tagged "Enemy".</returns>
         private int CountLivingEnemies()
         {
             if (enemySpawner != null)
@@ -231,29 +186,6 @@ namespace EscapeFromWork.Level
 
             GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
             return enemies.Length;
-        }
-
-        /// <summary>
-        /// Count the number of rooms in the generated grid.
-        /// </summary>
-        /// <returns>Number of non-null cells in the grid.</returns>
-        private int CountRooms()
-        {
-            if (floorGenerator == null || floorGenerator.Grid == null)
-                return 0;
-
-            int count = 0;
-            RoomModule[,] grid = floorGenerator.Grid;
-            for (int x = 0; x < grid.GetLength(0); x++)
-            {
-                for (int y = 0; y < grid.GetLength(1); y++)
-                {
-                    if (grid[x, y] != null)
-                        count++;
-                }
-            }
-
-            return count;
         }
     }
 }
