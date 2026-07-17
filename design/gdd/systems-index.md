@@ -11,12 +11,12 @@
 |---|--------|----------|--------------|-------|------------|-------------|-----------|
 | 1 | Core Game Loop & Game Manager | **MVP** | (none -- foundational) | unity-specialist | Section in game-concept | **Partial** | GameManager.cs, QuickStart.cs, SceneBootstrap.cs, GameEvents.cs |
 | 2 | Player Movement & Input | **MVP** | Core Game Manager | unity-specialist | Section in game-concept | **Implemented** | PlayerController.cs |
-| 3 | Combat System (aim, shoot, melee, dodge, cover) | **MVP** | Player Movement, Weapon System, Enemy AI | unity-specialist | Section in game-concept | **Partial** | PlayerAim.cs, PlayerCombat.cs, PlayerHealth.cs |
-| 4 | Weapon System | **MVP** | Core (IDamageable), Data definitions | unity-specialist | Needs separate GDD | **Partial** | WeaponBase.cs, RangedWeapon.cs, MeleeWeapon.cs, Projectile.cs, WeaponData.cs |
-| 5 | Enemy AI | **MVP** | Core (IDamageable), Floor Generation | unity-specialist | Needs separate GDD | **Partial** | EnemyBase.cs, KPIZombie.cs, EnemySpawner.cs, EnemyData.cs |
-| 6 | Floor Generation | **MVP** | (none -- provides rooms) | unity-specialist | Needs separate GDD | **Partial** | FloorGenerator.cs, FloorManager.cs, FloorState.cs, RoomModule.cs |
-| 7 | Loot & Economy | **MVP** | Data definitions, Player Inventory | unity-specialist | Needs separate GDD | **Partial** | LootContainer.cs, LootTable.cs, PickupItem.cs, ItemData.cs |
-| 8 | UI / HUD | **MVP** | Player Health, Inventory, Combat, Weapon System | unity-ui-specialist | Section in game-concept | **Partial** | HUDManager.cs, DeathScreen.cs, MemorialWall.cs |
+| 3 | Combat System (aim, shoot, melee, dodge, cover) | **MVP** | Player Movement, Weapon System, Enemy AI | unity-specialist | [Designed](combat-system.md) | **Partial** | PlayerAim.cs, PlayerCombat.cs, PlayerHealth.cs |
+| 4 | Weapon System | **MVP** | Core (IDamageable), Data definitions | unity-specialist | [Designed](weapon-system.md) | **Partial** | WeaponBase.cs, RangedWeapon.cs, MeleeWeapon.cs, Projectile.cs, WeaponData.cs |
+| 5 | Enemy AI | **MVP** | Core (IDamageable), Floor Generation | unity-specialist | [Designed](enemy-system.md) | **Partial** | EnemyBase.cs, KPIZombie.cs, EnemySpawner.cs, EnemyData.cs |
+| 6 | Floor Generation | **MVP** | (none -- provides rooms) | unity-specialist | [Designed](floor-generation.md) | **Partial** | FloorGenerator.cs, FloorManager.cs, FloorState.cs, RoomModule.cs, FloorBuilder.cs |
+| 7 | Loot & Economy | **MVP** | Data definitions, Player Inventory | unity-specialist | [Designed](loot-economy.md) | **Partial** | LootContainer.cs, LootTable.cs, PickupItem.cs, ItemData.cs |
+| 8 | UI / HUD | **MVP** | Player Health, Inventory, Combat, Weapon System | unity-ui-specialist | [Designed](ui-hud.md) | **Partial** | HUDManager.cs, DeathScreen.cs, MemorialWall.cs |
 | 9 | Death & Inheritance | **Post-MVP** | Save/Load, Loot & Economy, Base Building | unity-specialist | Needs separate GDD | **Not started** | DeathScreen.cs (UI only) |
 | 10 | Elevator & Stairs | **Post-MVP** | Floor Generation, Power System | unity-specialist | Section in game-concept | **Not started** | -- |
 | 11 | Power System | **Post-MVP** | Floor Generation | unity-specialist | Section in game-concept | **Not started** | -- |
