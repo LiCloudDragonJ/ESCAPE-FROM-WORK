@@ -48,12 +48,18 @@ namespace EscapeFromWork.Data
         Staple,
         /// <summary>Keycap projectiles for Type-A precision weapons.</summary>
         Keycap,
-        /// <summary>Presentation-clicker rounds for Type-C weapons.</summary>
+        /// <summary>Presentation-clicker rounds (PPT pages).</summary>
         PPT,
-        /// <summary>Hot-coffee payload for Type-C area weapons.</summary>
+        /// <summary>Hot-coffee payload. Also used for CoffeeInjector self-buff.</summary>
         Coffee,
-        /// <summary>Ceramic-mug canister for Type-C heavy weapons.</summary>
-        Mug
+        /// <summary>Ceramic-mug canister for Type-A AOE weapon.</summary>
+        Mug,
+        /// <summary>Projector bulb — continuous beam weapon ammo (投影仪射线枪).</summary>
+        BulbLife,
+        /// <summary>Meeting invite link — root/stun ammo (会议邀请法杖).</summary>
+        MeetingLink,
+        /// <summary>Junk e-mail payload — delayed explosive ammo (邮件炸弹).</summary>
+        JunkMail
     }
 
     /// <summary>

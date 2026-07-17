@@ -55,6 +55,30 @@ namespace EscapeFromWork.Player
             IsDead = false;
         }
 
+        // ---- Cover detection -----------------------------------------------------
+
+        [Header("Cover")]
+        [Tooltip("Distance in meters within which furniture provides cover.")]
+        [SerializeField] private float coverRadius = 1f;
+
+        [Tooltip("Damage multiplier when the player is in cover.")]
+        [SerializeField] private float coverDamageMultiplier = 0.6f;
+
+        /// <summary>
+        /// Returns true when the player is within <see cref="coverRadius"/> of
+        /// any collider tagged "Furniture". Distance-based (not raycast) per GDD MVP spec.
+        /// </summary>
+        public bool IsInCover()
+        {
+            Collider[] furniture = Physics.OverlapSphere(transform.position, coverRadius);
+            foreach (var col in furniture)
+            {
+                if (col.CompareTag("Furniture"))
+                    return true;
+            }
+            return false;
+        }
+
         // ---- IDamageable -------------------------------------------------------
 
         /// <inheritdoc />
@@ -63,7 +87,10 @@ namespace EscapeFromWork.Player
             if (IsDead)
                 return;
 
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
+            // Cover reduction: proximity to furniture-tagged objects reduces damage (GDD §8).
+            float finalDamage = IsInCover() ? amount * coverDamageMultiplier : amount;
+
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - finalDamage);
 
             if (CurrentHealth <= 0f)
             {

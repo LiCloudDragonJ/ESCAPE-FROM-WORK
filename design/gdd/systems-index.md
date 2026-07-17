@@ -17,14 +17,14 @@
 | 6 | Floor Generation | **MVP** | (none -- provides rooms) | unity-specialist | [Designed](floor-generation.md) | **Partial** | FloorGenerator.cs, FloorManager.cs, FloorState.cs, RoomModule.cs, FloorBuilder.cs |
 | 7 | Loot & Economy | **MVP** | Data definitions, Player Inventory | unity-specialist | [Designed](loot-economy.md) | **Partial** | LootContainer.cs, LootTable.cs, PickupItem.cs, ItemData.cs |
 | 8 | UI / HUD | **MVP** | Player Health, Inventory, Combat, Weapon System | unity-ui-specialist | [Designed](ui-hud.md) | **Partial** | HUDManager.cs, DeathScreen.cs, MemorialWall.cs |
-| 9 | Death & Inheritance | **Post-MVP** | Save/Load, Loot & Economy, Base Building | unity-specialist | Needs separate GDD | **Not started** | DeathScreen.cs (UI only) |
-| 10 | Elevator & Stairs | **Post-MVP** | Floor Generation, Power System | unity-specialist | Section in game-concept | **Not started** | -- |
-| 11 | Power System | **Post-MVP** | Floor Generation | unity-specialist | Section in game-concept | **Not started** | -- |
-| 12 | Evacuation Signals | **Post-MVP** | Floor Generation, Enemy AI, Loot & Economy | unity-specialist | Section in game-concept | **Not started** | -- |
-| 13 | Narrative System | **Post-MVP** | Floor Generation, Key Items, Save/Load | game-designer | Section in game-concept | **Not started** | -- |
-| 14 | Key Items (Badges, USB Drives) | **Post-MVP** | Loot & Economy, Narrative, Save/Load | unity-specialist | Section in game-concept | **Not started** | ItemData.cs (general, not key-item-specific) |
-| 15 | Base Building (Tea Room) | **Post-MVP** | Loot & Economy, Death & Inheritance | unity-specialist | Needs separate GDD | **Not started** | -- |
-| 16 | Save/Load & Meta-Progression | **Post-MVP** | (nearly everything -- save last) | unity-specialist | Needs separate GDD | **Not started** | -- |
+| 9 | Death & Inheritance | **Post-MVP** | Save/Load, Loot & Economy, Base Building | unity-specialist | [Designed](death-inheritance.md) | **Not started** | DeathScreen.cs (UI only) |
+| 10 | Elevator & Stairs | **Post-MVP** | Floor Generation, Power System | unity-specialist | [Designed](elevator-stairs.md) | **Not started** | -- |
+| 11 | Power System | **Post-MVP** | Floor Generation | unity-specialist | [Designed](power-system.md) | **Not started** | -- |
+| 12 | Evacuation Signals | **Post-MVP** | Floor Generation, Enemy AI, Loot & Economy | unity-specialist | [Designed](evacuation-signals.md) | **Not started** | -- |
+| 13 | Narrative System | **Post-MVP** | Floor Generation, Key Items, Save/Load | game-designer | [Designed](narrative-system.md) | **Not started** | -- |
+| 14 | Key Items (Badges, USB Drives) | **Post-MVP** | Loot & Economy, Narrative, Save/Load | unity-specialist | [Designed](key-items.md) | **Not started** | ItemData.cs (general, not key-item-specific) |
+| 15 | Base Building (Tea Room) | **Post-MVP** | Loot & Economy, Death & Inheritance | unity-specialist | [Designed](base-building.md) | **Not started** | -- |
+| 16 | Save/Load & Meta-Progression | **Post-MVP** | (nearly everything -- save last) | unity-specialist | [Designed](save-load.md) | **Not started** | -- |
 | 17 | Camera System | **MVP** | Player Movement | unity-specialist | Not in GDD (implied) | **Implemented** | SimpleCameraFollow.cs, SimpleCameraSetup.cs |
 
 ---
@@ -182,7 +182,7 @@ Core Game Loop ───> Floor Generation ───> Loot & Economy ───> 
 - **Priority**: MVP
 - **Dependencies**: Core (IDamageable), Floor Generation (navmesh/spawn points)
 - **Owner**: unity-specialist
-- **GDD Status**: Section 10 in game-concept. 4 common types, 2 security types, 4 bosses listed with behaviors and spawn floors.
+- **GDD Status**: Section 10 in game-concept. 8 common types (4 MVP + 4 Post-MVP), 2 security types, 4 bosses listed with behaviors and spawn floors.
 - **Code Status**: Partial. EnemyBase.cs (abstract), KPIZombie.cs (patrol/chase/attack states), EnemySpawner.cs, EnemyData.cs (SO data). Only KPI Zombie implemented with basic AI.
 - **Key Files**: `EnemyBase.cs`, `KPIZombie.cs`, `EnemySpawner.cs`, `EnemyData.cs`
 - **Needs GDD for**: Each enemy type's behavior tree (states, transitions, parameters), detection radius, attack patterns, damage values, spawn rules per floor, boss phase transitions.

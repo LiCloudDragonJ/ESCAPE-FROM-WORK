@@ -84,10 +84,23 @@ namespace EscapeFromWork.Weapons
             if (data == null)
                 return;
 
-            currentAmmo = data.MagazineSize;
+            // Don't reload if already full or already reloading.
+            if (currentAmmo >= data.MagazineSize)
+                return;
 
-            // TODO: Play reload sound effect via AudioDirector system.
-            Debug.Log($"[RangedWeapon] {data.WeaponName} reloaded — {currentAmmo} rounds.");
+            if (_isReloading)
+                return;
+
+            // Begin reload timer.
+            _isReloading = true;
+            _reloadTimer = data.ReloadTime;
+        }
+
+        /// <inheritdoc />
+        protected override void CompleteReload()
+        {
+            base.CompleteReload();
+            currentAmmo = data.MagazineSize;
         }
 
         // ---- Spread --------------------------------------------------------------

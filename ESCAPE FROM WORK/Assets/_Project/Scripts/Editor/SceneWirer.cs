@@ -56,142 +56,10 @@ public static partial class SceneWirer
         var layout = FloorBuilder.Build(floorNumber);
         float mw = FloorBuilder.MapW;
         float md = FloorBuilder.MapD;
+        var mat = GetLitMaterial();
 
-        var mat     = GetLitMaterial();
-        var wallMat = new Material(mat) { color = new Color(0.25f, 0.25f, 0.30f) };
-        var glassMat = new Material(mat) { color = new Color(0.60f, 0.75f, 0.85f, 0.5f) };
-        var floorHolder = new GameObject("--- Floor ---");
-
-        // ── Ground ─────────────────────────────────────────────────────
-        var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        ground.name = "Ground";
-        ground.transform.position = new Vector3(mw / 2f, -0.5f, md / 2f);
-        ground.transform.localScale = new Vector3(mw + 20f, 0.5f, md + 20f);
-        ground.GetComponent<MeshRenderer>().sharedMaterial =
-            new Material(mat) { color = new Color(0.12f, 0.12f, 0.14f) };
-        Object.DestroyImmediate(ground.GetComponent<Collider>());
-
-        // ── Exterior walls ─────────────────────────────────────────────
-        CreateWall("Wall_N", new Vector3(mw / 2f, WallH / 2f, md),
-                   new Vector3(mw + 1f, WallH, WallT), wallMat);
-        CreateWall("Wall_S", new Vector3(mw / 2f, WallH / 2f, 0f),
-                   new Vector3(mw + 1f, WallH, WallT), wallMat);
-        CreateWall("Wall_E", new Vector3(mw, WallH / 2f, md / 2f),
-                   new Vector3(WallT, WallH, md + 1f), wallMat);
-        CreateWall("Wall_W", new Vector3(0f, WallH / 2f, md / 2f),
-                   new Vector3(WallT, WallH, md + 1f), wallMat);
-
-        // ── Core筒 exterior walls (with door gaps for ring corridor) ───
-        BuildCoreWalls(floorHolder, wallMat, layout);
-
-        // ── Build rooms ────────────────────────────────────────────────
-        var roomColorMap = new Dictionary<RoomType, Color>
-        {
-            { RoomType.Stairwell,      new Color(0.40f, 0.40f, 0.45f) },
-            { RoomType.TeaRoom,        new Color(0.45f, 0.55f, 0.45f) },
-            { RoomType.ConferenceRoom, new Color(0.55f, 0.45f, 0.55f) },
-            { RoomType.ServerRoom,     new Color(0.20f, 0.20f, 0.35f) },
-            { RoomType.Office,         new Color(0.50f, 0.48f, 0.42f) },
-            { RoomType.Hallway,        new Color(0.35f, 0.35f, 0.40f) },
-        };
-
-        foreach (var room in layout.rooms)
-        {
-            BuildRoom(room, floorHolder, mat, wallMat, glassMat, roomColorMap, layout);
-        }
-
-        // ── Desk clusters ──────────────────────────────────────────────
-        var lootHolder = new GameObject("--- Loot ---");
-        int totalDesks = 0;
-        var deskMat = new Material(mat) { color = new Color(0.35f, 0.65f, 0.95f) };
-        foreach (var cluster in layout.deskClusters)
-        {
-            totalDesks += BuildDeskCluster(cluster, lootHolder, deskMat, mat);
-        }
-
-        // ── Filing cabinets ────────────────────────────────────────────
-        int cabCount = Mathf.RoundToInt(layout.deskClusters.Count * 0.5f);
-        var cabMat = new Material(mat) { color = new Color(0.55f, 0.55f, 0.65f) };
-        for (int i = 0; i < cabCount; i++)
-        {
-            var blockedRects = new List<Rect>();
-            foreach (var room in layout.rooms)
-                blockedRects.Add(new Rect(room.worldPos.x, room.worldPos.y, room.size.x, room.size.y));
-
-            float cx = Random.Range(3f, mw - 3f);
-            float cz = Random.Range(3f, md - 3f);
-            bool blocked = false;
-            foreach (var br in blockedRects)
-                if (cx > br.xMin - 1f && cx < br.xMax + 1f && cz > br.yMin - 1f && cz < br.yMax + 1f)
-                    { blocked = true; break; }
-            if (blocked) continue;
-
-            var cab = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cab.name = $"Cab_{i}"; cab.tag = "Loot";
-            cab.transform.parent = lootHolder.transform;
-            cab.transform.position = new Vector3(cx, 0.75f, cz);
-            cab.transform.localScale = new Vector3(1f, 1.5f, 0.6f);
-            cab.GetComponent<MeshRenderer>().sharedMaterial = cabMat;
-            var clc = cab.AddComponent<LootContainer>();
-            var clcSO = new SerializedObject(clc);
-            clcSO.FindProperty("containerType").enumValueIndex = (int)ContainerType.FilingCabinet;
-            clcSO.ApplyModifiedProperties();
-        }
-
-        // ── Columns ────────────────────────────────────────────────────
-        var colMat = new Material(mat) { color = new Color(0.7f, 0.7f, 0.7f) };
-        foreach (var col in layout.columns)
-        {
-            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            c.name = "Column"; c.transform.parent = floorHolder.transform;
-            c.transform.position = new Vector3(col.x, WallH / 2f, col.y);
-            c.transform.localScale = new Vector3(0.8f, WallH / 2f, 0.8f);
-            c.GetComponent<MeshRenderer>().sharedMaterial = colMat;
-            c.isStatic = true;
-        }
-
-        // ── Partition walls ────────────────────────────────────────────
-        foreach (var part in layout.partitions)
-        {
-            BuildPartition(part, floorHolder, mat);
-        }
-
-        // ── High-value zone marker ─────────────────────────────────────
-        if (layout.highValueZonePos != Vector2.zero)
-        {
-            var hvMat = new Material(mat) { color = new Color(0.9f, 0.7f, 0.1f, 0.6f) };
-            var hvMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            hvMarker.name = $"HighValue_{layout.highValueZoneType}";
-            hvMarker.transform.position = new Vector3(layout.highValueZonePos.x, 0.1f, layout.highValueZonePos.y);
-            hvMarker.transform.localScale = new Vector3(2f, 0.05f, 2f);
-            hvMarker.GetComponent<MeshRenderer>().sharedMaterial = hvMat;
-            Object.DestroyImmediate(hvMarker.GetComponent<Collider>());
-        }
-
-        // ── Luxury tea bar (every 5 floors) ────────────────────────────
-        if (layout.hasLuxuryTeaBar)
-        {
-            float ltx = Random.Range(10f, mw - 10f);
-            float ltz = Random.Range(10f, md - 10f);
-            var teaBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            teaBar.name = "LuxuryTeaBar";
-            teaBar.transform.position = new Vector3(ltx, 0.5f, ltz);
-            teaBar.transform.localScale = new Vector3(5f, 1f, 4f);
-            teaBar.GetComponent<MeshRenderer>().sharedMaterial =
-                new Material(mat) { color = new Color(0.6f, 0.5f, 0.35f) };
-            teaBar.tag = "Loot";
-            var tlc = teaBar.AddComponent<LootContainer>();
-            var tlcSO = new SerializedObject(tlc);
-            tlcSO.FindProperty("containerType").enumValueIndex = (int)ContainerType.Desk;
-            tlcSO.ApplyModifiedProperties();
-        }
-
-        // ── Extraction points ──────────────────────────────────────────
-        var extractMat = new Material(mat) { color = new Color(0.2f, 0.9f, 0.3f) };
-        // Entry stairs (player starts here, no extraction trigger).
-        AddMarker("EntryPoint", layout.entryPos, new Material(mat) { color = Color.cyan });
-        // Extraction stairs (trigger to leave).
-        AddExtractionPoint("ExtractPoint", layout.extractPos, extractMat);
+        // ── Floor assembly (delegated to FloorAssembler for editor+runtime parity) ──
+        var floorHolder = FloorAssembler.Assemble(layout);
 
         // ── Player ─────────────────────────────────────────────────────
         var player = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -264,6 +132,8 @@ public static partial class SceneWirer
 
         // ── Save scene ─────────────────────────────────────────────────
         EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
+        int totalDesks = 0;
+        foreach (var dc in layout.deskClusters) totalDesks += dc.deskCount;
         Debug.Log($"[SceneWirer] Floor {floorNumber}: {layout.rooms.Count} rooms, " +
                   $"{totalDesks} desks, {layout.columns.Count} columns, " +
                   $"{layout.enemyCount} enemies, {layout.partitions.Count} partitions, " +

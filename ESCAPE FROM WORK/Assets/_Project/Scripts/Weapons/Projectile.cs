@@ -124,21 +124,20 @@ namespace EscapeFromWork.Weapons
         /// <param name="target">The enemy GameObject that was hit.</param>
         private void ApplySpecialEffect(GameObject target)
         {
+            var fx = target.GetComponent<Core.StatusEffectManager>();
+
             switch (_specialEffect.ToLowerInvariant().Trim())
             {
                 case "blind":
-                    // TODO: Integrate with status-effect system when available.
-                    Debug.Log($"[Projectile] Blind applied to {target.name}");
+                    fx?.Apply(StatusEffectType.Blind, 2f, 1f, gameObject);
                     break;
 
                 case "root":
-                    // TODO: Integrate with status-effect system when available.
-                    Debug.Log($"[Projectile] Root applied to {target.name}");
+                    fx?.Apply(StatusEffectType.Root, 3f, 1f, gameObject);
                     break;
 
                 case "taunt":
-                    // TODO: Integrate with status-effect system when available.
-                    Debug.Log($"[Projectile] Taunt applied to {target.name}");
+                    fx?.Apply(StatusEffectType.Taunt, 5f, 1f, gameObject);
                     break;
 
                 default:

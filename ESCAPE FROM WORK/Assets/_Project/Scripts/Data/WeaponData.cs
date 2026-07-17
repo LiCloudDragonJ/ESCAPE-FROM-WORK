@@ -99,6 +99,12 @@ namespace EscapeFromWork.Data
         /// </summary>
         [SerializeField] [Range(0f, 5f)] private float chargeUpTime;
 
+        /// <summary>Stamina consumed by a light melee attack with this weapon.</summary>
+        [SerializeField] [Range(5f, 30f)] private float meleeLightStaminaCost = 15f;
+
+        /// <summary>Stamina consumed by a heavy melee attack with this weapon.</summary>
+        [SerializeField] [Range(10f, 50f)] private float meleeHeavyStaminaCost = 30f;
+
         // ---- Assets -------------------------------------------------------------
 
         /// <summary>Inventory / HUD icon.</summary>
@@ -124,6 +130,8 @@ namespace EscapeFromWork.Data
         public float MeleeRange => meleeRange;
         public float MeleeArc => meleeArc;
         public float ChargeUpTime => chargeUpTime;
+        public float MeleeLightStaminaCost => meleeLightStaminaCost;
+        public float MeleeHeavyStaminaCost => meleeHeavyStaminaCost;
         public Sprite Icon => icon;
         public GameObject Prefab => prefab;
 

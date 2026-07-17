@@ -27,5 +27,7 @@ MonoBehaviour:
   meleeRange: 2
   meleeArc: 90
   chargeUpTime: 0
+  meleeLightStaminaCost: 10
+  meleeHeavyStaminaCost: 18
   icon: {fileID: 0}
   prefab: {fileID: 0}

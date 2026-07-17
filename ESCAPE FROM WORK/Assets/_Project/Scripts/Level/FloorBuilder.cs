@@ -28,7 +28,10 @@ namespace EscapeFromWork.Level
         public static Vector2 CoreCenter => new(CoreX + CoreW / 2f, CoreZ + CoreD / 2f);
 
         // ── Ring corridor ───────────────────────────────────────────────
-        public const float CorridorW = 1.8f;
+        // 2.5m minimum — player dodge is ~2m; corridors narrower than dodge = death trap
+        public const float CorridorW = 2.5f;
+        public const float BranchCorridorW = 1.8f;
+        public const float DeadEndCorridorW = 1.5f;
 
         public static float CoreOuterX1 => CoreX - CorridorW;
         public static float CoreOuterX2 => CoreX + CoreW + CorridorW;
@@ -136,24 +139,79 @@ namespace EscapeFromWork.Level
             // ── 2. Core筒 interior (always fixed) ───────────────────────
             AddCoreInterior(rooms);
 
-            // ── 3. Select anchors ───────────────────────────────────────
-            var (entryIdx, extractIdx) = SelectAnchors();
-            layout.entryPos   = AnchorPositions[entryIdx];
-            layout.extractPos = AnchorPositions[extractIdx];
+            // ── 3. Entry point (fixed north side, near public zone) ────
+            // Pick the north anchor closest to the map centre.
+            int entryIdx = 2; // N1 (35, 77) — closest to centre
+            layout.entryPos = AnchorPositions[entryIdx];
 
             // ── 4. Fire escape stairwells at ALL 8 anchors ──────────────
-            for (int i = 0; i < AnchorPositions.Length; i++)
+            // Extraction: random subset available (count by floor segment).
+            int extractCount = floorNumber >= 36 ? SeededRange(floorNumber, 997, 53, 3, 4)
+                            : floorNumber >= 16 ? SeededRange(floorNumber, 997, 53, 2, 3)
+                            : SeededRange(floorNumber, 997, 53, 1, 2);
+
+            var allAnchors = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7 };
+            // Shuffle deterministically.
+            for (int i = allAnchors.Count - 1; i > 0; i--)
             {
-                var center = AnchorPositions[i];
+                int j = Mathf.FloorToInt(SeededFloat(floorNumber, 911 + i, 29 + i, 0f, i + 0.999f));
+                (allAnchors[i], allAnchors[j]) = (allAnchors[j], allAnchors[i]);
+            }
+
+            int extractIdx = -1;
+            var availableExtracts = new List<int>();
+            for (int i = 0; i < allAnchors.Count; i++)
+            {
+                int ai = allAnchors[i];
+                if (ai == entryIdx) continue; // entry stairwell is not extraction
+                var center = AnchorPositions[ai];
                 var stairRect = new Rect(
                     Mathf.Clamp(center.x - StairHalf, 0f, MapW - StairSize),
                     Mathf.Clamp(center.y - StairHalf, 0f, MapD - StairSize),
                     StairSize, StairSize);
-                var label = i == entryIdx   ? "Entry_Stairs"
-                          : i == extractIdx ? "Extract_Stairs"
-                          : $"Stairs_{i}";
+
+                string label;
+                if (availableExtracts.Count < extractCount)
+                {
+                    availableExtracts.Add(ai);
+                    if (extractIdx < 0 || Vector2.Distance(AnchorPositions[ai], layout.entryPos) >
+                        Vector2.Distance(AnchorPositions[extractIdx], layout.entryPos))
+                        extractIdx = ai; // farthest available = primary extraction
+                    label = availableExtracts.Count == 1 ? "Extract_Primary" : $"Extract_{availableExtracts.Count}";
+                }
+                else
+                {
+                    label = $"Stairs_Locked_{i}";
+                }
+
                 rooms.Add(MakeRoom(RoomType.Stairwell, stairRect, label));
                 blocked.Add(stairRect);
+            }
+
+            if (extractIdx < 0) extractIdx = allAnchors.Find(a => a != entryIdx);
+            layout.extractPos = AnchorPositions[extractIdx];
+
+            // ── 4.5 Reception near entry (north side, public zone) ──────
+            // Place at the north-centre, just inside the public belt.
+            float recX = MapW / 2f - 6f;
+            float recZ = MapD - 9f; // inside north public belt
+            var receptionRect = new Rect(recX, recZ, 12f, 6f);
+            if (!OverlapsAny(receptionRect, blocked))
+            {
+                rooms.Add(MakeRoom(RoomType.Reception, receptionRect, "Reception"));
+                BlockWithMargin(blocked, receptionRect);
+            }
+
+            // ── 4.6 Tea room in semi-public zone (Y=60-72, near core) ──
+            // Place it adjacent to the core筒 north side.
+            float teaX = CoreX + 2f;
+            float teaZ = CoreZ + CoreD + CorridorW + 1f;
+            var teaRect = new Rect(teaX, teaZ, 6f, 5f);
+            if (!OverlapsAny(teaRect, blocked))
+            {
+                rooms.Add(MakeRoom(RoomType.TeaRoom, teaRect, "TeaRoom"));
+                layout.teaRoomPos = new Vector2(teaRect.x + teaRect.width / 2f, teaRect.y + teaRect.height / 2f);
+                BlockWithMargin(blocked, teaRect);
             }
 
             // ── 5. Archetype-specific room generation ───────────────────
@@ -199,14 +257,15 @@ namespace EscapeFromWork.Level
             layout.partitions = GeneratePartitions(layout.deskClusters, layout.partitionDensity, floorNumber);
 
             // ── 10. Enemy count ─────────────────────────────────────────
+            // floorLerp: 50F=0 → 1F≈1. Higher floors = fewer enemies.
             layout.enemyCount = archetype switch
             {
-                FloorArchetype.Cellular => Mathf.RoundToInt(Mathf.Lerp(24, 8, floorLerp)),
-                _ => Mathf.RoundToInt(Mathf.Lerp(20, 5, floorLerp)),
+                FloorArchetype.Cellular => Mathf.RoundToInt(Mathf.Lerp(8, 24, floorLerp)),
+                _ => Mathf.RoundToInt(Mathf.Lerp(5, 20, floorLerp)),
             };
 
-            // ── 11. Tea room position ───────────────────────────────────
-            layout.teaRoomPos = new Vector2(TeaCore.x + TeaCore.width / 2f, TeaCore.y + TeaCore.height / 2f);
+            // ── 11. Zone-level assignment ──────────────────────────────
+            ConfigureZoneLevels(rooms);
 
             layout.rooms = rooms;
             Debug.Log($"[FloorBuilder] Floor {floorNumber} [{archetype}]: entry={AnchorPositions[entryIdx]} extract={AnchorPositions[extractIdx]}, " +
@@ -224,11 +283,11 @@ namespace EscapeFromWork.Level
                                       int floor, QuadDensity[] quadDensity)
         {
             // Meeting rooms in the belt around ring corridor.
-            int meetingCount = SeededRange(floor, 199, 89, 4, 12);
+            int meetingCount = SeededRange(floor, 199, 89, 4, 10);
             AddMeetingRooms(rooms, blocked, floor, meetingCount, quadDensity);
 
             // Private offices along exterior walls.
-            int officeCount = SeededRange(floor, 307, 91, 4, 16);
+            int officeCount = SeededRange(floor, 307, 91, 4, 12);
             AddExteriorOffices(rooms, blocked, floor, officeCount, quadDensity);
 
             // Server rooms on IT floors.
@@ -318,7 +377,7 @@ namespace EscapeFromWork.Level
                         final.xMax > MapW - 0.5f || final.yMax > MapD - 0.5f)
                         { attempts++; continue; }
 
-                    blocked.Add(final);
+                    BlockWithMargin(blocked, final);
 
                     // Mix room types: mostly small offices, some meeting rooms.
                     RoomType rt = Random.value < 0.55f ? RoomType.Office
@@ -384,12 +443,12 @@ namespace EscapeFromWork.Level
 
         static void AddCoreInterior(List<RoomDef> rooms)
         {
-            rooms.Add(MakeRoom(RoomType.Stairwell, StairsA,   "Core_StairsA"));
-            rooms.Add(MakeRoom(RoomType.Stairwell, StairsB,   "Core_StairsB"));
-            rooms.Add(MakeRoom(RoomType.Hallway,   ElevLobby, "ElevatorLobby"));
-            rooms.Add(MakeRoom(RoomType.Hallway,   RestroomM, "Restroom_M"));
-            rooms.Add(MakeRoom(RoomType.Hallway,   RestroomF, "Restroom_F"));
-            rooms.Add(MakeRoom(RoomType.TeaRoom,   TeaCore,   "Core_TeaRoom"));
+            rooms.Add(MakeRoom(RoomType.CoreStairs,     StairsA,   "Core_StairsA"));
+            rooms.Add(MakeRoom(RoomType.CoreStairs,     StairsB,   "Core_StairsB"));
+            rooms.Add(MakeRoom(RoomType.CoreElevator,   ElevLobby, "ElevatorLobby"));
+            rooms.Add(MakeRoom(RoomType.CoreRestroom,   RestroomM, "Restroom_M"));
+            rooms.Add(MakeRoom(RoomType.CoreRestroom,   RestroomF, "Restroom_F"));
+            rooms.Add(MakeRoom(RoomType.CoreMechanical, TeaCore,   "Core_Mechanical"));
         }
 
         // ════════════════════════════════════════════════════════════════
@@ -445,7 +504,7 @@ namespace EscapeFromWork.Level
                     Rect r = new(rx, rz, rw, rd);
                     if (r.xMin < 0.5f || r.yMin < 0.5f || r.xMax > MapW - 0.5f || r.yMax > MapD - 0.5f) continue;
                     if (OverlapsAny(r, blocked)) continue;
-                    blocked.Add(r);
+                    BlockWithMargin(blocked, r);
                     rooms.Add(MakeRoom(RoomType.ConferenceRoom, r, $"Meeting_{i}"));
                     break;
                 }
@@ -487,7 +546,7 @@ namespace EscapeFromWork.Level
                     int q = GetQuadrant(r.center.x, r.center.y);
                     float chance = quadDensity[q] switch { QuadDensity.Dense => 0.9f, QuadDensity.Medium => 0.55f, _ => 0.2f };
                     if (Random.value > chance) continue;
-                    blocked.Add(r);
+                    BlockWithMargin(blocked, r);
                     rooms.Add(MakeRoom(RoomType.Office, r, $"Office_{i}"));
                     break;
                 }
@@ -563,7 +622,7 @@ namespace EscapeFromWork.Level
                     int q = GetQuadrant(r.center.x, r.center.y);
                     float chance = quadDensity[q] switch { QuadDensity.Dense => 0.85f, QuadDensity.Medium => 0.5f, _ => 0.25f };
                     if (Random.value > chance) continue;
-                    blocked.Add(r);
+                    BlockWithMargin(blocked, r);
                     int deskCount = Mathf.Clamp(Mathf.RoundToInt((cw * cd) / 2.8f), 3, 24);
                     clusters.Add(new DeskClusterDef
                     {
@@ -675,7 +734,7 @@ namespace EscapeFromWork.Level
                 GridSnap(ref rx); GridSnap(ref rz);
                 Rect r = new(rx, rz, rw, rd);
                 if (OverlapsAny(r, blocked)) continue;
-                blocked.Add(r);
+                BlockWithMargin(blocked, r);
                 rooms.Add(MakeRoom(type, r, label));
                 return;
             }
@@ -687,6 +746,65 @@ namespace EscapeFromWork.Level
                 if (a.xMin < b.xMax && a.xMax > b.xMin && a.yMin < b.yMax && a.yMax > b.yMin)
                     return true;
             return false;
+        }
+
+        /// <summary>Margin added around every room's blocked rect to prevent wall clipping.</summary>
+        const float BlockMargin = WallT + 0.3f; // wall thickness + clearance
+
+        static void BlockWithMargin(List<Rect> blocked, Rect room)
+        {
+            blocked.Add(new Rect(
+                room.x - BlockMargin, room.y - BlockMargin,
+                room.width + BlockMargin * 2f, room.height + BlockMargin * 2f));
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Zone-level post-processing
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Assign <see cref="ZoneLevel"/> to each room based on its Y position,
+        /// creating the public→semi-public→workspace→secure spatial gradient.
+        /// </summary>
+        static void ConfigureZoneLevels(List<RoomDef> rooms)
+        {
+            foreach (var room in rooms)
+            {
+                float cy = room.worldPos.y + room.size.y / 2f; // room centre Y
+
+                // Core interior rooms are always Facility.
+                if (room.roomType == RoomType.CoreStairs ||
+                    room.roomType == RoomType.CoreElevator ||
+                    room.roomType == RoomType.CoreRestroom ||
+                    room.roomType == RoomType.CoreMechanical)
+                {
+                    room.zoneLevel = ZoneLevel.Facility;
+                    continue;
+                }
+
+                // Stairwells on map edges are Facility.
+                if (room.roomType == RoomType.Stairwell)
+                {
+                    room.zoneLevel = ZoneLevel.Facility;
+                    continue;
+                }
+
+                // Assign zone by Y band.
+                if (cy >= 72f)
+                    room.zoneLevel = ZoneLevel.Public;
+                else if (cy >= 60f)
+                    room.zoneLevel = ZoneLevel.SemiPublic;
+                else if (cy >= 28f)
+                    room.zoneLevel = ZoneLevel.Workspace;
+                else
+                    room.zoneLevel = ZoneLevel.Secure;
+
+                // Mark windows for rooms on the exterior.
+                float x = room.worldPos.x, z = room.worldPos.y;
+                float w = room.size.x, d = room.size.y;
+                room.hasWindows = (z <= 0.5f || z + d >= MapD - 0.5f ||
+                                   x <= 0.5f || x + w >= MapW - 0.5f);
+            }
         }
     }
 }

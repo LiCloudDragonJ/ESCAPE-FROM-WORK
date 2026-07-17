@@ -1,70 +1,119 @@
 using UnityEngine;
+using EscapeFromWork.Data;
 
 namespace EscapeFromWork.Enemies
 {
     /// <summary>
-    /// Manages enemy population for a single floor. Called by the level / floor
-    /// manager when a new floor is entered. Spawns a random number of enemies
-    /// (within configured bounds) at random spawn-zone positions.
+    /// Manages enemy population for a single floor. Supports two spawn modes:
+    /// 1. Prefab-based (existing) — picks randomly from enemyPrefabs[].
+    /// 2. Data-driven (new) — picks from enemyDataPool[], creating a runtime
+    ///    GameObject with the appropriate EnemyBase subclass.
     /// </summary>
     public class EnemySpawner : MonoBehaviour
     {
-        // ---- Configuration ------------------------------------------------------
+        // ---- Prefab-based spawning ------------------------------------------------
 
-        /// <summary>
-        /// Pool of enemy prefabs to choose from when spawning. Each spawned enemy
-        /// is selected randomly from this array.
-        /// </summary>
         [SerializeField] private GameObject[] enemyPrefabs;
 
-        /// <summary>Minimum number of enemies to spawn per floor.</summary>
-        [SerializeField] private int minEnemies = 5;
+        // ---- Data-driven spawning -------------------------------------------------
 
-        /// <summary>Maximum number of enemies to spawn per floor.</summary>
+        [Tooltip("EnemyData SOs for data-driven spawning. Each entry defines one enemy type.")]
+        [SerializeField] private EnemyData[] enemyDataPool;
+
+        [Tooltip("Fallback prefab used when spawning from data without a specific prefab.")]
+        [SerializeField] private GameObject defaultEnemyPrefab;
+
+        // ---- Count config ---------------------------------------------------------
+
+        [SerializeField] private int minEnemies = 5;
         [SerializeField] private int maxEnemies = 12;
 
-        /// <summary>
-        /// Possible spawn locations. A random subset of these is used each time
-        /// <see cref="SpawnFloorEnemies"/> is called.
-        /// </summary>
+        // ---- Spawn zones ----------------------------------------------------------
+
         [SerializeField] private Transform[] spawnZones;
 
-        // ---- Private state ------------------------------------------------------
+        // ---- Private state --------------------------------------------------------
 
-        /// <summary>Parent Transform under which spawned enemies are organised in the hierarchy.</summary>
         private Transform _enemyContainer;
 
-        // ---- Unity lifecycle ----------------------------------------------------
+        // ---- Unity lifecycle ------------------------------------------------------
 
         private void Awake()
         {
-            // Create a container object to keep the Hierarchy tidy.
             GameObject container = new GameObject("EnemyContainer");
             container.transform.SetParent(transform);
             _enemyContainer = container.transform;
         }
 
-        // ---- Public API ---------------------------------------------------------
+        // ---- Public API -----------------------------------------------------------
 
         /// <summary>
-        /// Spawn a random number of enemies (between <see cref="minEnemies"/> and
-        /// <see cref="maxEnemies"/>) at random positions chosen from
-        /// <see cref="spawnZones"/>.
-        ///
-        /// <para>Each spawned enemy is tagged "Enemy" so that
-        /// <see cref="CountLivingEnemies"/> and other systems can find them.</para>
+        /// Spawn enemies for the current floor. Uses data-driven spawning if
+        /// enemyDataPool is populated, falling back to prefab-based spawning.
         /// </summary>
         public void SpawnFloorEnemies()
         {
-            if (enemyPrefabs == null || enemyPrefabs.Length == 0)
+            if (spawnZones == null || spawnZones.Length == 0)
             {
-                Debug.LogWarning("[EnemySpawner] No enemy prefabs assigned — nothing to spawn.");
+                Debug.LogWarning("[EnemySpawner] No spawn zones assigned.");
                 return;
             }
 
-            if (spawnZones == null || spawnZones.Length == 0)
+            // Data-driven mode: spawn from EnemyData SO references.
+            if (enemyDataPool != null && enemyDataPool.Length > 0)
             {
-                Debug.LogWarning("[EnemySpawner] No spawn zones assigned — nothing to spawn.");
+                SpawnFromData();
+                return;
+            }
+
+            // Prefab-based mode: spawn from prefab references.
+            SpawnFromPrefabs();
+        }
+
+        /// <summary>
+        /// Spawn enemies from EnemyData SO pool. Creates a runtime GameObject
+        /// for each enemy, attaches the correct component, and initializes it.
+        /// </summary>
+        private void SpawnFromData()
+        {
+            int count = Random.Range(minEnemies, maxEnemies + 1);
+
+            for (int i = 0; i < count; i++)
+            {
+                EnemyData data = enemyDataPool[Random.Range(0, enemyDataPool.Length)];
+                if (data == null) continue;
+
+                Transform zone = spawnZones[Random.Range(0, spawnZones.Length)];
+                if (zone == null) continue;
+
+                Vector3 pos = zone.position + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f));
+
+                // Try prefab first, fall back to default.
+                GameObject prefab = data.Prefab != null ? data.Prefab : defaultEnemyPrefab;
+                if (prefab == null)
+                {
+                    Debug.LogWarning($"[EnemySpawner] No prefab for {data.EnemyName}");
+                    continue;
+                }
+
+                GameObject enemy = Instantiate(prefab, pos, Quaternion.identity, _enemyContainer);
+                enemy.tag = "Enemy";
+                enemy.name = $"{data.EnemyName}_{i}";
+
+                // Initialize EnemyBase with data.
+                var enemyBase = enemy.GetComponent<EnemyBase>();
+                if (enemyBase != null)
+                    enemyBase.InitializeFromData(data);
+            }
+
+            Debug.Log($"[EnemySpawner] Spawned {count} enemies from data pool ({enemyDataPool.Length} types).");
+        }
+
+        private void SpawnFromPrefabs()
+        {
+            if (enemyPrefabs == null || enemyPrefabs.Length == 0)
+            {
+                Debug.LogWarning("[EnemySpawner] No enemy prefabs assigned.");
                 return;
             }
 
@@ -72,31 +121,19 @@ namespace EscapeFromWork.Enemies
 
             for (int i = 0; i < count; i++)
             {
-                // Pick a random prefab from the pool.
                 GameObject prefab = enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
-                if (prefab == null)
-                    continue;
+                if (prefab == null) continue;
 
-                // Pick a random spawn zone.
                 Transform zone = spawnZones[Random.Range(0, spawnZones.Length)];
-                if (zone == null)
-                    continue;
+                if (zone == null) continue;
 
-                Vector3 spawnPosition = zone.position;
-
-                // Add slight random scatter so enemies don't stack exactly on top
-                // of each other when multiple share a zone.
-                spawnPosition += new Vector3(
-                    Random.Range(-1f, 1f),
-                    0f,
-                    Random.Range(-1f, 1f));
-
-                GameObject enemy = Instantiate(prefab, spawnPosition, Quaternion.identity, _enemyContainer);
+                Vector3 pos = zone.position + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f));
+                GameObject enemy = Instantiate(prefab, pos, Quaternion.identity, _enemyContainer);
                 enemy.tag = "Enemy";
                 enemy.name = $"{prefab.name}_{i}";
             }
 
-            Debug.Log($"[EnemySpawner] Spawned {count} enemies across {spawnZones.Length} zones.");
+            Debug.Log($"[EnemySpawner] Spawned {count} enemies from prefab pool.");
         }
 
         /// <summary>

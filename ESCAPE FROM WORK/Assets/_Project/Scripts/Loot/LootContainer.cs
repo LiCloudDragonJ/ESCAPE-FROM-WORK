@@ -20,6 +20,9 @@ namespace EscapeFromWork.Loot
         [Tooltip("Container type — determines grid size and loot category.")]
         [SerializeField] private ContainerType containerType = ContainerType.Desk;
 
+        /// <summary>Public setter for procedural container-type binding.</summary>
+        public ContainerType ContainerType { get => containerType; set => containerType = value; }
+
         [Header("Loot")]
         [Tooltip("The loot table this container draws from.")]
         [SerializeField] private LootTable lootTable;

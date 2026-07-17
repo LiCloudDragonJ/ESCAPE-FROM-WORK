@@ -178,8 +178,16 @@ namespace EscapeFromWork.Level
             go.transform.localScale = new Vector3(1f, 0.8f, 0.6f);
             go.transform.SetParent(parent);
 
-            // Remove collider — triggers handled by LootContainer.
-            Object.Destroy(go.GetComponent<Collider>());
+            // Collider: make trigger for cover detection. Loot interaction is
+            // handled by LootContainer component on a separate child GameObject.
+            var col = go.GetComponent<Collider>();
+            if (col != null)
+            {
+                col.isTrigger = true;
+            }
+
+            // Tag for cover detection (PlayerHealth.IsInCover checks "Furniture" tag).
+            go.tag = "Furniture";
 
             return go;
         }

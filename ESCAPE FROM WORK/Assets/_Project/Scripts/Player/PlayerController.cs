@@ -21,6 +21,10 @@ namespace EscapeFromWork.Player
         [Header("Aim")]
         [SerializeField] private PlayerAim playerAim;
 
+        [Header("Combat")]
+        [Tooltip("Reference to PlayerCombat for stamina integration.")]
+        [SerializeField] private PlayerCombat playerCombat;
+
         // ---- Private state ----
         private Rigidbody _rb;
         private Vector2 _moveInput;
@@ -49,6 +53,10 @@ namespace EscapeFromWork.Player
             _rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
             _mainCamera = Camera.main;
+
+            if (playerCombat == null)
+                playerCombat = GetComponent<PlayerCombat>();
+
             _originalScale = transform.localScale;
             _originalY = transform.position.y;
         }
@@ -142,6 +150,18 @@ namespace EscapeFromWork.Player
 
             if (Time.time - _lastDodgeTime < dodgeCooldown)
                 return;
+
+            // Stamina check: block dodge if insufficient stamina.
+            if (playerCombat != null)
+            {
+                if (!playerCombat.HasStamina(playerCombat.DodgeStaminaCost))
+                    return;
+                playerCombat.DrainStamina(playerCombat.DodgeStaminaCost);
+
+                // Dodge interrupts reload (GDD: reload can be cancelled by dodge).
+                if (playerCombat.CurrentWeapon != null)
+                    playerCombat.CurrentWeapon.CancelReload();
+            }
 
             // Determine dodge direction: movement input direction, or backward
             // from aim direction if not moving.
