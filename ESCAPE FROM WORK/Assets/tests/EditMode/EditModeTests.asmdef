@@ -2,7 +2,7 @@
     "name": "EditModeTests",
     "rootNamespace": "EscapeFromWork.Tests.EditMode",
     "references": [
-        "Assembly-CSharp"
+        "EscapeFromWork"
     ],
     "includePlatforms": [
         "Editor"

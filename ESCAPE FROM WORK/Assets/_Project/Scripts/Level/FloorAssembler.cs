@@ -120,6 +120,11 @@ namespace EscapeFromWork.Level
             var blockedRects = new List<Rect>();
             foreach (var room in layout.rooms)
                 blockedRects.Add(new Rect(room.worldPos.x, room.worldPos.y, room.size.x, room.size.y));
+            // Desk clusters also block random furniture (cabinets, tea bar).
+            foreach (var cluster in layout.deskClusters)
+                blockedRects.Add(new Rect(cluster.center.x - cluster.size.x / 2f,
+                                          cluster.center.y - cluster.size.y / 2f,
+                                          cluster.size.x, cluster.size.y));
 
             for (int i = 0; i < cabCount; i++)
             {
@@ -170,20 +175,34 @@ namespace EscapeFromWork.Level
                 SafeDestroy(hvMarker.GetComponent<Collider>());
             }
 
-            // Luxury tea bar (every 5 floors).
+            // Luxury tea bar (every 5 floors). Retry placement clear of
+            // rooms and desk clusters (bar is 5x4 + 1m clearance).
             if (layout.hasLuxuryTeaBar)
             {
-                float ltx = Random.Range(10f, mw - 10f);
-                float ltz = Random.Range(10f, md - 10f);
-                var teaBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                teaBar.name = "LuxuryTeaBar";
-                teaBar.transform.position = new Vector3(ltx, 0.5f, ltz);
-                teaBar.transform.localScale = new Vector3(5f, 1f, 4f);
-                teaBar.GetComponent<MeshRenderer>().sharedMaterial =
-                    new Material(mat) { color = new Color(0.6f, 0.5f, 0.35f) };
-                teaBar.tag = "Loot";
-                var tlc = teaBar.AddComponent<LootContainer>();
-                tlc.ContainerType = ContainerType.Desk;
+                float ltx = 0f, ltz = 0f;
+                bool teaBarPlaced = false;
+                for (int attempt = 0; attempt < 40 && !teaBarPlaced; attempt++)
+                {
+                    ltx = Random.Range(10f, mw - 10f);
+                    ltz = Random.Range(10f, md - 10f);
+                    teaBarPlaced = true;
+                    foreach (var br in blockedRects)
+                        if (ltx > br.xMin - 3.5f && ltx < br.xMax + 3.5f &&
+                            ltz > br.yMin - 3f && ltz < br.yMax + 3f)
+                            { teaBarPlaced = false; break; }
+                }
+                if (teaBarPlaced)
+                {
+                    var teaBar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    teaBar.name = "LuxuryTeaBar";
+                    teaBar.transform.position = new Vector3(ltx, 0.5f, ltz);
+                    teaBar.transform.localScale = new Vector3(5f, 1f, 4f);
+                    teaBar.GetComponent<MeshRenderer>().sharedMaterial =
+                        new Material(mat) { color = new Color(0.6f, 0.5f, 0.35f) };
+                    teaBar.tag = "Loot";
+                    var tlc = teaBar.AddComponent<LootContainer>();
+                    tlc.ContainerType = ContainerType.Desk;
+                }
             }
 
             // Extraction points.
@@ -331,6 +350,35 @@ namespace EscapeFromWork.Level
             bool atEastEdge  = x + w >= FloorBuilder.MapW - 0.1f;
             bool atWestEdge  = x <= 0.1f;
 
+            // Local helper: true when an enclosed room built earlier in the
+            // room list shares this wall segment — that room already created
+            // the shared wall, so this room skips it to avoid doubled walls.
+            // horizontal=true: wall runs along z=sz spanning x=sx..sx+len.
+            // horizontal=false: wall runs along x=sx spanning z=sz..sz+len.
+            bool WallFacesRoom(float sx, float sz, float len, bool horizontal, float tol)
+            {
+                foreach (var other in layout.rooms)
+                {
+                    if (other == room) break;                          // only rooms already built
+                    if (other.roomType == RoomType.Hallway) continue;  // corridors build no walls
+                    float ox = other.worldPos.x, oz = other.worldPos.y;
+                    float ow = other.size.x,     od = other.size.y;
+                    if (horizontal)
+                    {
+                        bool onEdge = Mathf.Abs(oz - sz) < tol || Mathf.Abs(oz + od - sz) < tol;
+                        bool spans  = ox < sx + len - tol && ox + ow > sx + tol;
+                        if (onEdge && spans) return true;
+                    }
+                    else
+                    {
+                        bool onEdge = Mathf.Abs(ox - sx) < tol || Mathf.Abs(ox + ow - sx) < tol;
+                        bool spans  = oz < sz + len - tol && oz + od > sz + tol;
+                        if (onEdge && spans) return true;
+                    }
+                }
+                return false;
+            }
+
             // Skip walls that face another room (adjacent rooms share walls).
             if (atNorthEdge || WallFacesRoom(x, z + d, w, true, 0.5f)) { /* skip */ }
             else if (doorSide != 0)
@@ -346,15 +394,15 @@ namespace EscapeFromWork.Level
 
             if (atEastEdge || WallFacesRoom(x + w, z, d, false, 0.5f)) { /* skip */ }
             else if (doorSide != 2)
-                CreateWallSeg($"R_E", x + w, z, d, wh, tw, false, roomWallMat);
+                CreateWallSeg($"R_E", z, x + w, d, wh, tw, false, roomWallMat);
             else
-                CreateWallWithGap($"R_E", x + w, z, d, wh, tw, z + d / 2f, doorWidth, false, roomWallMat);
+                CreateWallWithGap($"R_E", z, x + w, d, wh, tw, z + d / 2f, doorWidth, false, roomWallMat);
 
             if (atWestEdge || WallFacesRoom(x, z, d, false, 0.5f)) { /* skip */ }
             else if (doorSide != 3)
-                CreateWallSeg($"R_W", x, z, d, wh, tw, false, roomWallMat);
+                CreateWallSeg($"R_W", z, x, d, wh, tw, false, roomWallMat);
             else
-                CreateWallWithGap($"R_W", x, z, d, wh, tw, z + d / 2f, doorWidth, false, roomWallMat);
+                CreateWallWithGap($"R_W", z, x, d, wh, tw, z + d / 2f, doorWidth, false, roomWallMat);
 
             // ── Furniture ──────────────────────────────────────────────────
             if (room.roomType == RoomType.Reception)

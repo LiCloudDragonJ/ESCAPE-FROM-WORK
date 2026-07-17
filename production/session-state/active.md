@@ -1,95 +1,44 @@
 # Session State — ESCAPE FROM WORK
 
-## Current Status: Phase 1 Remaining — Plan Ready
+## Current Status: 楼层生成穿模修复完成，工程健康
 
-**Date:** 2026-07-16
+**Date:** 2026-07-17
 
-### ✅ Complete
-- Code cleanup (BENGLAOTOU deleted, SceneWirer split into 4 files, pushed)
-- Full implementation plan written (698 lines, pushed to GitHub)
+### ✅ 本次会话完成 (2026-07-17 晚)
+1. **Git 同步**：远程 main 被 force push 重写（中文提交历史），本地已对齐 `b891d53`
+   - 旧历史备份分支：`backup/pre-rewrite-946bf0d`；旧场景 stash：`pre-sync: local SampleScene`
+2. **编译修复**：远程提交漏了 `WallFacesRoom` 方法 → 已补写（相邻房间共享墙去重）
+3. **穿模根因修复**（红 58 处 → 绿 0）：
+   - 竖向墙 (E/W) 调用 CreateWallSeg/CreateWallWithGap 时 (alongStart, acrossPos) 传反 → 4 处交换
+   - 柱子避让禁区内缩 0.5m 改外扩 0.5m (FloorBuilder.GenerateColumns)
+   - 随机文件柜加桌群避让；奢华茶吧 40 次重试避让
+4. **测试基建**：原 asmdef 引用 `Assembly-CSharp` 无效 → 新增 `EscapeFromWork.asmdef` +
+   `EscapeFromWork.Editor.asmdef`，测试 asmdef 改引用 EscapeFromWork
+5. **新回归测试**：`FloorGenOverlapTest`（1/3/5 层网格互穿断言）→ EditMode **38/38 通过**
+6. **一致性冲突全解决**：C3 地图尺寸定案 100×80（代码+GDD 一致），报告判定 PASS
+7. **Asset Store 导入**：VNB Office Set (140 模型) / JMO Cartoon FX / Zombie 已入工程
+   - 缓存里还有 30 个包已盘点分类（见对话记录），暂未导入
 
-### 📋 Plan Document
-`docs/superpowers/plans/2026-07-16-phase1-remaining.md`
+### ⚠️ 已知未决问题
+- **SampleScene 里烘焙的旧楼层是用修复前代码生成的**，场景内穿模需重新生成楼层才消失
+- ExtractPoint 撤离垫片 (6×6) 与消防楼梯间墙相交（视觉轻微，3 处，未修）
+- 技术债：FloorAssembler.CreateWall 把墙创建在场景根级而非楼层节点下 → 切换楼层会泄漏
+- 导入的 3 个资源包 + 截图未提交（体积大，需决定 LFS / .gitignore 策略）
+- P1 差距 7 项、3 种敌人 AI 未完成（见 production/gdd-code-gap-analysis.md）
 
-### Implementation Order
-1. Task 1: Scale calibration (player speed values)
-2. Task 2: Corridor-driven floor layout generator (core algorithm, 300+ lines)
-3. Task 3: Furniture + loot binding (40 furniture types)
-4. Task 4: Base system (stash 8x10 + weapon rack + NPC quests)
-5. Task 5: Integration + SceneWirer rewrite
-6. Task 6: End-to-end verification
+### 🔜 新会话建议起点
+1. 重新生成 SampleScene 楼层（用修复后代码替换烘焙的旧楼层）
+2. 把 VNB 办公模型接进家具生成（替换 Cube 占位）
+3. 或走 /create-epics → /create-stories → /sprint-plan 正式立项
 
-### Design Decisions (from plan)
-- Floor: 60m x 50m, 1 unit = 1 meter
-- Layout: corridor-first + rule-driven (A* stairs to fire escape)
-- Tea room: every 5 floors only
+### Design Decisions
+- Floor: 100m x 80m (定案，与 GDD/FloorBuilder.cs 一致), 1 unit = 1 meter
+- 敌人 8 种普通；光束武器无视掩体（特性）；近战每武器独立体力消耗
 - Player: moveSpeed 5 m/s, dodgeSpeed 10 m/s
-- Stash: 8x10 = 80 slots, upgradeable
-- Quest system: full chains, 4 NPCs, 8 quests
-- Furniture: 40 types, room->furniture->loot table, 4 variants
-
-### Git: Latest commits
-- `4c28bdf` — implementation plan pushed
-- `e2ecf5a` — code cleanup pushed
+- Stash: 8x10 = 80 slots; Quest: 4 NPCs, 8 quests; Tea room: every 5 floors
 
 <!-- STATUS -->
 Epic: Core Prototype
-Feature: Floor Generation + Base System
-Task: Per plan docs/superpowers/plans/2026-07-16-phase1-remaining.md
+Feature: Floor Generation
+Task: 穿模修复已完成待提交；下一步重新生成场景楼层
 <!-- /STATUS -->
-
----
-
-## Session Extract — CCGS Full Pipeline 2026-07-17
-
-### Pipeline Completed
-1. **/project-stage-detect** → Stage: Production (stage.txt override: Prototype — outdated)
-   - Report: `production/project-stage-report.md`
-2. **/design-review × 6** → All 6 MVP GDDs reviewed (lean mode)
-   - Reports: `design/gdd/reviews/{system}-review.md`
-   - Verdicts: All 6 APPROVED (with advisory notes)
-3. **/consistency-check** → 4 conflicts, 6 broken deps, 4 underspecified interfaces
-   - Report: `design/gdd/reviews/consistency-check-report.md`
-4. **/architecture-review** → Verdict: FAIL (0% coverage — expected, greenfield)
-   - Report: `docs/architecture/architecture-review-2026-07-17.md`
-   - TR Registry: `docs/architecture/tr-registry.yaml` (43 requirements across 6 systems)
-   - ADR-001: Event Bus Architecture → `docs/architecture/adr-001-event-bus.md`
-   - ADR-002: ScriptableObject Data Architecture → `docs/architecture/adr-002-scriptableobject-data.md`
-5. **Gap Analysis** → Read `production/gdd-code-gap-analysis.md`
-   - P0: 6 items (stamina, manual aim, reload, ammo reserve, enemy types, cover)
-   - P1: 7 items (floor scaling, variants, weapons, C-class effects, leg-shot, auto-release, detection)
-   - P2: 12 items (quality/integration)
-6. **/design-system × 3** → Post-MVP GDDs created:
-   - `design/gdd/death-inheritance.md` — Death & Inheritance
-   - `design/gdd/base-building.md` — Base Building
-   - `design/gdd/quest-system.md` — Quest System
-
-### Key Findings
-- **4 consistency conflicts** need resolution: enemy count (4 vs 8), beam formula, map dimensions (100×80 vs 60×50), melee stamina (global vs per-weapon)
-- **6 broken dependencies** resolved by new Post-MVP GDDs
-- **25 code gaps** documented (6 P0 + 7 P1 + 12 P2)
-- **0% architectural coverage** — 2 foundation ADRs written, 13 more needed
-
-### Files Created (20 total)
-- `production/project-stage-report.md`
-- `design/gdd/reviews/combat-system-review.md`
-- `design/gdd/reviews/weapon-system-review.md`
-- `design/gdd/reviews/enemy-system-review.md`
-- `design/gdd/reviews/floor-generation-review.md`
-- `design/gdd/reviews/loot-economy-review.md`
-- `design/gdd/reviews/ui-hud-review.md`
-- `design/gdd/reviews/consistency-check-report.md`
-- `design/gdd/death-inheritance.md`
-- `design/gdd/base-building.md`
-- `design/gdd/quest-system.md`
-- `docs/architecture/architecture-review-2026-07-17.md`
-- `docs/architecture/tr-registry.yaml`
-- `docs/architecture/adr-001-event-bus.md`
-- `docs/architecture/adr-002-scriptableobject-data.md`
-
-### Next Steps (Recommended)
-1. Resolve 4 consistency conflicts (especially enemy count + beam formula)
-2. Write ADR-003 through ADR-008 (Core layer ADRs)
-3. Implement P0 gaps (stamina system first — blocks all combat)
-4. Run `/test-setup` to scaffold test framework
-5. Run `/sprint-plan` to formalize development tracking
