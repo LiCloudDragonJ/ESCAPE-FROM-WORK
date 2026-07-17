@@ -13,7 +13,7 @@
 
 ---
 
-## 🔴 Conflicts Found (3 resolved, 1 pending)
+## 🔴 Conflicts Found (4 resolved, 0 pending)
 
 ### ✅ C1: Enemy Count — RESOLVED (2026-07-17)
 | Source | Value |
@@ -28,14 +28,14 @@
 
 **Resolution**: 光束武器（投影仪射线枪）穿透掩体——这是特性而非 Bug。Weapon GDD 已更新：光束公式明确标注"无视 coverMultiplier"，A 类武器表中投影仪射线枪特殊属性标注"穿透敌人+掩体"。
 
-### ⏳ C3: Map Dimensions — PENDING
+### ✅ C3: Map Dimensions — RESOLVED (2026-07-17)
 | Source | Width | Depth |
 |--------|-------|-------|
 | [floor-generation.md](../floor-generation.md) §Map Params | 100m | 80m |
 | [game-concept.md](../game-concept.md) §5 | 100m | 80m |
-| [session-state/active.md](../../production/session-state/active.md) | **60m** | **50m** |
+| `FloorBuilder.cs` (code, `MapW`/`MapD` constants) | 100m | 80m |
 
-**Status**: 地图尺寸尚未最终敲定。GDD 和 session plan 存在差异，待后续确定。
+**Resolution**: 采用 **100m × 80m**。代码 `FloorBuilder.cs` 中 `MapW=100f, MapD=80f` 已与两份 GDD 一致。session-state 中的旧计划值 60×50 已作废（该文件同步更正）。
 
 ### ✅ C4: Melee Stamina Costs — RESOLVED (2026-07-17)
 
@@ -111,7 +111,7 @@ These cross-references exist but can't be verified without data neither GDD full
 
 ---
 
-## Verdict: 🟡 CONCERNS — 3/4 Conflicts Resolved, 1 Pending (map dimensions)
+## Verdict: 🟢 PASS — 4/4 Conflicts Resolved (updated 2026-07-17)
 
 ### Priority Resolution Order
 1. **C1 (Enemy count)** — blocks enemy implementation scope

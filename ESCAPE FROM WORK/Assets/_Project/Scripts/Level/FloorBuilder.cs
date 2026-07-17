@@ -648,8 +648,10 @@ namespace EscapeFromWork.Level
                 {
                     if (x > CoreX && x < CoreX + CoreW && z > CoreZ && z < CoreZ + CoreD) continue;
                     bool b = false;
+                    // Expand blocked rects so columns keep clear of room walls
+                    // (column radius 0.4 + wall half-thickness).
                     foreach (var r in blocked)
-                        if (x > r.xMin + 0.5f && x < r.xMax - 0.5f && z > r.yMin + 0.5f && z < r.yMax - 0.5f)
+                        if (x > r.xMin - 0.5f && x < r.xMax + 0.5f && z > r.yMin - 0.5f && z < r.yMax + 0.5f)
                             { b = true; break; }
                     if (!b) cols.Add(new Vector2(x, z));
                 }

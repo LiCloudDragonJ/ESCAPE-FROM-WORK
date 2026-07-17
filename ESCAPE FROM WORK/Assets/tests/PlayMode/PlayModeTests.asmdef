@@ -2,7 +2,7 @@
     "name": "PlayModeTests",
     "rootNamespace": "EscapeFromWork.Tests.PlayMode",
     "references": [
-        "Assembly-CSharp"
+        "EscapeFromWork"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
