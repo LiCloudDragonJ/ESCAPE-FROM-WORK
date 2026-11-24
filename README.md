@@ -1,112 +1,52 @@
 # ESCAPE FROM WORK
 
-<p align="center">
-  <em>你被压榨了十年。今天你拿起订书机，杀出一条血路。<br>CEO 在一楼——让他亲自签你的离职单。</em>
-</p>
+办公题材第一人称搜打撤（extraction shooter，PvPvE）。一栋 50 层的程序化企业巨构：进楼 → 搜刮 → 交战 → 撤离，或者赌一把继续下坠。
 
----
+- 引擎：团结引擎 1.11.1（基座 Unity 2022.3.62t18）+ URP 14.2.0-t1
+- 平台：Windows PC（单机优先，联机预留）
+- 当前阶段：M1 程序化楼层生成器（M0 地基已完成）
 
-## 这是什么
-
-**ESCAPE FROM WORK** 是一款俯视角 2.5D 搜打撤（搜刮-战斗-撤离）游戏。背景设定在一栋 50 层的写字楼里——你从顶楼 CEO 办公室出发，一层层往下打，直到从一楼大堂走出这栋楼。
-
-硬核射击手感 + 办公室废物改造武器 + 严肃的搜打撤循环 + 有结局的叙事战役。
-
-## 核心玩法
+## 仓库结构
 
 ```
-茶水间据点 → 选择目标楼层 → 楼层探索（搜刮+战斗+撤离） → 带回资源 → 基地建设
-    ↑                                                                       ↓
-    └──────── 主线推进（Boss 掉落工牌解锁下层） ←────────────────────────────┘
+game/                        团结引擎工程（唯一工程，必须用 1.11.1 打开）
+  Assets/_Project/Scripts/   Core / Data / LevelGen / Gameplay / AI / UI
+  Assets/_Project/Scenes/    Whitebox.unity（M0 白盒）、FloorTest.unity（M1 生成楼层）
+  Assets/_Project/Materials/ 灰盒材质
+  Assets/tests/              EditMode / PlayMode 测试
+docs/3d-rebuild/             3D 重构：决策、技术方案、关卡设计、里程碑、出图、AI 3D 参考
+design/gdd/                  存档：旧 2.5D 版本 GDD，仅作素材/数值参考，不代表当前设计
 ```
 
-- **搜刮**：办公桌、文件柜、饮水机——每一件办公家具都可能藏着资源
-- **战斗**：订书机手枪、键盘霰弹枪、PPT 发射器——办公用品即武器
-- **撤离**：电梯、楼梯、消防通道三条路线，各有风险
-- **死亡有代价**：装备掉落，但基地进度永久保留。换一个新员工继续往下冲
+## 打开与运行
 
-## 特色
+1. 用团结引擎 **1.11.1** 打开 `game/`（不要用别的版本，会静默改写 ProjectVersion）。
+2. 白盒：打开 `Assets/_Project/Scenes/Whitebox.unity` → Play → F3 看帧率。
+3. 生成楼层：菜单 `Escape From Work/M1/Build 3D Floor Scene` 重建 `FloorTest.unity` → Play；按 M 开地图（区域级迷雾 + 本队撤离点常显，不暂停）。
 
-| | |
-|---|---|
-| 🔫 **办公即武器库** | 订书机当枪、键盘当霰弹、PPT 致盲敌人 |
-| 🏢 **50→1 下坠之旅** | 10 个手设计 Boss 楼层 + 40 个随机生成楼层 |
-| 💀 **永久死亡 + 继承** | 角色死了换人继续，基地进度保留，前人名字上纪念墙 |
-| 🎯 **双模式瞄准** | 自动瞄准清小怪 / 手动瞄准打 Boss 弱点 |
-| ⚡ **电力 + 撤离** | 停电楼层手电筒探路，电梯叮声引敌，楼梯随机遇袭 |
-| 📖 **有结局的搜打撤** | 打到 1 楼打 CEO，撕碎合同走出大楼 |
-
-## 技术
-
-- **引擎**：团结引擎 1.9.3（Tuanjie Engine）+ URP
-- **语言**：C#
-- **视角**：俯视角 2.5D 透视
-- **平台**：PC（Windows）
-- **AI 辅助**：Claude Code Game Studios（49 Agent + 73 Skill）
-
-## 快速开始
+## 测试
 
 ```bash
-git clone https://github.com/LiCloudDragonJ/ESCAPE-FROM-WORK.git
+"D:/workspace/2022.3.62t18/Editor/Tuanjie.exe" -batchmode \
+  -projectPath "<repo>/game" -runTests -testPlatform EditMode \
+  -testResults "<repo>/game/m1-tests.xml" -logFile m1-tests.log
 ```
 
-1. 用团结引擎 Hub 打开 `ESCAPE FROM WORK/` 目录
-2. 安装 Coplay MCP（Unity → Package Manager → `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main`）
-3. 菜单：`ESCAPE FROM WORK → Build Scene`
-4. 打开 `Assets/Scenes/SampleScene.scene` → Play
+注意：`-runTests` **不能带 `-quit`**（会 exit 0 但不生成 XML）；同一工程同时只允许一个编辑器实例。
 
-## 项目结构
+## 生成器与编辑器工具
 
-```
-├── README.md                    # 本文件
-├── CLAUDE.md                    # 项目 AI 助手指引
-├── ESCAPE FROM WORK/            # Unity 工程
-│   └── Assets/_Project/
-│       ├── Scripts/             # C# 代码
-│       │   ├── Core/            # 核心系统（GameManager、事件、相机、提取）
-│       │   ├── Player/          # 玩家（移动、战斗、背包、交互、血量）
-│       │   ├── Enemies/         # 敌人（KPI 丧尸、敌人生成器）
-│       │   ├── Weapons/         # 武器（近战、远程、投射物）
-│       │   ├── Level/           # 楼层生成、状态管理
-│       │   ├── Loot/            # 战利品容器、掉落表、露天物资
-│       │   ├── UI/              # HUD、三栏容器面板、死亡界面
-│       │   ├── Data/            # ScriptableObject 数据定义
-│       │   └── Editor/          # 场景构建器
-│       ├── Prefabs/             # 预制体（玩家、敌人、房间、武器）
-│       └── ScriptableObjects/   # 35+ 物品、5+ 掉落表、武器/敌人数据
-├── design/                      # 游戏设计文档
-│   └── gdd/                     # 设计文档
-├── docs/                        # 参考文档
-│   ├── superpowers/             # 开发计划
-│   └── tooling/                 # 工具参考
-└── production/                  # 开发管理
-    └── session-state/           # 会话状态
-```
+- `LevelGen/FloorGenerator.cs`：BSP 随机切分（随机切、切分时预留走廊带、多门、环路门、几何连通兜底、出生区吸附、撤离点散布自检）。同一 seed 完全确定。
+- `LevelGen/CoverProps.cs`：走廊掩体三档双侧成组刷点 + 长走廊隔断墙。
+- `LevelGen/FloorGeometry.cs`：灰盒几何合并、NavMesh 烘焙、灯池。
+- `UI/MapHud.cs`：地图迷雾与撤离点标记。
+- 菜单 `Tools/EFW/Floor Lab`：调参 + 俯视出图，`Floor Lab — 批量出图` 出多 seed 对比。
 
-## 开发状态
+## 设计文档
 
-当前处于 **原型阶段**（Phase 1 完成）。
-
-| 系统 | 状态 |
-|------|------|
-| 玩家移动/瞄准/射击/近战/闪避 | ✅ |
-| 双模式瞄准（自动/手动 Left Shift 切换） | ✅ |
-| 敌人 AI（KPI 丧尸巡逻/追击/攻击） | ✅ |
-| 浮动伤害数字 | ✅ |
-| 5×5 程序化楼层 + 边界墙 | ✅ |
-| 2.5D 透视摄像机 + 地图边界 | ✅ |
-| HUD（血量、弹药、楼层、交互提示） | ✅ |
-| 5 种战利品容器（办公桌/文件柜/补给柜/保险柜/服务器） | ✅ |
-| 渐进式加载（按稀有度，可中断可续接） | ✅ |
-| 三栏搜刮面板（装备\|背包\|容器）+ 拖拽/双击/F全收 | ✅ |
-| 装备装卸（武器/护甲/背包） | ✅ |
-| 35+ 物品 × 6 稀有度（白绿蓝紫金红） | ✅ |
-| 5 个独立掉落表 | ✅ |
-| 露天大货（浮动旋转拾取） | ✅ |
-| 提取点（楼梯 + 消防通道） | ✅ |
-| 一键 Build Scene | ✅ |
-
-
-## 许可证
-
-All rights reserved.
+| 文档 | 内容 |
+|---|---|
+| [00-decisions.md](docs/3d-rebuild/00-decisions.md) | 已定决策（FPS、PvPvE、逐层匹配、存档点、Boss、地图迷雾…） |
+| [01-tech-plan.md](docs/3d-rebuild/01-tech-plan.md) | 技术方案（工程、包、asmdef、生成管线预算、存档、联机） |
+| [02-level-design.md](docs/3d-rebuild/02-level-design.md) | 关卡设计（尺度、层高吊顶、走廊分级与掩体、出生撤离、地图迷雾） |
+| [03-milestones.md](docs/3d-rebuild/03-milestones.md) | 里程碑与 M0/M1 验收状态 |
