@@ -15,8 +15,9 @@ game/                        团结引擎工程（唯一工程，必须用 1.11.
   Assets/_Project/Materials/ 灰盒材质
   Assets/tests/              EditMode / PlayMode 测试
 docs/3d-rebuild/             3D 重构：决策、技术方案、关卡设计、里程碑、出图、AI 3D 参考
-design/gdd/                  存档：旧 2.5D 版本 GDD，仅作素材/数值参考，不代表当前设计
 ```
+
+旧 2.5D 原型（2026-07）已与当前工程完全隔离：只存在于分支 `legacy-2.5d`（指向 2026-07-17 的最后一次提交），`main` 只保留 2026-11-24 起重做的新工程，不含任何旧工程文件。
 
 ## 打开与运行
 
@@ -42,6 +43,15 @@ design/gdd/                  存档：旧 2.5D 版本 GDD，仅作素材/数值�
 - `LevelGen/FloorGeometry.cs`：灰盒几何合并、NavMesh 烘焙、灯池。
 - `UI/MapHud.cs`：地图迷雾与撤离点标记。
 - 菜单 `Tools/EFW/Floor Lab`：调参 + 俯视出图，`Floor Lab — 批量出图` 出多 seed 对比。
+
+## 开发约定
+
+- 只用团结引擎 **1.11.1** 打开 `game/`；同一工程同时只允许一个编辑器实例。
+- 生成器必须确定性：同一 seed 结果完全一致，禁止 `UnityEngine.Random`（统一用 `System.Random` 实例）。
+- asmdef 单向分层：LevelGen 不依赖 Gameplay；规则类逻辑保持纯 C#（为联机预留）。
+- `-runTests` 不能带 `-quit`（会静默不产 XML）。
+- 设计文档只写进 `docs/3d-rebuild/`。
+- 未经明确指示不要 commit / push。
 
 ## 设计文档
 

@@ -4,7 +4,7 @@
 
 | 包 | 版本 | 用途 |
 |---|---|---|
-| URP | 14.2.0-t1 | 渲染（沿用旧工程，零迁移） |
+| URP | 14.2.0-t1 | 渲染（与团结 2022.3 配套） |
 | Input System | 1.7.x（按 1.11.1 registry 解析） | 输入与重绑定 |
 | AI Navigation | 1.1.x | NavMeshSurface 运行时烘焙（分块） |
 | Addressables | 1.21.x | 模块套件与美术资源加载 |

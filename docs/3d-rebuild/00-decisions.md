@@ -1,7 +1,7 @@
 # 3D 重构 · 决策记录
 
 状态：已与用户逐条确认（2026-11-24）。尺度升级为“企业巨构 / 垂直城市”、存档点改为每 5 层，同日追加确认。
-适用：game/ 新工程；旧工程 ESCAPE FROM WORK/ 冻结为 legacy。
+适用：game/ 新工程（旧 2.5D 工程与文档已从仓库删除，只保留在 Git 历史里）。
 
 ## 1. 定位
 
@@ -13,10 +13,9 @@
 | 项 | 决定 |
 |---|---|
 | 引擎 | 团结 1.11.1（2022.3.62t18） |
-| 编辑器 | D:/workspace/2022.3.62t18/Editor/Tuanjie.exe |
-| 渲染 | URP 14.2.0-t1（沿用旧工程版本，零渲染迁移） |
-| 新工程 | 仓库内 game/（路径无空格） |
-| 旧工程 | 打 tag legacy-2.5d 后移入 legacy/，历史不删 |
+| 编辑器 | `<团结安装目录>/2022.3.62t18/Editor/Tuanjie.exe`（本机示例 `F:\Workspace\UNITY\2022.3.62t18\Editor\Tuanjie.exe`） |
+| 渲染 | URP 14.2.0-t1（与团结 2022.3 配套） |
+| 工程 | 仓库内 game/（路径无空格） |
 | 平台 | PC Windows x86_64，DX11 |
 
 ## 3. 玩法决策
@@ -126,6 +125,6 @@
 
 ## 11. 旧工程处置
 
-- tag legacy-2.5d，迁入 legacy/。
-- 可复用：32 物品 / 13 武器 / 5 掉落表 / 6 容器 SO 数据、设计文档、GDD 叙事。
+- 旧 2.5D 原型（2026-07-15 → 07-17）整体隔离在分支 `legacy-2.5d`，指向旧工程最后一次提交；`main` 从 2026-11-24 的 3D 重做重新开始，不含旧工程、旧 GDD、旧工具配置。
+- 需要旧素材/数值时切到 `legacy-2.5d` 取（32 物品 / 13 武器 / 5 掉落表 / 6 容器 SO 数据、GDD 叙事），不放进当前工程。
 - 不复用：FloorBuilder、PlayerController、PlayerAim、SimpleCameraFollow、uGUI SceneWirer、SampleScene。
