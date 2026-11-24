@@ -1,0 +1,24 @@
+{
+  "name": "EscapeFromWork.Tests.EditMode",
+  "rootNamespace": "EscapeFromWork.Tests.EditMode",
+  "references": [
+    "EscapeFromWork.Core",
+    "EscapeFromWork.Gameplay",
+    "EscapeFromWork.LevelGen",
+        "EscapeFromWork.UI"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

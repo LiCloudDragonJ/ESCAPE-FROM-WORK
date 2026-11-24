@@ -1,0 +1,17 @@
+{
+  "name": "EscapeFromWork.LevelGen",
+  "rootNamespace": "EscapeFromWork.LevelGen",
+  "references": [
+    "EscapeFromWork.Core",
+    "EscapeFromWork.Data"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:yousandi.cn,2023:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ac00bb6c94572e48ae33fd232d421fe, type: 3}
+  m_Name: SO_Weapon_CableWhip
+  m_EditorClassIdentifier: 
+  weaponName: "\u7F51\u7EBF\u97AD"
+  weaponClass: 2
+  slot: 2
+  ammoType: 0
+  baseDamage: 10
+  fireRate: 0
+  range: 10
+  spread: 0.05
+  magazineSize: 30
+  reloadTime: 1.5
+  hasHeadshotBonus: 0
+  specialEffect: 
+  meleeRange: 3
+  meleeArc: 120
+  chargeUpTime: 1.5
+  meleeLightStaminaCost: 10
+  meleeHeavyStaminaCost: 22
+  icon: {fileID: 0}
+  prefab: {fileID: 0}

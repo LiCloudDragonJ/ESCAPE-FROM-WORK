@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:yousandi.cn,2023:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ac00bb6c94572e48ae33fd232d421fe, type: 3}
+  m_Name: SO_Weapon_MailBomb
+  m_EditorClassIdentifier: 
+  weaponName: "\u90AE\u4EF6\u70B8\u5F39"
+  weaponClass: 1
+  slot: 1
+  ammoType: 8
+  baseDamage: 30
+  fireRate: 0.083
+  range: 15
+  spread: 0.05
+  magazineSize: 30
+  reloadTime: 2.5
+  hasHeadshotBonus: 0
+  specialEffect: "\u5EF6\u8FDF2\u79D2\u7206\u70B8\uFF084m\u534A\u5F84\uFF09+ \u5632\u8BBD5\u79D2"
+  meleeRange: 1.5
+  meleeArc: 120
+  chargeUpTime: 0
+  meleeLightStaminaCost: 15
+  meleeHeavyStaminaCost: 30
+  icon: {fileID: 0}
+  prefab: {fileID: 0}

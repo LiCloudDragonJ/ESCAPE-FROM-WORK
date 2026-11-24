@@ -1,0 +1,15 @@
+/Library/
+/Temp/
+/Logs/
+/obj/
+/UserSettings/
+/*.sln
+/*.csproj
+/*.userprefs
+/*.pidb
+/*.suo
+/open.log
+/m0.log
+/*.log
+/*.xml
+/TestResults/

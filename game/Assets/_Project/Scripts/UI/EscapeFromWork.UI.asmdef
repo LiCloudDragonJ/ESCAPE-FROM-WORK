@@ -1,0 +1,20 @@
+{
+  "name": "EscapeFromWork.UI",
+  "rootNamespace": "EscapeFromWork.UI",
+  "references": [
+    "EscapeFromWork.Core",
+    "EscapeFromWork.Data",
+    "EscapeFromWork.Gameplay",
+    "EscapeFromWork.LevelGen",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

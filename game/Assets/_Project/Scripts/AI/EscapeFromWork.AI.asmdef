@@ -1,0 +1,18 @@
+{
+  "name": "EscapeFromWork.AI",
+  "rootNamespace": "EscapeFromWork.AI",
+  "references": [
+    "EscapeFromWork.Core",
+    "EscapeFromWork.Data",
+    "EscapeFromWork.Gameplay"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
