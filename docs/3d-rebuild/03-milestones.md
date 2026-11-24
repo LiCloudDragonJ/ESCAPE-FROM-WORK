@@ -90,8 +90,11 @@
 | 几何连通兜底（1m 栅格泛洪 + 补门，防止只是"图连通"） | ✅ | `EnsureGridConnectivity` |
 | 出生区吸附真实地面（四角取最近房间/走廊切 10×10） | ✅ | `AddSpawnZones` |
 | Floor Lab 编辑器窗口（调参、单张出图、批量出图） | ✅ | `game/Assets/_Project/Scripts/Editor/FloorLabWindow.cs` |
-| 地图迷雾设计 + 效果图（区域级揭示、未探索只给区域名、撤离点常显） | ✅ 设计/效果图 | `02-level-design.md` §5.5、`screenshots/m1-map-mock.png` |
-| EditMode 测试（含 1000 种子批测） | ✅ 22/22 | `game/Assets/tests/EditMode/` |
+| 3D 实体化：整块地板/吊顶 + 13 个合并 Mesh + 门洞 + 48 盏灯池 | ✅ | `LevelGen/FloorGeometry.cs`、`LevelGen/FloorRuntime.cs`、`Assets/_Project/Scenes/FloorTest.unity` |
+| 运行时 NavMesh 烘焙（NavMeshBuilder，agent 0.35/1.8/45°/0.4） | ✅ 代码 | `FloorGeometry.BuildNavMesh` |
+| 地图迷雾 HUD（区域级揭示、未探索只给区域名、撤离点常显、不暂停） | ✅ | `UI/MapHud.cs`（MapFog / MapRaster / MapHud） |
+| 撤离点散布自检（行走距离 ≥60% 对角线、视线遮挡） | ✅ | `LevelGen/FloorValidator.cs`、`FloorGenerator.EnsureExtractionSpread` |
+| EditMode 测试（含 1000 种子批测） | ✅ 22/22（地图/撤离自检的 8 项新测试尚未跑完，见下） | `game/Assets/tests/EditMode/` |
 
 **验收数据（2026-11-24）**
 
@@ -100,10 +103,17 @@
 - 生成速度（编辑器单线程）：平均 186ms/层；塔身 200×160 约 20–60ms，裙房 280×280 约 400ms，最慢种子 789ms。仍在 3s 预算内。
 - 单层布局指标（seed 1，200×160）：268 房 / 覆盖 59% / 走廊 30% / 空腔 11% / 53 条走廊 2146m / 掩体 724 件。
 
+**3D 与 HUD 验收数据（2026-11-24，本机 batchmode）**
+
+- FloorTest（seed 1，200×160）：237 房 / 102 走廊 / 825 掩体 / 5 撤离点，出生点 (12.02, 0.20, 13.88)。
+- 几何合计 83,448 顶点、13 个渲染器（Walls 30,408 顶点 / Floor、Ceiling 各 8,208 / Columns 10,704 / Props 22,984 / LightPanels 5,688 / SightBreaks 816），bounds 全在楼体范围内。
+- 截图：`screenshots/m1-floor3d-spawn.png`、`m1-floor3d-corridor.png`、`m1-floor3d-core.png`。
+- 地图迷雾：`MapFog` 2m 格 + 30m/视锥揭示；`MapRaster` 800×640（4px/m）。
+
 **M1 剩余**
 
 - 运行时 8 块分块生成（当前是编辑器整层一次生成）。
-- NavMesh 运行时烘焙与灯池（当前 Floor Lab 只出平面图，不含 3D 几何）。
-- 地图迷雾接进游戏 HUD（当前只有设计 + 效果图）。
-- 出生区到本队撤离点 ≥150m 的自动校验尚未写进测试。
+- 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
+- 出生区→本队撤离点自检的 8 项新测试（MapFogTests 5 / ExtractionSpreadTests 3）需跑一遍确认。
+- PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
 
