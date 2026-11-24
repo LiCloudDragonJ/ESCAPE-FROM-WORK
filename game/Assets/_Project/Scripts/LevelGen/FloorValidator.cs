@@ -134,6 +134,34 @@ namespace EscapeFromWork.LevelGen
             return g.Inside(x, y) ? dist[y * g.W + x] : -1f;
         }
 
+        /// <summary>
+        /// Walk distance to a point that may sit inside a solid volume (core shaft, column):
+        /// falls back to the nearest reachable cell within 3 m, so a freight elevator in the
+        /// core is still measured by the lobby in front of it instead of reporting unreachable.
+        /// </summary>
+        public static float WalkDistanceAt(Grid g, float[] dist, Vector2 center)
+        {
+            int cx = g.X(center.x);
+            int cy = g.Y(center.y);
+            if (g.Inside(cx, cy) && dist[cy * g.W + cx] >= 0f) return dist[cy * g.W + cx];
+
+            int radius = Mathf.CeilToInt(3f / Cell);
+            float best = -1f;
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    int x = cx + dx;
+                    int y = cy + dy;
+                    if (!g.Inside(x, y)) continue;
+                    float d = dist[y * g.W + x];
+                    if (d < 0f) continue;
+                    if (best < 0f || d < best) best = d;
+                }
+            }
+            return best;
+        }
+
         /// <summary>Straight-line test on the walkable grid: any wall between the two points blocks sight.</summary>
         public static bool HasLineOfSight(Grid g, Vector2 a, Vector2 b)
         {
@@ -176,13 +204,9 @@ namespace EscapeFromWork.LevelGen
                 audit.NearestFarDistance = float.MaxValue;
                 for (int e = 0; e < plan.Extractions.Count; e++)
                 {
-                    Vector2 c = plan.Extractions[e].Center;
-                    int x = g.X(c.x);
-                    int y = g.Y(c.y);
-                    float d = g.Inside(x, y) ? dist[y * g.W + x] : -1f;
+                    // 撤离板是实体：中心可能落在核心筒或柱子里，按最近的可行走格子算距离。
+                    float d = WalkDistanceAt(g, dist, plan.Extractions[e].Center);
                     if (d < 0f) continue;
-                    // Extraction pads sit in corridors/fire stairs; take the nearest walkable
-                    // cell if the centre itself is not on the grid.
                     if (d >= required)
                     {
                         audit.FarExtractions++;

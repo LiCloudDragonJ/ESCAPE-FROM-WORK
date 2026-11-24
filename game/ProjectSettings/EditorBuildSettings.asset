@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/_Project/Scenes/FloorStreamingTest.unity
+    guid: a3bff1f6a72c0cc439dcf7e43b503991
+  - enabled: 1
     path: Assets/_Project/Scenes/FloorTest.unity
     guid: 4d96545f7330f684f9a11cc3972fcf83
   - enabled: 1

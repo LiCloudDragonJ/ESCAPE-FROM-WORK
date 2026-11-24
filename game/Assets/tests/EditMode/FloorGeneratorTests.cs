@@ -95,9 +95,47 @@ namespace EscapeFromWork.Tests.EditMode
             {
                 FloorPlan p = FloorGenerator.Generate(Spec(seed));
                 Assert.GreaterOrEqual(p.Extractions.Count, 4, "seed " + seed);
-                Assert.LessOrEqual(p.Extractions.Count, 5, "seed " + seed);
+                Assert.LessOrEqual(p.Extractions.Count, 6, "seed " + seed);
                 Assert.AreEqual(4, p.SpawnZones.Count);
                 Assert.AreEqual(2, p.Stairs.Count);
+            }
+        }
+
+        [Test]
+        public void Generator_ExtractionsArePickedFromFixedCandidates()
+        {
+            for (int seed = 1; seed <= 40; seed++)
+            {
+                FloorPlan p = FloorGenerator.Generate(Spec(seed));
+                Assert.GreaterOrEqual(p.ExtractionCandidates.Count, 6, "seed " + seed + " candidates");
+                Assert.LessOrEqual(p.ExtractionCandidates.Count, 7, "seed " + seed + " candidates");
+                for (int i = 0; i < p.Extractions.Count; i++)
+                {
+                    bool found = false;
+                    for (int c = 0; c < p.ExtractionCandidates.Count; c++)
+                    {
+                        ExtractionPoint candidate = p.ExtractionCandidates[c];
+                        if (candidate.Kind == p.Extractions[i].Kind
+                            && candidate.Center == p.Extractions[i].Center) { found = true; break; }
+                    }
+                    Assert.IsTrue(found, "seed " + seed + " extraction " + i + " is not a physical candidate");
+                }
+            }
+        }
+
+        [Test]
+        public void Generator_ExtractionChoiceIsDeterministic()
+        {
+            for (int seed = 1; seed <= 12; seed++)
+            {
+                FloorPlan a = FloorGenerator.Generate(Spec(seed));
+                FloorPlan b = FloorGenerator.Generate(Spec(seed));
+                Assert.AreEqual(a.Extractions.Count, b.Extractions.Count, "seed " + seed);
+                for (int i = 0; i < a.Extractions.Count; i++)
+                {
+                    Assert.AreEqual(a.Extractions[i].Kind, b.Extractions[i].Kind, "seed " + seed + " #" + i);
+                    Assert.AreEqual(a.Extractions[i].Center.ToString(), b.Extractions[i].Center.ToString(), "seed " + seed + " #" + i);
+                }
             }
         }
 

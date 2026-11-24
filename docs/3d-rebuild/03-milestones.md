@@ -93,27 +93,35 @@
 | 3D 实体化：整块地板/吊顶 + 13 个合并 Mesh + 门洞 + 48 盏灯池 | ✅ | `LevelGen/FloorGeometry.cs`、`LevelGen/FloorRuntime.cs`、`Assets/_Project/Scenes/FloorTest.unity` |
 | 运行时 NavMesh 烘焙（NavMeshBuilder，agent 0.35/1.8/45°/0.4） | ✅ 代码 | `FloorGeometry.BuildNavMesh` |
 | 地图迷雾 HUD（区域级揭示、未探索只给区域名、撤离点常显、不暂停） | ✅ | `UI/MapHud.cs`（MapFog / MapRaster / MapHud） |
+| 撤离点选点（固定设施候选 → 按出生区散布启用 4–6 个） | ✅ | `FloorGenerator.AddExtractions` / `EnsureExtractionSpread`、`FloorPlan.ExtractionCandidates` |
 | 撤离点散布自检（行走距离 ≥60% 对角线、视线遮挡） | ✅ | `LevelGen/FloorValidator.cs`、`FloorGenerator.EnsureExtractionSpread` |
-| EditMode 测试（含 1000 种子批测） | ✅ 22/22（地图/撤离自检的 8 项新测试尚未跑完，见下） | `game/Assets/tests/EditMode/` |
+| 运行时 8 块分块流式几何（2×4=8 块、每块 4000㎡、外壳常驻、按观众距离加载/卸载） | ✅ | `LevelGen/FloorChunkGrid.cs`、`FloorChunkPlan.cs`、`FloorChunkGeometry.cs`、`FloorStreamer.cs`、`FloorStreamingRuntime.cs`、`Scenes/FloorStreamingTest.unity` |
+| EditMode 测试（含 1000 种子批测、分块流式、分块几何成本） | ✅ 42/42 | `game/Assets/tests/EditMode/` |
 
 **验收数据（2026-11-24）**
 
-- EditMode 22/22 通过，整轮 238.9s（含 1000 种子批测）。
-- 1000 种子：房间 >8、撤离点 4–5、出生区 4、柱子 >20、覆盖率 0.5–0.96、房间门率 ≥90%、1m 栅格连通率 >98%。
+- EditMode 42/42 通过，整轮 191.7s（含 1000 种子批测、120 种子出生区散布检查、分块流式 10 项与 8 块几何成本测试；修正撤离点选点后重跑）。
+- 1000 种子：房间 >8、撤离点 4–6、出生区 4、柱子 >20、覆盖率 0.5–0.96、房间门率 ≥90%、1m 栅格连通率 >98%。
 - 生成速度（编辑器单线程）：平均 186ms/层；塔身 200×160 约 20–60ms，裙房 280×280 约 400ms，最慢种子 789ms。仍在 3s 预算内。
 - 单层布局指标（seed 1，200×160）：268 房 / 覆盖 59% / 走廊 30% / 空腔 11% / 53 条走廊 2146m / 掩体 724 件。
 
 **3D 与 HUD 验收数据（2026-11-24，本机 batchmode）**
 
-- FloorTest（seed 1，200×160）：237 房 / 102 走廊 / 825 掩体 / 5 撤离点，出生点 (12.02, 0.20, 13.88)。
+- FloorTest（seed 1，200×160）：237 房 / 102 走廊 / 825 掩体 / 5 撤离点（旧选点逻辑生成的场景；重建后按新选点取 4–6 个），出生点 (12.02, 0.20, 13.88)。
 - 几何合计 83,448 顶点、13 个渲染器（Walls 30,408 顶点 / Floor、Ceiling 各 8,208 / Columns 10,704 / Props 22,984 / LightPanels 5,688 / SightBreaks 816），bounds 全在楼体范围内。
 - 截图：`screenshots/m1-floor3d-spawn.png`、`m1-floor3d-corridor.png`、`m1-floor3d-core.png`。
 - 地图迷雾：`MapFog` 2m 格 + 30m/视锥揭示；`MapRaster` 800×640（4px/m）。
 
+**分块流式验收数据（2026-11-24，本机 batchmode）**
+
+- `FloorStreamingTest.unity`（seed 1，200×160，237 房）：FloorStreamingRuntime 加载半径 1 / 卸载半径 2 / 每帧 2 块，外壳常驻、8 块按观众所在块流式进出；出生点 (12.02, 0.20, 13.88) 与 FloorTest 一致。
+- 几何成本：单块 0.9–2.2ms（311–368 个构件）、外壳 3.8ms、8 块合计 13.4ms（编辑器实测，不含渲染与碰撞体烘焙）。
+- 裁剪正确性：分块后墙体体积之和与整层原值一致（误差 <0.1%）；掩体/出生台/灯板按块裁剪后无缺失；撤离点与灯光按中心唯一归属。
+- 流式策略：最近块优先、每帧预算 1–2 块、卸载带 2 块滞回；EditMode 10 项测试覆盖网格铺满/不重叠、裁剪守恒、归属唯一、预算、优先序、卸载滞回、确定性、外壳+块构建。
+
 **M1 剩余**
 
-- 运行时 8 块分块生成（当前是编辑器整层一次生成）。
 - 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
-- 出生区→本队撤离点自检的 8 项新测试（MapFogTests 5 / ExtractionSpreadTests 3）需跑一遍确认。
 - PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
+- 分块 LOD / 剔除组与每块独立 NavMesh（设计文档口径，代码仍是整层 NavMesh）。
 

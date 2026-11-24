@@ -123,7 +123,10 @@ namespace EscapeFromWork.LevelGen
         public List<Corridor> Corridors = new List<Corridor>();
         public List<Zone> Zones = new List<Zone>();
         public List<Room> Rooms = new List<Room>();
+        /// <summary>本层实际启用的撤离点（4–6 个，由 Extractions 从候选里挑出）。</summary>
         public List<ExtractionPoint> Extractions = new List<ExtractionPoint>();
+        /// <summary>本层所有物理撤离设施候选（消防梯/电梯/货梯/擦窗机/天台下索），先全放、后挑选。</summary>
+        public List<ExtractionPoint> ExtractionCandidates = new List<ExtractionPoint>();
         public List<PropPlacement> Props = new List<PropPlacement>();
         public List<RectF> SpawnZones = new List<RectF>();
         /// <summary>房间与房间之间的额外门（绕过走廊的环路边）。</summary>

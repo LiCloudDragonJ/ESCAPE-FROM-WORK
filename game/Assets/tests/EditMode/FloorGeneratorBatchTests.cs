@@ -35,7 +35,7 @@ namespace EscapeFromWork.Tests.EditMode
 
                 Assert.Greater(plan.Rooms.Count, 8, "seed " + seed + " too few rooms");
                 Assert.GreaterOrEqual(plan.Extractions.Count, 4, "seed " + seed + " extractions");
-                Assert.LessOrEqual(plan.Extractions.Count, 9, "seed " + seed + " extractions");
+                Assert.LessOrEqual(plan.Extractions.Count, 6, "seed " + seed + " extractions");
                 Assert.AreEqual(4, plan.SpawnZones.Count, "seed " + seed + " spawn zones");
                 Assert.Greater(plan.Columns.Count, 20, "seed " + seed + " columns");
 

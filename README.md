@@ -27,11 +27,12 @@ design/gdd/                  存档：旧 2.5D 版本 GDD，仅作素材/数值�
 ## 测试
 
 ```bash
-"D:/workspace/2022.3.62t18/Editor/Tuanjie.exe" -batchmode \
+"<团结安装目录>/2022.3.62t18/Editor/Tuanjie.exe" -batchmode \
   -projectPath "<repo>/game" -runTests -testPlatform EditMode \
   -testResults "<repo>/game/m1-tests.xml" -logFile m1-tests.log
 ```
 
+路径按本机安装位置替换（例如 `F:\Workspace\UNITY\2022.3.62t18\Editor\Tuanjie.exe`）。
 注意：`-runTests` **不能带 `-quit`**（会 exit 0 但不生成 XML）；同一工程同时只允许一个编辑器实例。
 
 ## 生成器与编辑器工具

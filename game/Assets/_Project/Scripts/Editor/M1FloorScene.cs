@@ -15,9 +15,57 @@ namespace EscapeFromWork.EditorTools
     {
         const string Root = "Assets/_Project";
         const string ScenePath = Root + "/Scenes/FloorTest.unity";
+        const string StreamingScenePath = Root + "/Scenes/FloorStreamingTest.unity";
         const string MatDir = Root + "/Materials/Floor";
 
         public const int DefaultSeed = 1;
+
+        [MenuItem("Escape From Work/M1/Build Streaming Floor Scene")]
+        public static void BuildStreaming()
+        {
+            EnsureFolders();
+            FloorMaterials mats = BuildMaterials();
+            FloorSpec spec = ConfigureSpec(FloorSpec.Default(DefaultSeed));
+            FloorPlan plan = FloorGenerator.Generate(spec);
+
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.70f, 0.71f, 0.75f);
+            RenderSettings.fog = false;
+
+            Vector3 spawn = SpawnPoint(plan);
+            GameObject player = BuildPlayer(spawn);
+            EscapeFromWork.UI.MapHud hud = player.AddComponent<EscapeFromWork.UI.MapHud>();
+            hud.Initialize(plan, player.transform);
+
+            GameObject root = new GameObject("FloorStreaming");
+            FloorStreamingRuntime runtime = root.AddComponent<FloorStreamingRuntime>();
+            runtime.Seed = DefaultSeed;
+            runtime.Band = spec.Band;
+            runtime.Prototype = spec.Prototype;
+            runtime.CorridorLevels = spec.CorridorLevels;
+            runtime.Materials = mats;
+            runtime.Viewer = player.transform;
+            runtime.LoadRadius = FloorStreamer.DefaultLoadRadius;
+            runtime.UnloadRadius = FloorStreamer.DefaultUnloadRadius;
+            runtime.BuildsPerFrame = FloorStreamer.DefaultBuildsPerUpdate;
+            runtime.BuildNavMesh = true;
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, StreamingScenePath);
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(StreamingScenePath, true),
+                new EditorBuildSettingsScene(ScenePath, true),
+                new EditorBuildSettingsScene(Root + "/Scenes/Whitebox.unity", true),
+            };
+            AssetDatabase.SaveAssets();
+
+            Debug.Log("[M1] FloorStreamingTest built seed=" + DefaultSeed
+                + " rooms=" + plan.Rooms.Count
+                + " chunks=" + (FloorChunkGrid.DefaultColumns * FloorChunkGrid.DefaultRows)
+                + " spawn=" + spawn);
+        }
 
         [MenuItem("Escape From Work/M1/Build 3D Floor Scene")]
         public static void Build()

@@ -22,7 +22,7 @@ namespace EscapeFromWork.Tests
         [Test]
         public void EverySpawnZoneHasTwoFarExtractions()
         {
-            for (int seed = 1; seed <= 30; seed++)
+            for (int seed = 1; seed <= 120; seed++)
             {
                 FloorPlan plan = FloorGenerator.Generate(Spec(seed));
                 FloorValidator.Grid grid = FloorValidator.BuildGrid(plan);

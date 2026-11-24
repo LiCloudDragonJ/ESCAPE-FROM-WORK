@@ -61,12 +61,16 @@ asmdef：EscapeFromWork.Core / .Rules / .LevelGen / .Gameplay / .AI / .UI / .Dat
 
 ## 5. 分块与流式（32,000㎡ 的核心）
 
-- 楼层切成 2×4 = 8 块，每块 4,000㎡（50×80m）。
-- 每块独立生成几何、独立烘焙 NavMesh、独立挂 LOD 与剔除组。
-- 生成顺序：骨架 → 走廊 → 房间数据（全层）→ 8 块几何并行实例化 → 8 块 NavMesh 依次烘焙。
-- 玩家电梯下坠的 5 秒动画覆盖 3 秒生成窗口，不需要额外 loading 界面。
+实现：`LevelGen/FloorChunkGrid.cs`、`FloorChunkPlan.cs`、`FloorChunkGeometry.cs`、`FloorStreamer.cs`、`FloorStreamingRuntime.cs`；场景 `Assets/_Project/Scenes/FloorStreamingTest.unity`。
+
+- 楼层切成 2×4 = 8 块，每块 4,000㎡（塔身 200×160 即 100×40m）。
+- 生成顺序：整层 `FloorPlan`（骨架/走廊/房间/掩体/撤离点）启动时一次算完（塔身约 20–60ms）→ 外壳（地板/吊顶/外墙）常驻 → 8 块几何按观众所在块流式构建/卸载。
+- 裁剪规则：墙、核心筒、柱、楼梯、掩体、出生台、灯板按块矩形裁剪（块之间互斥，裁剪块体积之和 = 原始体积，有测试）；撤离点台与灯光按中心点归属唯一块。任何东西都不会因为邻块卸载而消失。
+- 流式参数：加载半径 1 块、卸载半径 2 块（滞回）、每帧最多构建 2 块；`FloorStreamingRuntime` 暴露 loaded / pending / built / unloaded 与单块构建毫秒，HUD 左上角显示。
+- 几何成本（编辑器实测，不含渲染与碰撞体烘焙）：单块 0.9–2.2ms、8 块合计 13.4ms、外壳 3.8ms，远低于 2,500ms 预算。
+- 玩家电梯下坠的 5 秒动画覆盖生成窗口，不需要额外 loading 界面。
 - 上一层卸载：先卸载几何与 NavMesh，再释放贴图与实例池；连续进出 10 层内存不增长。
-- 远处块只保留碰撞体与低模，不渲染；进入 40m 才激活道具与灯光。
+- 远处块只保留碰撞体与低模，不渲染；进入 40m 才激活道具与灯光（LOD / 剔除组仍是后续项）。
 
 ## 6. 楼层平面数据模型
 
@@ -82,9 +86,11 @@ asmdef：EscapeFromWork.Core / .Rules / .LevelGen / .Gameplay / .AI / .UI / .Dat
       List<LootAnchor> loot;
       List<ExtractionPoint> extractions;
       SpawnSet spawns;
-      List<Chunk> chunks;          // 2×4
+      ExtractionCandidates;        // 固定设施候选池（启用仍是 4–6 个）
       MapModel map;                // 区域多边形 + 撤离点，供迷雾地图用
     }
+
+    FloorChunkGrid { columns = 2, rows = 4 }   // 分块不在 FloorPlan 里，由 FloorChunkGrid 持有
 
     MapModel { List<MapRegion> regions; }   // { id, kind, polygon(4–8 顶点), zoneId }
     ExploredMask { BitArray perRegion; }    // 队伍级，随 run 存档
@@ -95,7 +101,8 @@ asmdef：EscapeFromWork.Core / .Rules / .LevelGen / .Gameplay / .AI / .UI / .Dat
 
 ## 7. 运行时 NavMesh
 
-- NavMeshSurface 挂在每个 chunk 根节点，8 块分别 BuildNavMesh()。
+- 当前实现：启动时 `FloorGeometry.BuildNavMesh(plan)` 整层烘焙一次（源是房间/走廊/楼梯/核心筒/出生区矩形），`NavMesh.AddNavMeshData` 挂入；流式块只负责几何，不各自烘 NavMesh。
+- 目标方案（未实现）：NavMeshSurface 挂每个 chunk 根节点，8 块分别 BuildNavMesh()，块流式加载时增量接入。
 - Agent：半径 0.35m、高度 1.8m、最大坡度 45°、台阶 0.4m。
 - 烘焙体素 0.15m；单块目标 < 200ms，8 块合计 < 1.2s。
 - 门、家具、可破坏物按静态烘焙；动态障碍用 NavMeshObstacle 局部挖洞。

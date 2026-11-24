@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -22,10 +22,28 @@ namespace EscapeFromWork.LevelGen
         public Material Spawn;
     }
 
+    /// <summary>One axis-aligned box of greybox geometry (center + size, world space).</summary>
+    public struct BoxSpec
+    {
+        public Vector3 Center;
+        public Vector3 Size;
+
+        public BoxSpec(Vector3 center, Vector3 size) { Center = center; Size = size; }
+        public BoxSpec(float cx, float cy, float cz, float sx, float sy, float sz)
+        {
+            Center = new Vector3(cx, cy, cz);
+            Size = new Vector3(sx, sy, sz);
+        }
+
+        public float Volume { get { return Size.x * Size.y * Size.z; } }
+    }
+
     /// <summary>
     /// Turns a FloorPlan into an enclosed 3D floor: slab, suspended ceiling, walls with
     /// door openings, columns, cover props, extraction pads, lights, plus a runtime NavMesh.
     /// All boxes are merged per material so one floor is a handful of draw calls.
+    /// The Collect* helpers are the single source of truth for individual boxes; both the
+    /// whole-floor bake and the chunked streaming build consume them.
     /// </summary>
     public static class FloorGeometry
     {
@@ -37,7 +55,7 @@ namespace EscapeFromWork.LevelGen
 
         const float MinSegment = 0.12f;
 
-        class MeshAccum
+        public class MeshAccum
         {
             public readonly List<Vector3> Vertices = new List<Vector3>();
             public readonly List<Vector3> Normals = new List<Vector3>();
@@ -101,40 +119,29 @@ namespace EscapeFromWork.LevelGen
             floor.AddBox(new Vector3(width * 0.5f, -0.1f, depth * 0.5f), new Vector3(width, 0.2f, depth));
             ceiling.AddBox(new Vector3(width * 0.5f, CeilingY + 0.03f, depth * 0.5f), new Vector3(width, 0.06f, depth));
 
-            for (int i = 0; i < plan.Rooms.Count; i++)
-            {
-                RectF r = plan.Rooms[i].Rect;
-                panel.AddBox(new Vector3(r.Center.x, CeilingY - 0.03f, r.Center.y), new Vector3(1.2f, 0.04f, 0.6f));
-            }
-            for (int i = 0; i < plan.Stairs.Count; i++)
-            {
-                RectF r = plan.Stairs[i];
-                stair.AddBox(Center(r, 0.02f), new Vector3(r.W - 0.4f, 0.04f, r.H - 0.4f));
-            }
+            List<BoxSpec> boxes = new List<BoxSpec>();
+            CollectPanelBoxes(plan, boxes);
+            AddBoxes(panel, boxes);
 
-            // ---- outer shell ---------------------------------------------------------
-            AddEdgeBoxes(wall, width, depth, plan);
-            AddAxisBox(wall, 0f, -WallThickness * 0.5f, width, WallThickness, 0f, CeilingY, true);
-            AddAxisBox(wall, 0f, depth + WallThickness * 0.5f, width, WallThickness, 0f, CeilingY, true);
-            AddAxisBox(wall, -WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
-            AddAxisBox(wall, width + WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
+            boxes.Clear();
+            CollectStairBoxes(plan, boxes);
+            AddBoxes(stair, boxes);
+
+            // ---- outer shell and interior walls with door openings --------------------
+            boxes.Clear();
+            CollectShellBoxes(plan, boxes);
+            CollectWallBoxes(plan, boxes);
+            AddBoxes(wall, boxes);
 
             // ---- elevator bank inside the core (north strip, 4 m opening in the middle) ----
-            RectF coreRect = plan.Core;
-            float bankDepth = 1.4f;
-            float bankZ = coreRect.YMax - bankDepth * 0.5f;
-            float bankHalf = (coreRect.W - 4f) * 0.5f;
-            core.AddBox(new Vector3(coreRect.X + bankHalf * 0.5f, CeilingY * 0.5f, bankZ),
-                new Vector3(bankHalf, CeilingY, bankDepth));
-            core.AddBox(new Vector3(coreRect.XMax - bankHalf * 0.5f, CeilingY * 0.5f, bankZ),
-                new Vector3(bankHalf, CeilingY, bankDepth));
+            boxes.Clear();
+            CollectCoreBoxes(plan, boxes);
+            AddBoxes(core, boxes);
 
             // ---- columns -------------------------------------------------------------
-            for (int i = 0; i < plan.Columns.Count; i++)
-            {
-                Vector2 c = plan.Columns[i];
-                column.AddBox(new Vector3(c.x, CeilingY * 0.5f, c.y), new Vector3(0.6f, CeilingY, 0.6f));
-            }
+            boxes.Clear();
+            CollectColumnBoxes(plan, boxes);
+            AddBoxes(column, boxes);
 
             // ---- props ---------------------------------------------------------------
             for (int i = 0; i < plan.Props.Count; i++)
@@ -216,8 +223,31 @@ namespace EscapeFromWork.LevelGen
             sources.Add(s);
         }
 
-        // ---- walls with door openings ----------------------------------------------
-        static void AddEdgeBoxes(MeshAccum wall, float width, float depth, FloorPlan plan)
+        // ---- geometry collectors (single source of truth for bake + streaming) ------
+        public static void AddBoxes(MeshAccum acc, List<BoxSpec> boxes)
+        {
+            for (int i = 0; i < boxes.Count; i++) acc.AddBox(boxes[i].Center, boxes[i].Size);
+        }
+
+        /// <summary>Floor slab and ceiling plates for a horizontal rect (used by chunk builds).</summary>
+        public static void AddSlabBoxes(MeshAccum floor, MeshAccum ceiling, RectF rect)
+        {
+            floor.AddBox(new Vector3(rect.Center.x, -0.1f, rect.Center.y), new Vector3(rect.W, 0.2f, rect.H));
+            ceiling.AddBox(new Vector3(rect.Center.x, CeilingY + 0.03f, rect.Center.y), new Vector3(rect.W, 0.06f, rect.H));
+        }
+
+        /// <summary>Outer boundary walls (always loaded, they sit outside the chunk lattice).</summary>
+        public static void CollectShellBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            float width = plan.Bounds.W, depth = plan.Bounds.H;
+            AddAxisBox(boxes, 0f, -WallThickness * 0.5f, width, WallThickness, 0f, CeilingY, true);
+            AddAxisBox(boxes, 0f, depth + WallThickness * 0.5f, width, WallThickness, 0f, CeilingY, true);
+            AddAxisBox(boxes, -WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
+            AddAxisBox(boxes, width + WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
+        }
+
+        /// <summary>Walls of every room, deduplicated, with door openings and lintels.</summary>
+        public static void CollectWallBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
             Dictionary<string, RectF> edges = new Dictionary<string, RectF>();
             for (int i = 0; i < plan.Rooms.Count; i++)
@@ -262,7 +292,7 @@ namespace EscapeFromWork.LevelGen
                 for (int i = 0; i < gaps.Count; i++)
                 {
                     float ga = gaps[i][0], gb = gaps[i][1];
-                    if (ga > cursor + MinSegment) AddSegment(wall, horizontal, cursor, ga, e);
+                    if (ga > cursor + MinSegment) AddSegment(boxes, horizontal, cursor, ga, e);
                     cursor = Mathf.Max(cursor, gb);
                     // Lintel above the opening.
                     if (gb - ga > MinSegment)
@@ -273,32 +303,108 @@ namespace EscapeFromWork.LevelGen
                         Vector3 ls = horizontal
                             ? new Vector3(gb - ga, CeilingY - DoorHeight, WallThickness)
                             : new Vector3(WallThickness, CeilingY - DoorHeight, gb - ga);
-                        wall.AddBox(lc, ls);
+                        boxes.Add(new BoxSpec(lc, ls));
                     }
                 }
-                if (end > cursor + MinSegment) AddSegment(wall, horizontal, cursor, end, e);
+                if (end > cursor + MinSegment) AddSegment(boxes, horizontal, cursor, end, e);
             }
         }
 
-        static void AddSegment(MeshAccum wall, bool horizontal, float from, float to, RectF edge)
+        /// <summary>Elevator bank strip inside the core (north side, 4 m opening).</summary>
+        public static void CollectCoreBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            RectF coreRect = plan.Core;
+            float bankDepth = 1.4f;
+            float bankZ = coreRect.YMax - bankDepth * 0.5f;
+            float bankHalf = (coreRect.W - 4f) * 0.5f;
+            boxes.Add(new BoxSpec(coreRect.X + bankHalf * 0.5f, CeilingY * 0.5f, bankZ,
+                bankHalf, CeilingY, bankDepth));
+            boxes.Add(new BoxSpec(coreRect.XMax - bankHalf * 0.5f, CeilingY * 0.5f, bankZ,
+                bankHalf, CeilingY, bankDepth));
+        }
+
+        public static void CollectColumnBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            for (int i = 0; i < plan.Columns.Count; i++)
+            {
+                Vector2 c = plan.Columns[i];
+                boxes.Add(new BoxSpec(c.x, CeilingY * 0.5f, c.y, 0.6f, CeilingY, 0.6f));
+            }
+        }
+
+        public static void CollectStairBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            for (int i = 0; i < plan.Stairs.Count; i++)
+            {
+                RectF r = plan.Stairs[i];
+                boxes.Add(new BoxSpec(Center(r, 0.02f), new Vector3(r.W - 0.4f, 0.04f, r.H - 0.4f)));
+            }
+        }
+
+        public static void CollectPanelBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                boxes.Add(new BoxSpec(r.Center.x, CeilingY - 0.03f, r.Center.y, 1.2f, 0.04f, 0.6f));
+            }
+        }
+
+        /// <summary>All candidate light positions before the global light budget is applied.</summary>
+        public static void CollectLightPositions(FloorPlan plan, List<Vector2> positions)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.Area >= 40f) positions.Add(r.Center);
+            }
+            for (int i = 0; i < plan.Corridors.Count; i++)
+            {
+                RectF c = plan.Corridors[i].Rect;
+                bool horizontal = c.W >= c.H;
+                float length = Mathf.Max(c.W, c.H);
+                int count = Mathf.Max(1, Mathf.RoundToInt(length / 13f));
+                for (int k = 0; k < count; k++)
+                {
+                    float t = count == 1 ? 0.5f : (k + 0.5f) / count;
+                    if (horizontal) positions.Add(new Vector2(c.X + c.W * t, c.Y + c.H * 0.5f));
+                    else positions.Add(new Vector2(c.X + c.W * 0.5f, c.Y + c.H * t));
+                }
+            }
+            for (int i = 0; i < plan.SpawnZones.Count; i++) positions.Add(plan.SpawnZones[i].Center);
+        }
+
+        /// <summary>Global light budget (per-floor) sampled evenly over every candidate position.</summary>
+        public const int LightBudget = 48;
+
+        public static List<Vector2> SampleLights(List<Vector2> positions, int budget)
+        {
+            List<Vector2> result = new List<Vector2>();
+            int step = Mathf.Max(1, positions.Count / Mathf.Max(1, budget));
+            for (int i = 0, n = 0; i < positions.Count && n < budget; i += step, n++) result.Add(positions[i]);
+            return result;
+        }
+
+        // ---- walls with door openings ----------------------------------------------
+        static void AddSegment(List<BoxSpec> boxes, bool horizontal, float from, float to, RectF edge)
         {
             float mid = (from + to) * 0.5f;
-            if (horizontal) AddAxisBox(wall, mid - (to - from) * 0.5f, edge.Y, to - from, WallThickness, 0f, CeilingY, true, edge.Y);
-            else AddAxisBox(wall, edge.X, mid - (to - from) * 0.5f, WallThickness, to - from, 0f, CeilingY, false, edge.X);
+            if (horizontal) AddAxisBox(boxes, mid - (to - from) * 0.5f, edge.Y, to - from, WallThickness, 0f, CeilingY, true, edge.Y);
+            else AddAxisBox(boxes, edge.X, mid - (to - from) * 0.5f, WallThickness, to - from, 0f, CeilingY, false, edge.X);
         }
 
-        static void AddAxisBox(MeshAccum acc, float x, float z, float width, float depth, float y0, float y1, bool horizontal)
+        static void AddAxisBox(List<BoxSpec> boxes, float x, float z, float width, float depth, float y0, float y1, bool horizontal)
         {
-            acc.AddBox(new Vector3(x + width * 0.5f, (y0 + y1) * 0.5f, z + depth * 0.5f), new Vector3(width, y1 - y0, depth));
+            boxes.Add(new BoxSpec(x + width * 0.5f, (y0 + y1) * 0.5f, z + depth * 0.5f, width, y1 - y0, depth));
         }
 
-        static void AddAxisBox(MeshAccum acc, float x, float z, float width, float depth, float y0, float y1, bool horizontal, float line)
+        static void AddAxisBox(List<BoxSpec> boxes, float x, float z, float width, float depth, float y0, float y1, bool horizontal, float line)
         {
             float cx = x + width * 0.5f;
             float cz = z + depth * 0.5f;
             if (horizontal) cz = line;
             else cx = line;
-            acc.AddBox(new Vector3(cx, (y0 + y1) * 0.5f, cz), new Vector3(width, y1 - y0, depth));
+            boxes.Add(new BoxSpec(cx, (y0 + y1) * 0.5f, cz, width, y1 - y0, depth));
         }
 
         static void AddEdge(Dictionary<string, RectF> edges, float x0, float y0, float x1, float y1)
@@ -341,33 +447,13 @@ namespace EscapeFromWork.LevelGen
             GameObject lights = new GameObject("Lights");
             lights.transform.SetParent(root.transform, false);
 
-            List<Vector2> positions = new List<Vector2>();
-            for (int i = 0; i < plan.Rooms.Count; i++)
-            {
-                RectF r = plan.Rooms[i].Rect;
-                if (r.Area >= 40f) positions.Add(r.Center);
-            }
-            for (int i = 0; i < plan.Corridors.Count; i++)
-            {
-                RectF c = plan.Corridors[i].Rect;
-                bool horizontal = c.W >= c.H;
-                float length = Mathf.Max(c.W, c.H);
-                int count = Mathf.Max(1, Mathf.RoundToInt(length / 13f));
-                for (int k = 0; k < count; k++)
-                {
-                    float t = count == 1 ? 0.5f : (k + 0.5f) / count;
-                    if (horizontal) positions.Add(new Vector2(c.X + c.W * t, c.Y + c.H * 0.5f));
-                    else positions.Add(new Vector2(c.X + c.W * 0.5f, c.Y + c.H * t));
-                }
-            }
-            for (int i = 0; i < plan.SpawnZones.Count; i++) positions.Add(plan.SpawnZones[i].Center);
+            List<Vector2> candidates = new List<Vector2>();
+            CollectLightPositions(plan, candidates);
+            List<Vector2> positions = SampleLights(candidates, LightBudget);
 
-            // Budgeted pool of realtime point lights; even sampling keeps coverage uniform.
-            const int budget = 48;
-            int step = Mathf.Max(1, positions.Count / budget);
-            for (int i = 0, n = 0; i < positions.Count && n < budget; i += step, n++)
+            for (int i = 0; i < positions.Count; i++)
             {
-                GameObject go = new GameObject("Light_" + n);
+                GameObject go = new GameObject("Light_" + i);
                 go.transform.SetParent(lights.transform, false);
                 go.transform.position = new Vector3(positions[i].x, CeilingY - 0.3f, positions[i].y);
                 Light l = go.AddComponent<Light>();
@@ -379,24 +465,36 @@ namespace EscapeFromWork.LevelGen
             }
         }
 
-        static void Emit(GameObject root, string name, MeshAccum acc, Material material)
+        public static void Emit(GameObject root, string name, MeshAccum acc, Material material, bool collider = true)
         {
             if (acc.Vertices.Count == 0 || material == null) return;
             GameObject go = new GameObject(name);
             go.transform.SetParent(root.transform, false);
             go.AddComponent<MeshFilter>().sharedMesh = acc.ToMesh(name);
             go.AddComponent<MeshRenderer>().sharedMaterial = material;
-            MeshCollider collider = go.AddComponent<MeshCollider>();
-            collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            if (collider)
+            {
+                MeshCollider mc = go.AddComponent<MeshCollider>();
+                mc.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            }
             go.isStatic = true;
         }
 
-        static Vector3 Center(RectF r, float y)
+        public static Vector3 Center(RectF r, float y)
         {
             return new Vector3(r.X + r.W * 0.5f, y, r.Y + r.H * 0.5f);
         }
 
-        static FloorMaterials FallbackMaterials()
+        public static FloorMaterials FallbackMaterials()
+        {
+            if (_fallback != null) return _fallback;
+            _fallback = MakeFallbackMaterials();
+            return _fallback;
+        }
+
+        static FloorMaterials _fallback;
+
+        static FloorMaterials MakeFallbackMaterials()
         {
             FloorMaterials mats = new FloorMaterials();
             mats.Wall = MakeMaterial("Wall", new Color(0.78f, 0.77f, 0.74f));

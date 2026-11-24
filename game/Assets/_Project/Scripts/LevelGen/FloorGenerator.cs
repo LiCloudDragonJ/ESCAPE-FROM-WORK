@@ -60,72 +60,76 @@ namespace EscapeFromWork.LevelGen
         }
 
         /// <summary>
-        /// Every spawn zone must have at least two extraction candidates that are at least 60%
-        /// of the floor diagonal away on foot; otherwise a team can extract a few seconds after
-        /// spawning. Adds a dedicated fire-stair point on the farthest corridor when the random
-        /// pick left a corner dry.
+        /// 从固定候选里挑本层撤离点：每个出生区至少 2 个候选满足"步行 ≥60% 层对角线"，
+        /// 数量 4–6 个，优先少取而散布不够时再逐个加到 6。撤离点只可能是候选里的物理设施
+        /// （消防梯/电梯/货梯/擦窗机/天台下索），不再往走廊里凭空补点。
         /// </summary>
         static void EnsureExtractionSpread(FloorPlan plan, FloorSpec spec)
         {
-            if (plan.SpawnZones.Count == 0) return;
+            plan.Extractions.Clear();
+            int count = plan.ExtractionCandidates.Count;
+            if (count == 0) return;
+
+            int spawns = plan.SpawnZones.Count;
             FloorValidator.Grid grid = FloorValidator.BuildGrid(plan);
             float required = FloorValidator.RequiredExtractionDistance(plan);
 
-            for (int s = 0; s < plan.SpawnZones.Count; s++)
+            // far[s * count + e]：从出生区 s 走到候选 e 是否够远
+            bool[] far = new bool[Mathf.Max(1, spawns) * count];
+            for (int s = 0; s < spawns; s++)
             {
-                Vector2 spawn = plan.SpawnZones[s].Center;
-                float[] dist = FloorValidator.Flood(grid, spawn);
-                int far = 0;
-                for (int e = 0; e < plan.Extractions.Count; e++)
-                {
-                    Vector2 c = plan.Extractions[e].Center;
-                    int x = grid.X(c.x);
-                    int y = grid.Y(c.y);
-                    if (grid.Inside(x, y) && dist[y * grid.W + x] >= required) far++;
-                }
-
-                int guard = 0;
-                while (far < 2 && guard++ < 4)
-                {
-                    if (!AddFarExtraction(plan, grid, dist, required)) break;
-                    far++;
-                }
+                float[] dist = FloorValidator.Flood(grid, plan.SpawnZones[s].Center);
+                for (int e = 0; e < count; e++)
+                    far[s * count + e] = FloorValidator.WalkDistanceAt(grid, dist, plan.ExtractionCandidates[e].Center) >= required;
             }
+
+            System.Random pick = new System.Random(unchecked(spec.Seed * 7717 + 29));
+            int target = Mathf.Clamp(4 + pick.Next(3), 4, count);
+
+            int[] best = null;
+            int bestSatisfied = -1;
+            int bestSpread = -1;
+            for (int k = target; k <= count; k++)
+            {
+                EvaluateCombinations(count, k, 0, 0, new int[k], far, spawns,
+                    ref bestSatisfied, ref bestSpread, ref best);
+                if (bestSatisfied >= spawns) break; // 这个数量已能保证散布，不用再多取
+            }
+
+            if (best == null) return;
+            for (int i = 0; i < best.Length; i++) plan.Extractions.Add(plan.ExtractionCandidates[best[i]]);
         }
 
-        static bool AddFarExtraction(FloorPlan plan, FloorValidator.Grid grid, float[] dist, float required)
+        /// <summary>按字典序枚举候选组合，取“满足散布的出生区最多、其次远端点总数最多”的那组。</summary>
+        static void EvaluateCombinations(int count, int k, int start, int depth, int[] combo,
+            bool[] far, int spawns, ref int bestSatisfied, ref int bestSpread, ref int[] best)
         {
-            float bestDistance = required;
-            Vector2 best = Vector2.zero;
-            bool found = false;
-            for (int i = 0; i < plan.Corridors.Count; i++)
+            if (depth == k)
             {
-                RectF r = plan.Corridors[i].Rect;
-                if (Mathf.Max(r.W, r.H) < 4f) continue;
-                Vector2 c = r.Center;
-                int x = grid.X(c.x);
-                int y = grid.Y(c.y);
-                float d = grid.Inside(x, y) ? dist[y * grid.W + x] : -1f;
-                if (d < required) continue;
-
-                bool crowded = false;
-                for (int e = 0; e < plan.Extractions.Count; e++)
+                int satisfied = 0;
+                int spread = 0;
+                for (int s = 0; s < spawns; s++)
                 {
-                    if (Vector2.Distance(plan.Extractions[e].Center, c) < 25f) { crowded = true; break; }
+                    int n = 0;
+                    for (int i = 0; i < k; i++) if (far[s * count + combo[i]]) n++;
+                    if (n >= 2) satisfied++;
+                    spread += Mathf.Min(n, 3);
                 }
-                if (crowded) continue;
-                if (!found || d > bestDistance) { bestDistance = d; best = c; found = true; }
+                if (satisfied > bestSatisfied || (satisfied == bestSatisfied && spread > bestSpread))
+                {
+                    bestSatisfied = satisfied;
+                    bestSpread = spread;
+                    best = (int[])combo.Clone();
+                }
+                return;
             }
-            if (!found) return false;
 
-            ExtractionPoint point = new ExtractionPoint();
-            point.Rect = new RectF(best.x - 2f, best.y - 2f, 4f, 4f);
-            point.Center = best;
-            point.Kind = ExtractionKind.FireStair;
-            point.ChannelSeconds = 20f;
-            point.Label = "撤离 · 消防梯";
-            plan.Extractions.Add(point);
-            return true;
+            for (int i = start; i <= count - (k - depth); i++)
+            {
+                combo[depth] = i;
+                EvaluateCombinations(count, k, i + 1, depth + 1, combo, far, spawns,
+                    ref bestSatisfied, ref bestSpread, ref best);
+            }
         }
 
         static FloorPlan Build(FloorSpec spec, System.Random rng)
@@ -1013,6 +1017,10 @@ namespace EscapeFromWork.LevelGen
             return 0;
         }
 
+        /// <summary>
+        /// 本层固定撤离设施：两座消防梯、核心筒电梯/货梯、东西两侧擦窗机，顶部再加天台下索。
+        /// 这里只放候选，取哪 4–6 个由 EnsureExtractionSpread 按出生区散布挑选。
+        /// </summary>
         static void AddExtractions(FloorPlan plan, FloorSpec spec, System.Random rng)
         {
             List<ExtractionPoint> pool = new List<ExtractionPoint>();
@@ -1037,6 +1045,7 @@ namespace EscapeFromWork.LevelGen
                 pool.Add(MakeExtraction(rappel, ExtractionKind.RoofRappel, 30f, false, false, "撤离 · 天台下索"));
             }
 
+            // 打乱候选顺序：选点组合按此顺序做确定性 tie-break，种子不同则候选优先序也不同
             for (int i = pool.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
@@ -1045,8 +1054,7 @@ namespace EscapeFromWork.LevelGen
                 pool[j] = tmp;
             }
 
-            int take = Mathf.Min(pool.Count, 4 + rng.Next(2));
-            for (int i = 0; i < take; i++) plan.Extractions.Add(pool[i]);
+            plan.ExtractionCandidates.AddRange(pool);
         }
 
         static ExtractionPoint MakeExtraction(RectF rect, ExtractionKind kind, float seconds, bool power, bool card, string label)
