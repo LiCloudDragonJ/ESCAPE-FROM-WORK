@@ -330,21 +330,28 @@ namespace EscapeFromWork.EditorTools
 
         static FloorMaterials BuildMaterials()
         {
+            MaterialArtLibrary.BuildAll();
             FloorMaterials mats = new FloorMaterials();
-            mats.Wall = Mat("Wall", new Color(0.78f, 0.77f, 0.74f));
-            mats.Floor = Mat("Floor", new Color(0.46f, 0.47f, 0.50f));
-            mats.Ceiling = Mat("Ceiling", new Color(0.86f, 0.86f, 0.84f));
-            mats.Column = Mat("Column", new Color(0.70f, 0.70f, 0.68f));
-            mats.Core = Mat("Core", new Color(0.55f, 0.57f, 0.60f));
-            mats.Stair = Mat("Stair", new Color(0.38f, 0.40f, 0.43f));
-            mats.PropLarge = Mat("PropLarge", new Color(0.55f, 0.42f, 0.30f));
-            mats.PropMedium = Mat("PropMedium", new Color(0.62f, 0.55f, 0.46f));
-            mats.PropSmall = Mat("PropSmall", new Color(0.45f, 0.55f, 0.52f));
-            mats.SightBreak = Mat("SightBreak", new Color(0.72f, 0.50f, 0.38f));
+            mats.Wall = ArtOrColor("Wall", new Color(0.78f, 0.77f, 0.74f));
+            mats.Floor = ArtOrColor("Floor", new Color(0.46f, 0.47f, 0.50f));
+            mats.Ceiling = ArtOrColor("Ceiling", new Color(0.86f, 0.86f, 0.84f));
+            mats.Column = ArtOrColor("Column", new Color(0.70f, 0.70f, 0.68f));
+            mats.Core = ArtOrColor("Core", new Color(0.55f, 0.57f, 0.60f));
+            mats.Stair = ArtOrColor("Stair", new Color(0.38f, 0.40f, 0.43f));
+            mats.PropLarge = ArtOrColor("PropLarge", new Color(0.55f, 0.42f, 0.30f));
+            mats.PropMedium = ArtOrColor("PropMedium", new Color(0.62f, 0.55f, 0.46f));
+            mats.PropSmall = ArtOrColor("PropSmall", new Color(0.45f, 0.55f, 0.52f));
+            mats.SightBreak = ArtOrColor("SightBreak", new Color(0.72f, 0.50f, 0.38f));
             mats.LightPanel = Emissive("LightPanel", new Color(0.95f, 0.93f, 0.86f), new Color(2.2f, 2.1f, 1.8f));
             mats.Extraction = Emissive("Extraction", new Color(0.95f, 0.65f, 0.25f), new Color(1.1f, 0.55f, 0.15f));
             mats.Spawn = Emissive("Spawn", new Color(0.35f, 0.65f, 0.45f), new Color(0.25f, 0.6f, 0.35f));
             return mats;
+        }
+
+        static Material ArtOrColor(string slot, Color color)
+        {
+            Material art = MaterialArtLibrary.TryLoad(slot);
+            return art != null ? art : Mat(slot, color);
         }
 
         static Material Mat(string name, Color color)

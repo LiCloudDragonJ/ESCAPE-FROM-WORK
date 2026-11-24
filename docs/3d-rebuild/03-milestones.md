@@ -119,9 +119,18 @@
 - 裁剪正确性：分块后墙体体积之和与整层原值一致（误差 <0.1%）；掩体/出生台/灯板按块裁剪后无缺失；撤离点与灯光按中心唯一归属。
 - 流式策略：最近块优先、每帧预算 1–2 块、卸载带 2 块滞回；EditMode 10 项测试覆盖网格铺满/不重叠、裁剪守恒、归属唯一、预算、优先序、卸载滞回、确定性、外壳+块构建。
 
+**AI 材质管线（2026-11-24，本机 ComfyUI）**
+
+- 生成端：`F:\ComfyUI`（SDXL base 1.0）+ `efw_gen_materials.py`（SeamlessTile 用于可平铺）+ `efw_post_materials.py`（接缝检测/offset-blend、Sobel 法线、AO/金属/光滑度打包）。
+- 7 种 1024² 可平铺贴图：CarpetTile、ConcreteFloor、WoodPanel、BrushedMetal、CeilingTile、PaintedWall、DarkMetal；后处理输出 Albedo / Normal / Mask 到 `game/Assets/_Project/Art/Textures/`。
+- Unity 端：`MaterialArtTextureImporter`（sRGB/法线/线性 alpha 自动设置）、`MaterialArtLibrary`（10 个槽位映射 + tiling，菜单 Escape From Work/Art/Build Material Library From Textures，`RebuildAll` 依次重建材质、两个场景与截图）。
+- 几何补平铺 UV：`FloorGeometry.WorldUv`（1 uv = 1 米，按法线主轴投影），否则灰盒无 UV 贴图无法映射。
+- 截图已用 AI 材质重出（`m1-floor3d-spawn/corridor/core.png`）；灯光/曝光仍偏亮偏平，手感与光照调优留给 Play 模式。
+
 **M1 剩余**
 
 - 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
+- 灯光/曝光调优：当前 batchmode 截图偏亮、材质对比弱（灯池 48 盏与 ambient 需要实机调）。
 - PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
 - 分块 LOD / 剔除组与每块独立 NavMesh（设计文档口径，代码仍是整层 NavMesh）。
 

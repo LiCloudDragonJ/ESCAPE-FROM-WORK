@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -59,6 +59,7 @@ namespace EscapeFromWork.LevelGen
         {
             public readonly List<Vector3> Vertices = new List<Vector3>();
             public readonly List<Vector3> Normals = new List<Vector3>();
+            public readonly List<Vector2> Uvs = new List<Vector2>();
             public readonly List<int> Triangles = new List<int>();
 
             public void AddBox(Vector3 center, Vector3 size)
@@ -80,8 +81,24 @@ namespace EscapeFromWork.LevelGen
                 int i = Vertices.Count;
                 Vertices.Add(a); Vertices.Add(b); Vertices.Add(c); Vertices.Add(d);
                 for (int k = 0; k < 4; k++) Normals.Add(n);
+                Uvs.Add(WorldUv(a, n)); Uvs.Add(WorldUv(b, n));
+                Uvs.Add(WorldUv(c, n)); Uvs.Add(WorldUv(d, n));
                 Triangles.Add(i); Triangles.Add(i + 1); Triangles.Add(i + 2);
                 Triangles.Add(i); Triangles.Add(i + 2); Triangles.Add(i + 3);
+            }
+
+            /// <summary>
+            /// Planar world-space UVs: one texture unit per metre, projected on the two
+            /// axes that face the quad normal. Materials scale this with _BaseMap_ST, so
+            /// a floor reads as 2 m carpet tiles and a wall as 1.5 m brush strokes
+            /// without any per-face uv authoring.
+            /// </summary>
+            public static Vector2 WorldUv(Vector3 p, Vector3 n)
+            {
+                float ax = Mathf.Abs(n.x), ay = Mathf.Abs(n.y), az = Mathf.Abs(n.z);
+                if (ay >= ax && ay >= az) return new Vector2(p.x, p.z);
+                if (ax >= az) return new Vector2(p.z, p.y);
+                return new Vector2(p.x, p.y);
             }
 
             public Mesh ToMesh(string name)
@@ -91,6 +108,7 @@ namespace EscapeFromWork.LevelGen
                 if (Vertices.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
                 mesh.SetVertices(Vertices);
                 mesh.SetNormals(Normals);
+                mesh.SetUVs(0, Uvs);
                 mesh.SetTriangles(Triangles, 0);
                 mesh.RecalculateBounds();
                 return mesh;
