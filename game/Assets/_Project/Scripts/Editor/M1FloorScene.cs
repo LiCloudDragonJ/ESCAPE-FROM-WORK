@@ -165,6 +165,7 @@ namespace EscapeFromWork.EditorTools
             camera.tag = "MainCamera";
             camObject.AddComponent<AudioListener>();
             fps.BindCamera(camObject.transform);
+            player.AddComponent<HitscanWeapon>();
             return player;
         }
 

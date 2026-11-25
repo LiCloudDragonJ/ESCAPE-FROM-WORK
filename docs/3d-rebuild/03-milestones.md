@@ -161,4 +161,11 @@
 
 **操作**：WASD 移动 / Shift 冲刺 / Ctrl 蹲 / Space 跳 / M 地图 / F1 视角晃动 / F3 帧率 / R 换层 / `[` `]` 实时调鼠标灵敏度 / Esc 解锁鼠标 / 左键锁回。锁定时屏幕中央有十字准星。
 
-**本轮未做**（下一步）：武器与射击手感、体力条、脚步/环境音、灯光曝光调优、PropCatalog。
+**射击手感（同轮追加）**
+
+- `Gameplay/Weapons/HitscanWeapon.cs`：600 发/分全自动 hitscan，射程 120m，散布 1.4° 圆锥（`Random.insideUnitCircle`），后坐力 1.05° 上抬 + ±0.45° 水平抖动，每次射击调 `FirstPersonController.AddRecoil(pitch, yaw)`。
+- 后坐力走独立通道：控制器里 `recoilPitch/recoilYaw` 与鼠标视角 `pitch` 分开累加，`ApplyCameraRotation()` 统一写 `cameraRig.localRotation = Euler(pitch + recoilPitch, recoilYaw, 0)`，然后以 `recoilRecover = 16` 的速率 Damp 回零（20 发/秒也能回中，不会锁死在抬头）。
+- `Gameplay/Weapons/ImpactFx.cs`：不依赖任何美术资源，命中点贴一个压扁的暗色小球（6s 自动销毁），枪口闪 0.09m 亮球（0.05s）。材质用 URP/Unlit 运行时创建，`HideFlags.DontSave`。
+- 无弹药/换弹/伤害结算：本轮只验证"开枪的反馈是否跟手"，命中判定就打在墙壁/掩体上。
+
+**本轮未做**（下一步）：伤害与敌人、体力条、脚步/环境音、灯光曝光调优、PropCatalog、武器模型与动画。

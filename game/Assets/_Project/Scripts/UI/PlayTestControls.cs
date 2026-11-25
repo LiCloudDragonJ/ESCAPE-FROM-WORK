@@ -103,15 +103,16 @@ namespace EscapeFromWork.UI
         {
             DrawCrosshair();
             int w = 330;
-            int h = _showHelp ? 196 : 22;
+            int h = _showHelp ? 214 : 22;
             Rect area = new Rect(12f, Screen.height - h - 12f, w, h);
             GUILayout.BeginArea(area, GUI.skin.box);
             GUILayout.Label(_showHelp ? "控制 (H 收起)" : "控制 (H 展开)");
             if (_showHelp)
             {
                 GUILayout.Label("WASD 移动    Shift 冲刺    Ctrl 蹲    Space 跳");
-                GUILayout.Label("M 地图    F1 视角晃动    F3 帧率    Esc 解锁鼠标");
-                GUILayout.Label("R 换一层 (新种子)    左键 锁回鼠标");
+                GUILayout.Label("左键 射击（按住连发）    M 地图    F3 帧率");
+                GUILayout.Label("R 换一层 (新种子)    Esc 解锁鼠标 (左键锁回)");
+                GUILayout.Label("F1 视角晃动");
                 GUILayout.Label("灵敏度 " + (Player != null ? Player.lookSensitivity.ToString("0.00") : "-") + "    [ ] 调节");
             }
             if (!string.IsNullOrEmpty(_message) && Time.time < _messageUntil)

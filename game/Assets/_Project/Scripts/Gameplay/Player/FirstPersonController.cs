@@ -46,6 +46,7 @@ namespace EscapeFromWork.Gameplay
         public float landDipScale = 0.014f;
         public float landDipMax = 0.14f;
         public float landDipRecover = 9f;
+        public float recoilRecover = 16f;
 
         public Transform cameraRig;
 
@@ -61,6 +62,8 @@ namespace EscapeFromWork.Gameplay
         float pitch;
         float bobPhase;
         float landDip;
+        float recoilPitch;
+        float recoilYaw;
         bool wasGrounded;
         bool cursorLocked;
 
@@ -162,7 +165,22 @@ namespace EscapeFromWork.Gameplay
             landDip = 0f;
             bobPhase = 0f;
             pitch = 0f;
+            recoilPitch = 0f;
+            recoilYaw = 0f;
             if (cameraRig != null) cameraRig.localRotation = Quaternion.identity;
+        }
+
+        /// Adds a camera kick; the offset decays back to zero on its own.
+        public void AddRecoil(float pitchKick, float yawKick)
+        {
+            recoilPitch = Mathf.Clamp(recoilPitch - pitchKick, -25f, 25f);
+            recoilYaw = Mathf.Clamp(recoilYaw + yawKick, -12f, 12f);
+        }
+
+        void ApplyCameraRotation()
+        {
+            if (cameraRig == null) return;
+            cameraRig.localRotation = Quaternion.Euler(pitch + recoilPitch, recoilYaw, 0f);
         }
 
         void UpdateLook()
@@ -175,7 +193,7 @@ namespace EscapeFromWork.Gameplay
 
             transform.Rotate(0f, delta.x, 0f, Space.World);
             pitch = PlayerMath.ClampPitch(pitch - delta.y, maxPitch);
-            if (cameraRig != null) cameraRig.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            ApplyCameraRotation();
         }
 
         void UpdateCrouch()
@@ -248,6 +266,10 @@ namespace EscapeFromWork.Gameplay
         void UpdateCamera()
         {
             if (cameraRig == null) return;
+
+            recoilPitch = PlayerMath.Damp(recoilPitch, 0f, recoilRecover, Time.deltaTime);
+            recoilYaw = PlayerMath.Damp(recoilYaw, 0f, recoilRecover, Time.deltaTime);
+            ApplyCameraRotation();
 
             float speed01 = Mathf.InverseLerp(walkSpeed, sprintSpeed, CurrentSpeed);
             float amplitude = Mathf.Lerp(bobAmplitudeWalk, bobAmplitudeSprint, speed01) * (IsCrouched ? 0.6f : 1f);
