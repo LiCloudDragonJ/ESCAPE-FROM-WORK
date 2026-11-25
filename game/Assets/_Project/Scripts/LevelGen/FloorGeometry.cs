@@ -68,10 +68,13 @@ namespace EscapeFromWork.LevelGen
                 float y0 = center.y - size.y * 0.5f, y1 = center.y + size.y * 0.5f;
                 float z0 = center.z - size.z * 0.5f, z1 = center.z + size.z * 0.5f;
 
-                Face(new Vector3(x0, y1, z1), new Vector3(x1, y1, z1), new Vector3(x1, y0, z1), new Vector3(x0, y0, z1), Vector3.back);
-                Face(new Vector3(x1, y1, z0), new Vector3(x0, y1, z0), new Vector3(x0, y0, z0), new Vector3(x1, y0, z0), Vector3.forward);
-                Face(new Vector3(x1, y1, z1), new Vector3(x1, y1, z0), new Vector3(x1, y0, z0), new Vector3(x1, y0, z1), Vector3.left);
-                Face(new Vector3(x0, y1, z0), new Vector3(x0, y1, z1), new Vector3(x0, y0, z1), new Vector3(x0, y0, z0), Vector3.right);
+                // Winding must be clockwise as seen from OUTSIDE: with the old order the four
+                // side faces pointed inward, so a box only showed its far (inner) faces —
+                // the "only the left and back faces exist" artifact.
+                Face(new Vector3(x0, y1, z1), new Vector3(x0, y0, z1), new Vector3(x1, y0, z1), new Vector3(x1, y1, z1), Vector3.forward);
+                Face(new Vector3(x1, y1, z0), new Vector3(x1, y0, z0), new Vector3(x0, y0, z0), new Vector3(x0, y1, z0), Vector3.back);
+                Face(new Vector3(x1, y1, z1), new Vector3(x1, y0, z1), new Vector3(x1, y0, z0), new Vector3(x1, y1, z0), Vector3.right);
+                Face(new Vector3(x0, y1, z0), new Vector3(x0, y0, z0), new Vector3(x0, y0, z1), new Vector3(x0, y1, z1), Vector3.left);
                 Face(new Vector3(x0, y1, z1), new Vector3(x1, y1, z1), new Vector3(x1, y1, z0), new Vector3(x0, y1, z0), Vector3.up);
                 Face(new Vector3(x0, y0, z0), new Vector3(x1, y0, z0), new Vector3(x1, y0, z1), new Vector3(x0, y0, z1), Vector3.down);
             }

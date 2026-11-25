@@ -209,6 +209,30 @@ namespace EscapeFromWork.EditorTools
             if (corridor.W > corridor.H) corridorTarget = new Vector3(corridor.XMax - 1.2f, FloorGeometry.EyeHeight - 0.15f, corridor.Y + corridor.H * 0.5f);
             Shot(camera, corridorEye, corridorTarget, dir + "m1-floor3d-corridor.png");
 
+            // 柱子特写：从 45° 角拍一根独立柱，用来确认它是完整六面体而不是贴墙薄片
+            {
+                List<BoxSpec> columns = new List<BoxSpec>();
+                FloorGeometry.CollectColumnBoxes(plan, columns);
+                if (columns.Count > 0)
+                {
+                    BoxSpec pick = columns[0];
+                    Vector2 anchor = new Vector2(plan.Bounds.W * 0.5f, plan.Bounds.H * 0.5f);
+                    float best = float.MaxValue;
+                    for (int i = 0; i < columns.Count; i++)
+                    {
+                        float d = Vector2.Distance(new Vector2(columns[i].Center.x, columns[i].Center.z), anchor);
+                        if (d < best) { best = d; pick = columns[i]; }
+                    }
+                    Vector3 c = pick.Center;
+                    Shot(camera,
+                        new Vector3(c.x + 2.1f, 1.5f, c.z + 2.1f),
+                        new Vector3(c.x, 1.2f, c.z),
+                        dir + "m1-column-closeup.png");
+                    Debug.Log("[M1] column box count=" + columns.Count + " size=" + pick.Size
+                        + " center=" + pick.Center);
+                }
+            }
+
             // 核心筒：站在离核心筒最近的大开间里，朝核心筒方向看（能同时看到房间与核心筒门厅）
             RectF core = plan.Core;
             Vector2 coreMid = core.Center;

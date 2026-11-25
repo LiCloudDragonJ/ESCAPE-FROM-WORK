@@ -220,3 +220,19 @@
 
 **测试**：全部 EditMode **59/59 通过**（`game/m1-tests63.xml`）。
 
+## 10. 盒子侧面绕序反了（2026-11-25 傍晚，重大视觉 bug）
+
+**现象**：结构柱"只有左和后两个面"，墙面看起来像贴纸、侧面发虚，门洞边缘像薄板。
+
+**真因**：`FloorGeometry.MeshAccum.AddBox` 的四个侧面顶点顺序按"法线朝外"的直觉写，但 Unity 以顺时针为正面——四个侧面实际是逆时针，几何法线朝盒内。近侧的面被背面剔除，人只看到**远侧内壁**，也就是"只剩两个面"。顶面与底面恰好是对的。
+
+**判定方法**：三角形几何法线 `Vector3.Cross(b - a, c - a)` 必须与顶点法线同向。已在 `MeshAccum.AddBox` 改正四个侧面的绕序（注释保留原因）。
+
+**回归测试**：`game/Assets/tests/EditMode/MeshWindingTests.cs`
+- `AccumulatedBoxes_FaceOutward`：单盒 12 个三角形逐个校验 `dot(cross, normal) > 0`。
+- `FloorGeometry_MeshesFaceOutward`：seed 1/3 整层几何遍历所有 MeshFilter 逐三角形校验。
+
+**顺带调高 SSAO**：`Assets/Settings/URP-HighFidelity-Renderer.asset` 强度 0.5→**1.35**、半径 0.25→**0.65**、采样 Low→Medium。墙-地、墙-顶、柱-地出现接触阴影，柱子的两个可见面明暗分离，不再读成平板。
+
+**新增截图**：`docs/3d-rebuild/screenshots/m1-column-closeup.png`（45° 角拍独立柱，确认柱体是完整六面体）。
+
