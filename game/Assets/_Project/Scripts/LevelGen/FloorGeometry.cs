@@ -278,30 +278,25 @@ namespace EscapeFromWork.LevelGen
         /// </summary>
         public static void CollectVoidBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
-            const float cell = 0.5f;
+            const float cell = 0.2f;
             float width = plan.Bounds.W, depth = plan.Bounds.H;
             int cols = Mathf.Max(1, Mathf.CeilToInt(width / cell));
             int rows = Mathf.Max(1, Mathf.CeilToInt(depth / cell));
 
-            List<RectF> interior = new List<RectF>();
-            float inflate = plan.Spec.WallInset + 0.12f;
-            for (int i = 0; i < plan.Rooms.Count; i++) interior.Add(plan.Rooms[i].Rect.Inflate(inflate));
-            for (int i = 0; i < plan.Corridors.Count; i++) interior.Add(plan.Corridors[i].Rect.Inflate(0.12f));
-            for (int i = 0; i < plan.Stairs.Count; i++) interior.Add(plan.Stairs[i].Inflate(0.12f));
-            if (plan.Core.W > 0f) interior.Add(plan.Core.Inflate(0.12f));
-            for (int i = 0; i < plan.SpawnZones.Count; i++) interior.Add(plan.SpawnZones[i].Inflate(0.12f));
+            // The walkable mask is rasterised straight from the rects. Anything that is not inside
+            // a room, a corridor, a stair, the core or a spawn pad becomes solid mass, so a crack
+            // left by the BSP layout can never stay an unwalled floor slot you can walk into and
+            // get stuck in (the "无意义空腔 / 死胡同" report). Rasterising keeps this O(area) instead
+            // of O(cells × rects); at 0.2 m the leftover sliver at a rect border is invisible.
+            bool[] walkable = new bool[cols * rows];
+            for (int i = 0; i < plan.Rooms.Count; i++) Rasterise(walkable, cols, rows, cell, plan.Rooms[i].Rect, 0f);
+            for (int i = 0; i < plan.Corridors.Count; i++) Rasterise(walkable, cols, rows, cell, plan.Corridors[i].Rect, 0f);
+            for (int i = 0; i < plan.Stairs.Count; i++) Rasterise(walkable, cols, rows, cell, plan.Stairs[i], 0f);
+            if (plan.Core.W > 0f) Rasterise(walkable, cols, rows, cell, plan.Core, 0f);
+            for (int i = 0; i < plan.SpawnZones.Count; i++) Rasterise(walkable, cols, rows, cell, plan.SpawnZones[i], 0f);
 
             bool[] solid = new bool[cols * rows];
-            for (int j = 0; j < rows; j++)
-            {
-                for (int i = 0; i < cols; i++)
-                {
-                    Vector2 c = new Vector2((i + 0.5f) * cell, (j + 0.5f) * cell);
-                    bool inside = false;
-                    for (int k = 0; k < interior.Count && !inside; k++) inside = interior[k].Contains(c);
-                    solid[j * cols + i] = !inside;
-                }
-            }
+            for (int i = 0; i < solid.Length; i++) solid[i] = !walkable[i];
 
             // Merge equal horizontal runs downwards: a shaft becomes a few tall boxes.
             Dictionary<long, int[]> open = new Dictionary<long, int[]>(256);
@@ -332,6 +327,26 @@ namespace EscapeFromWork.LevelGen
             foreach (KeyValuePair<long, int[]> pair in open) EmitVoid(boxes, pair.Value, cell, width, depth);
         }
 
+        static void Rasterise(bool[] grid, int cols, int rows, float cell, RectF rect, float inflate)
+        {
+            RectF r = inflate > 0f ? rect.Inflate(inflate) : rect;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(r.X / cell));
+            int x1 = Mathf.Min(cols, Mathf.CeilToInt(r.XMax / cell));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(r.Y / cell));
+            int y1 = Mathf.Min(rows, Mathf.CeilToInt(r.YMax / cell));
+            for (int y = y0; y < y1; y++)
+            {
+                float cz = (y + 0.5f) * cell;
+                if (cz < r.Y || cz > r.YMax) continue;
+                for (int x = x0; x < x1; x++)
+                {
+                    float cx = (x + 0.5f) * cell;
+                    if (cx < r.X || cx > r.XMax) continue;
+                    grid[y * cols + x] = true;
+                }
+            }
+        }
+
         static void EmitVoid(List<BoxSpec> boxes, int[] span, float cell, float width, float depth)
         {
             float x0 = span[0] * cell;
@@ -346,10 +361,14 @@ namespace EscapeFromWork.LevelGen
         public static void CollectShellBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
             float width = plan.Bounds.W, depth = plan.Bounds.H;
-            AddAxisBox(boxes, 0f, -WallThickness * 0.5f, width, WallThickness, 0f, CeilingY, true);
-            AddAxisBox(boxes, 0f, depth + WallThickness * 0.5f, width, WallThickness, 0f, CeilingY, true);
-            AddAxisBox(boxes, -WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
-            AddAxisBox(boxes, width + WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
+            // Centred on the footprint edge so the wall body also covers the WallInset ring on the
+            // inside; the outer face sticks out by half the body, which nobody sees.
+            float body = WallBodyThickness(plan);
+            float half = body * 0.5f;
+            AddAxisBox(boxes, 0f, -half, width, body, 0f, CeilingY, true);
+            AddAxisBox(boxes, 0f, depth - half, width, body, 0f, CeilingY, true);
+            AddAxisBox(boxes, -half, 0f, body, depth, 0f, CeilingY, false);
+            AddAxisBox(boxes, width - half, 0f, body, depth, 0f, CeilingY, false);
         }
 
         /// <summary>
@@ -376,12 +395,19 @@ namespace EscapeFromWork.LevelGen
             CombineAll(horizontal);
             CombineAll(vertical);
 
+            // Rooms are inset by WallInset from their BSP leaf while the wall centreline sits on
+            // the leaf edge, so a 0.2 m wall leaves a WallInset - WallThickness/2 = 0.1 m strip of
+            // bare floor along both sides of every partition. That strip had neither wall nor
+            // solid mass and read as a walk-in crack ("无意义空腔"). Widen the wall body to cover
+            // the whole gap on both sides instead of chasing it with solid mass.
+            float body = WallBodyThickness(plan);
+
             List<BoxSpec> lintels = new List<BoxSpec>();
             List<Door> doors = CollectDoors(plan);
-            for (int i = 0; i < doors.Count; i++) CutDoor(horizontal, vertical, doors[i], lintels);
+            for (int i = 0; i < doors.Count; i++) CutDoor(horizontal, vertical, doors[i], lintels, body);
 
-            EmitLines(boxes, horizontal, true, plan.Bounds);
-            EmitLines(boxes, vertical, false, plan.Bounds);
+            EmitLines(boxes, horizontal, true, plan.Bounds, body);
+            EmitLines(boxes, vertical, false, plan.Bounds, body);
             boxes.AddRange(lintels);
         }
 
@@ -436,7 +462,7 @@ namespace EscapeFromWork.LevelGen
             }
         }
 
-        static void CutDoor(Dictionary<int, List<Vector2>> horizontal, Dictionary<int, List<Vector2>> vertical, Door door, List<BoxSpec> lintels)
+        static void CutDoor(Dictionary<int, List<Vector2>> horizontal, Dictionary<int, List<Vector2>> vertical, Door door, List<BoxSpec> lintels, float thickness)
         {
             bool isHorizontal = door.Side == DoorSide.North || door.Side == DoorSide.South;
             Dictionary<int, List<Vector2>> lines = isHorizontal ? horizontal : vertical;
@@ -472,8 +498,8 @@ namespace EscapeFromWork.LevelGen
             // 门楣必须和墙面完全共面（同厚度、同中心线），任何凸出都会变成"悬空纸片"
             float y = (DoorHeight + CeilingY) * 0.5f;
             lintels.Add(isHorizontal
-                ? new BoxSpec(along, y, line, half * 2f, CeilingY - DoorHeight, WallThickness)
-                : new BoxSpec(line, y, along, WallThickness, CeilingY - DoorHeight, half * 2f));
+                ? new BoxSpec(along, y, line, half * 2f, CeilingY - DoorHeight, thickness)
+                : new BoxSpec(line, y, along, thickness, CeilingY - DoorHeight, half * 2f));
         }
 
         static bool CoversSpan(List<Vector2> spans, float along)
@@ -520,7 +546,12 @@ namespace EscapeFromWork.LevelGen
             }
         }
 
-        static void EmitLines(List<BoxSpec> boxes, Dictionary<int, List<Vector2>> lines, bool horizontal, RectF bounds)
+        static float WallBodyThickness(FloorPlan plan)
+        {
+            return Mathf.Max(WallThickness, plan.Spec.WallInset * 2f);
+        }
+
+        static void EmitLines(List<BoxSpec> boxes, Dictionary<int, List<Vector2>> lines, bool horizontal, RectF bounds, float thickness)
         {
             float limit = horizontal ? bounds.H : bounds.W;
             foreach (KeyValuePair<int, List<Vector2>> pair in lines)
@@ -534,8 +565,8 @@ namespace EscapeFromWork.LevelGen
                     if (len < 0.06f) continue;
                     float mid = (spans[i].x + spans[i].y) * 0.5f;
                     boxes.Add(horizontal
-                        ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, WallThickness)
-                        : new BoxSpec(line, CeilingY * 0.5f, mid, WallThickness, CeilingY, len + 0.02f));
+                        ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, thickness)
+                        : new BoxSpec(line, CeilingY * 0.5f, mid, thickness, CeilingY, len + 0.02f));
                 }
             }
         }
@@ -577,8 +608,27 @@ namespace EscapeFromWork.LevelGen
                     blocked = Mathf.Abs(box.Center.x - c.x) < bx && Mathf.Abs(box.Center.z - c.y) < bz;
                 }
                 if (blocked) continue;
+                // Only structural bays that actually read as structure: big open floors and
+                // corridors. A 0.6 m pillar dropped into the middle of a 20 m² room is neither
+                // believable nor good cover — it just eats the floor.
+                if (!StandingInBigVolume(plan, c)) continue;
                 boxes.Add(new BoxSpec(c.x, CeilingY * 0.5f, c.y, half * 2f, CeilingY, half * 2f));
             }
+        }
+
+        /// <summary>Corridor bays always stay; room bays only in open-plan rooms (≥120 m²).</summary>
+        static bool StandingInBigVolume(FloorPlan plan, Vector2 c)
+        {
+            float bestRoom = 0f;
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.Contains(c) && r.Area > bestRoom) bestRoom = r.Area;
+            }
+            if (bestRoom > 0f) return bestRoom >= 120f;
+            for (int i = 0; i < plan.Corridors.Count; i++)
+                if (plan.Corridors[i].Rect.Contains(c)) return true;
+            return false;
         }
 
         public static void CollectStairBoxes(FloorPlan plan, List<BoxSpec> boxes)

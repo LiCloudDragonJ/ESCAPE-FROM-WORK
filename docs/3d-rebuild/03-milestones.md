@@ -236,3 +236,33 @@
 
 **新增截图**：`docs/3d-rebuild/screenshots/m1-column-closeup.png`（45° 角拍独立柱，确认柱体是完整六面体）。
 
+## 11. 地板缝 / 进去是死胡同（2026-11-25 傍晚）
+
+**现象**：玩家能走进一块没有出口的窄腔体（"进去之后是死胡同"），近看是墙之间的地板缝，远看像墙上有洞。
+
+**真因（不是门不够）**：
+1. 房间矩形按 BSP 叶子内缩 `FloorSpec.WallInset = 0.2`，而墙中心线画在叶子边界上，墙厚只有 `WallThickness = 0.2` → 每道隔墙两侧各留 0.1m 无墙、无实心体的裸地板。
+2. 更宽的缝被 `FloorGeometry.CollectVoidBoxes` 的掩膜漏判：原实现把"房间/走廊矩形内缩 0.32m 后仍在内"当作实心区，缝里的采样点正好落在内缩带上，于是被判成"内部"，一个实心体都不生成，缝隙对外敞开。
+
+**量化（0.25m 采样、每层 512000 点，逐点判定"可走区 或 壳墙/内墙/实心体盒"）**
+
+| 层（seed） | 修复前空洞占比 | 修复后 |
+|---|---|---|
+| 1 | 2.74% | 0.34% |
+| 2 | 3.00% | 0.46% |
+| 3 | 2.71% | 0.34% |
+
+门数直方图（seed 1/2/3，每个房间的出口数）：none=0/0/0、one=1/3/0、two=118/101/108、many=28/36/32 —— 绝大多数房间本来就有 2 个以上出口，"死胡同"的体感主要来自上述地板缝。
+
+**修复**
+- `FloorGeometry.WallBodyThickness(plan) = Mathf.Max(WallThickness, plan.Spec.WallInset * 2f)`（= 0.4m）。`EmitLines` 与 `CutDoor`（含门楣）都改用这个厚度；外墙以层边界为中心、厚 0.4m。
+- `CollectVoidBoxes` 的格子从 0.5m 收到 0.2m，掩膜改成栅格化 `Rasterise(grid, cols, rows, cell, rect, inflate)`，房间/走廊/楼梯/核心筒/出生区一律 inflate=0；非可走格 → 0.2m 高实心体，读作管井/实心墙芯。
+- 柱子：`CollectColumnBoxes` 增加 `StandingInBigVolume` 过滤，8m 柱网的 0.6×0.6 柱只保留在 ≥120㎡ 的大开间或走廊里（原先 370 根散落在小房间里，既无结构意义又挡视线）。
+
+**回归测试** `game/Assets/tests/EditMode/FloorCoverageTests.cs`：`SlabIsEitherWalkableOrFilled([Values(1,2,3,7)])` 断言"未覆盖采样点 < 1%"，修复前会以 2.7% 失败（4/4 通过）。
+
+**重出图**（同日 16:49）：`m1-floor3d-spawn.png`、`m1-floor3d-corridor.png`、`m1-floor3d-core.png` —— 墙面连续、门洞两侧是厚墙墩，走廊里不再有能钻进去的斜缝。
+
+**仍待办**：房间全是轴对齐矩形（BSP 二分所致），需要 45° 切角 / L 形合并 / 凹龛这类非矩形轮廓才有建筑感，属生成器的大改，另行评估。
+
+
