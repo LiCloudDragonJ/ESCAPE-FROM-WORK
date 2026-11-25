@@ -172,16 +172,16 @@ namespace EscapeFromWork.LevelGen
         static void SplitNode(Node n, FloorSpec spec, System.Random rng)
         {
             RectF r = n.Rect;
-            if (n.Depth >= 11) return;
+            if (n.Depth >= 9) return;
             if (r.W < 7f || r.H < 7f) return;
 
             float area = r.Area;
             if (area < spec.MinRoomArea) return;
 
-            float stopP = area > 520f ? 0.02f : area > 300f ? 0.18f : area > 160f ? 0.48f : area > 90f ? 0.74f : 0.9f;
+            float stopP = area > 900f ? 0.0f : area > 620f ? 0.06f : area > 400f ? 0.30f : area > 220f ? 0.62f : area > 120f ? 0.85f : 0.95f;
             stopP *= PrototypeLeafBias(spec.Prototype);
             // 硬上限：再大的房间也不许留（否则会切出篮球场）
-            if (area > 620f || r.W > 42f || r.H > 34f) stopP = 0f;
+            if (area > 900f || r.W > 48f || r.H > 40f) stopP = 0f;
             if (rng.NextDouble() < stopP) return;
 
             bool verticalCut;

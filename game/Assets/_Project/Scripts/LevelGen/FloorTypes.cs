@@ -106,7 +106,7 @@ namespace EscapeFromWork.LevelGen
         public float LoopDoorChance = 0.42f;
 
         /// <summary>小于这个面积的叶子不再切、也不收成房间：小隔间是迷宫感的主要来源。</summary>
-        public float MinRoomArea = 40f;
+        public float MinRoomArea = 60f;
 
         /// <summary>房间最短边；低于它房间连一张办公桌都放不下。</summary>
         public float MinRoomSide = 3.2f;

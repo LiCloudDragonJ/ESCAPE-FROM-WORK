@@ -31,7 +31,7 @@ namespace EscapeFromWork.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.70f, 0.71f, 0.75f);
+            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
             RenderSettings.fog = false;
 
             Vector3 spawn = SpawnPoint(plan);
@@ -85,7 +85,7 @@ namespace EscapeFromWork.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.70f, 0.71f, 0.75f);
+            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
             RenderSettings.fog = false;
 
             GameObject root = new GameObject("FloorRuntime");
@@ -178,7 +178,7 @@ namespace EscapeFromWork.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.70f, 0.71f, 0.75f);
+            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
 
             FloorGeometry.Build(plan, mats, null);
 
@@ -191,9 +191,15 @@ namespace EscapeFromWork.EditorTools
             string dir = System.IO.Path.GetDirectoryName(Application.dataPath) + "/../docs/3d-rebuild/screenshots/";
             System.IO.Directory.CreateDirectory(dir);
 
+            Physics.SyncTransforms();
+
             Vector3 spawn = SpawnPoint(plan);
             Vector3 spawnEye = spawn + new Vector3(0f, FloorGeometry.EyeHeight, 0f);
-            Shot(camera, spawnEye, PlanTarget(plan, spawn), dir + "m1-floor3d-spawn.png");
+            // 出生点取景：朝视野最开阔的水平方向看，避免对着墙角
+            float openDistance;
+            Vector3 spawnDir = BestViewDirection(spawnEye, out openDistance);
+            Vector3 spawnTarget = spawnEye + spawnDir * Mathf.Min(openDistance, 18f) + new Vector3(0f, -0.25f, 0f);
+            Shot(camera, spawnEye, spawnTarget, dir + "m1-floor3d-spawn.png");
 
             RectF corridor = LongestMainCorridor(plan);
             Vector3 corridorEye = new Vector3(corridor.X + corridor.W * 0.5f, FloorGeometry.EyeHeight, corridor.Y + 1.2f);
@@ -201,9 +207,50 @@ namespace EscapeFromWork.EditorTools
             if (corridor.W > corridor.H) corridorTarget = new Vector3(corridor.XMax - 1.2f, FloorGeometry.EyeHeight - 0.15f, corridor.Y + corridor.H * 0.5f);
             Shot(camera, corridorEye, corridorTarget, dir + "m1-floor3d-corridor.png");
 
+            // 核心筒：站在离核心筒最近的大开间里，朝核心筒方向看（能同时看到房间与核心筒门厅）
             RectF core = plan.Core;
-            Vector3 coreEye = new Vector3(core.X + core.W * 0.5f, FloorGeometry.EyeHeight, core.Y - 8f);
-            Shot(camera, coreEye, new Vector3(core.X + core.W * 0.5f, 1.6f, core.YMax), dir + "m1-floor3d-core.png");
+            Vector2 coreMid = core.Center;
+            RectF coreRoom = new RectF(0f, 0f, 0f, 0f);
+            float coreRoomDistance = float.MaxValue;
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.Area < 150f) continue;
+                float d = Vector2.Distance(r.Center, coreMid);
+                if (d < coreRoomDistance)
+                {
+                    coreRoomDistance = d;
+                    coreRoom = r;
+                }
+            }
+            Vector3 coreEye;
+            Vector3 coreTarget;
+            if (coreRoom.W > 1f && coreRoom.H > 1f)
+            {
+                Vector2 away = (coreRoom.Center - coreMid).normalized;
+                float halfX = coreRoom.W * 0.5f - 2f;
+                float halfZ = coreRoom.H * 0.5f - 2f;
+                Vector2 eye2 = coreRoom.Center + new Vector2(away.x * halfX, away.y * halfZ);
+                coreEye = new Vector3(eye2.x, FloorGeometry.EyeHeight, eye2.y);
+                coreTarget = new Vector3(coreMid.x, 1.5f, coreMid.y);
+            }
+            else
+            {
+                Vector2 fallback = coreMid;
+                float best = float.MaxValue;
+                for (int i = 0; i < plan.Corridors.Count; i++)
+                {
+                    Vector2 p = plan.Corridors[i].Rect.Center;
+                    float d = Vector2.Distance(p, coreMid);
+                    if (d < 6f || d > 46f) continue;
+                    if (d < best) { best = d; fallback = p; }
+                }
+                coreEye = new Vector3(fallback.x, FloorGeometry.EyeHeight, fallback.y);
+                float coreOpen;
+                Vector3 coreDir = BestViewDirection(coreEye, out coreOpen);
+                coreTarget = coreEye + coreDir * Mathf.Min(coreOpen, 14f) + new Vector3(0f, -0.2f, 0f);
+            }
+            Shot(camera, coreEye, coreTarget, dir + "m1-floor3d-core.png");
 
             Debug.Log("[M1] screenshots written: spawn / corridor / core");
         }
@@ -311,6 +358,27 @@ namespace EscapeFromWork.EditorTools
             return best;
         }
 
+        /// <summary>Finds the horizontal direction with the most unobstructed space around a point.</summary>
+        static Vector3 BestViewDirection(Vector3 eye, out float distance)
+        {
+            const float probe = 40f;
+            distance = 2f;
+            Vector3 bestDir = Vector3.forward;
+            for (int i = 0; i < 24; i++)
+            {
+                float angle = i * Mathf.PI * 2f / 24f;
+                Vector3 dir = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                RaycastHit hit;
+                float free = Physics.Raycast(eye, dir, out hit, probe) ? hit.distance : probe;
+                if (free > distance)
+                {
+                    distance = free;
+                    bestDir = dir;
+                }
+            }
+            return bestDir;
+        }
+
         static void Shot(Camera camera, Vector3 eye, Vector3 target, string path)
         {
             camera.transform.position = eye;
@@ -351,9 +419,9 @@ namespace EscapeFromWork.EditorTools
             mats.PropMedium = ArtOrColor("PropMedium", new Color(0.62f, 0.55f, 0.46f));
             mats.PropSmall = ArtOrColor("PropSmall", new Color(0.45f, 0.55f, 0.52f));
             mats.SightBreak = ArtOrColor("SightBreak", new Color(0.72f, 0.50f, 0.38f));
-            mats.LightPanel = Emissive("LightPanel", new Color(0.95f, 0.93f, 0.86f), new Color(2.2f, 2.1f, 1.8f));
+            mats.LightPanel = Emissive("LightPanel", new Color(0.95f, 0.93f, 0.86f), new Color(5.0f, 4.8f, 4.2f));
             mats.Extraction = Emissive("Extraction", new Color(0.95f, 0.65f, 0.25f), new Color(1.1f, 0.55f, 0.15f));
-            mats.Spawn = Emissive("Spawn", new Color(0.35f, 0.65f, 0.45f), new Color(0.25f, 0.6f, 0.35f));
+            mats.Spawn = Emissive("Spawn", new Color(0.20f, 0.28f, 0.23f), new Color(0.05f, 0.12f, 0.07f));
             return mats;
         }
 

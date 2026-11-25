@@ -265,103 +265,150 @@ namespace EscapeFromWork.LevelGen
         }
 
         /// <summary>
-        /// Interior walls, generated from walkability rather than from room outlines.
-        /// Rooms sit inset from their BSP leaf, so per-room edge walls left 0.2–0.4 m slivers
-        /// between neighbours that showed straight into the unbuilt void. Building walls on the
-        /// boundary between walkable and non-walkable cells seals every seam; a doorway is a
-        /// hole in that boundary with a lintel over it, not a gap cut out of a long box.
+        /// Interior walls merged from rectangle outlines. Every room outline is inflated by
+        /// WallInset so it lands exactly on its BSP leaf edge: two neighbouring rooms then share
+        /// one boundary line, and the shared run merges into a single 0.2 m partition instead of
+        /// two leaves 0.4 m apart with a hollow between them (the "floating L-shaped paper wall"
+        /// look, and the reason you could stare into the void through the seam).
+        /// Doorways are subtracted from the merged runs and capped by a lintel, so an opening is
+        /// a real 2.1 m hole in a continuous wall and never a floating sliver.
         /// </summary>
         public static void CollectWallBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
-            const float cell = 0.25f;
-            int cols = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.W / cell));
-            int rows = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.H / cell));
-            bool[] walk = new bool[cols * rows];
+            float inset = Mathf.Max(0f, plan.Spec.WallInset);
+            Dictionary<int, List<Vector2>> horizontal = new Dictionary<int, List<Vector2>>();
+            Dictionary<int, List<Vector2>> vertical = new Dictionary<int, List<Vector2>>();
 
-            for (int i = 0; i < plan.Rooms.Count; i++) Stamp(walk, cols, rows, cell, plan.Rooms[i].Rect);
-            for (int i = 0; i < plan.Corridors.Count; i++) Stamp(walk, cols, rows, cell, plan.Corridors[i].Rect);
-            for (int i = 0; i < plan.Stairs.Count; i++) Stamp(walk, cols, rows, cell, plan.Stairs[i]);
-            Stamp(walk, cols, rows, cell, plan.Core);
-            for (int i = 0; i < plan.SpawnZones.Count; i++) Stamp(walk, cols, rows, cell, plan.SpawnZones[i]);
+            for (int i = 0; i < plan.Rooms.Count; i++) AddEdges(horizontal, vertical, plan.Rooms[i].Rect.Inflate(inset));
+            for (int i = 0; i < plan.Corridors.Count; i++) AddEdges(horizontal, vertical, plan.Corridors[i].Rect);
+            for (int i = 0; i < plan.Stairs.Count; i++) AddEdges(horizontal, vertical, plan.Stairs[i]);
+            AddEdges(horizontal, vertical, plan.Core);
+            for (int i = 0; i < plan.SpawnZones.Count; i++) AddEdges(horizontal, vertical, plan.SpawnZones[i]);
 
+            CombineAll(horizontal);
+            CombineAll(vertical);
+
+            List<BoxSpec> lintels = new List<BoxSpec>();
             List<Door> doors = CollectDoors(plan);
-            for (int i = 0; i < doors.Count; i++) StampDoor(walk, cols, rows, cell, doors[i]);
+            for (int i = 0; i < doors.Count; i++) CutDoor(horizontal, vertical, doors[i], lintels);
 
-            // Horizontal boundaries: a wall wherever the cells above and below disagree.
-            for (int j = 1; j < rows; j++)
-            {
-                int start = -1;
-                for (int i = 0; i <= cols; i++)
-                {
-                    bool solid = i < cols && walk[i + (j - 1) * cols] != walk[i + j * cols];
-                    if (solid && start < 0) start = i;
-                    else if (!solid && start >= 0)
-                    {
-                        AddWallRun(boxes, true, start * cell, i * cell, j * cell);
-                        start = -1;
-                    }
-                }
-            }
-
-            // Vertical boundaries.
-            for (int i = 1; i < cols; i++)
-            {
-                int start = -1;
-                for (int j = 0; j <= rows; j++)
-                {
-                    bool solid = j < rows && walk[(i - 1) + j * cols] != walk[i + j * cols];
-                    if (solid && start < 0) start = j;
-                    else if (!solid && start >= 0)
-                    {
-                        AddWallRun(boxes, false, start * cell, j * cell, i * cell);
-                        start = -1;
-                    }
-                }
-            }
-
-            // Lintel over every doorway so an opening is 2.1 m tall instead of floor to ceiling.
-            for (int i = 0; i < doors.Count; i++)
-            {
-                Door d = doors[i];
-                bool horizontal = d.Side == DoorSide.North || d.Side == DoorSide.South;
-                float width = Mathf.Max(0.6f, d.Width);
-                float y = (DoorHeight + CeilingY) * 0.5f;
-                boxes.Add(horizontal
-                    ? new BoxSpec(d.Center.x, y, d.Center.y, width, CeilingY - DoorHeight, WallThickness)
-                    : new BoxSpec(d.Center.x, y, d.Center.y, WallThickness, CeilingY - DoorHeight, width));
-            }
+            EmitLines(boxes, horizontal, true, plan.Bounds);
+            EmitLines(boxes, vertical, false, plan.Bounds);
+            boxes.AddRange(lintels);
         }
 
-        static void AddWallRun(List<BoxSpec> boxes, bool horizontal, float a, float b, float line)
-        {
-            float len = b - a;
-            if (len < 0.05f) return;
-            float mid = (a + b) * 0.5f;
-            boxes.Add(horizontal
-                ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, WallThickness)
-                : new BoxSpec(line, CeilingY * 0.5f, mid, WallThickness, CeilingY, len + 0.02f));
-        }
+        const float LineGrid = 0.05f;
 
-        static void Stamp(bool[] walk, int cols, int rows, float cell, RectF r)
+        static float SnapLine(float value) { return Mathf.Round(value / LineGrid) * LineGrid; }
+
+        static int LineKey(float value) { return Mathf.RoundToInt(SnapLine(value) / LineGrid); }
+
+        static void AddEdges(Dictionary<int, List<Vector2>> horizontal, Dictionary<int, List<Vector2>> vertical, RectF r)
         {
             if (r.W <= 0.05f || r.H <= 0.05f) return;
-            int x0 = Mathf.Max(0, Mathf.FloorToInt(r.X / cell));
-            int x1 = Mathf.Min(cols - 1, Mathf.FloorToInt((r.XMax - 0.001f) / cell));
-            int y0 = Mathf.Max(0, Mathf.FloorToInt(r.Y / cell));
-            int y1 = Mathf.Min(rows - 1, Mathf.FloorToInt((r.YMax - 0.001f) / cell));
-            for (int y = y0; y <= y1; y++)
-                for (int x = x0; x <= x1; x++) walk[x + y * cols] = true;
+            PushSpan(vertical, LineKey(r.X), r.Y, r.YMax);
+            PushSpan(vertical, LineKey(r.XMax), r.Y, r.YMax);
+            PushSpan(horizontal, LineKey(r.Y), r.X, r.XMax);
+            PushSpan(horizontal, LineKey(r.YMax), r.X, r.XMax);
         }
 
-        static void StampDoor(bool[] walk, int cols, int rows, float cell, Door d)
+        static void PushSpan(Dictionary<int, List<Vector2>> lines, int key, float a, float b)
         {
-            bool horizontal = d.Side == DoorSide.North || d.Side == DoorSide.South;
-            float halfWidth = Mathf.Max(0.55f, d.Width * 0.5f + 0.08f);
-            float halfDepth = 0.7f; // bridges the inset on both sides of the wall line
-            RectF area = horizontal
-                ? new RectF(d.Center.x - halfWidth, d.Center.y - halfDepth, halfWidth * 2f, halfDepth * 2f)
-                : new RectF(d.Center.x - halfDepth, d.Center.y - halfWidth, halfDepth * 2f, halfWidth * 2f);
-            Stamp(walk, cols, rows, cell, area);
+            if (b - a < 0.05f) return;
+            List<Vector2> spans;
+            if (!lines.TryGetValue(key, out spans))
+            {
+                spans = new List<Vector2>();
+                lines[key] = spans;
+            }
+            spans.Add(new Vector2(Mathf.Min(a, b), Mathf.Max(a, b)));
+        }
+
+        static void CombineAll(Dictionary<int, List<Vector2>> lines)
+        {
+            foreach (KeyValuePair<int, List<Vector2>> pair in lines)
+            {
+                List<Vector2> spans = pair.Value;
+                if (spans.Count == 0) continue;
+                spans.Sort((x, y) => x.x.CompareTo(y.x));
+                List<Vector2> merged = new List<Vector2>(spans.Count);
+                Vector2 current = spans[0];
+                for (int i = 1; i < spans.Count; i++)
+                {
+                    if (spans[i].x <= current.y + 0.01f) current.y = Mathf.Max(current.y, spans[i].y);
+                    else
+                    {
+                        merged.Add(current);
+                        current = spans[i];
+                    }
+                }
+                merged.Add(current);
+                spans.Clear();
+                spans.AddRange(merged);
+            }
+        }
+
+        static void CutDoor(Dictionary<int, List<Vector2>> horizontal, Dictionary<int, List<Vector2>> vertical, Door door, List<BoxSpec> lintels)
+        {
+            bool isHorizontal = door.Side == DoorSide.North || door.Side == DoorSide.South;
+            Dictionary<int, List<Vector2>> lines = isHorizontal ? horizontal : vertical;
+            float coordinate = isHorizontal ? door.Center.y : door.Center.x;
+            float along = isHorizontal ? door.Center.x : door.Center.y;
+            float half = Mathf.Max(0.45f, door.Width * 0.5f + 0.04f);
+
+            // 门中心可能落在房间内缩线与叶子边界线之间，取 0.6 m 内最近的墙线
+            int bestKey = 0;
+            float bestDelta = 0.6f;
+            bool found = false;
+            foreach (KeyValuePair<int, List<Vector2>> pair in lines)
+            {
+                float delta = Mathf.Abs(pair.Key * LineGrid - coordinate);
+                if (delta <= bestDelta)
+                {
+                    bestDelta = delta;
+                    bestKey = pair.Key;
+                    found = true;
+                }
+            }
+            if (found) CutSpan(lines[bestKey], along - half, along + half);
+
+            float line = found ? bestKey * LineGrid : SnapLine(coordinate);
+            float y = (DoorHeight + CeilingY) * 0.5f;
+            lintels.Add(isHorizontal
+                ? new BoxSpec(along, y, line, half * 2f, CeilingY - DoorHeight, WallThickness)
+                : new BoxSpec(line, y, along, WallThickness, CeilingY - DoorHeight, half * 2f));
+        }
+
+        static void CutSpan(List<Vector2> spans, float a, float b)
+        {
+            for (int i = spans.Count - 1; i >= 0; i--)
+            {
+                Vector2 span = spans[i];
+                if (b <= span.x + 0.01f || a >= span.y - 0.01f) continue;
+                spans.RemoveAt(i);
+                if (a > span.x + 0.01f) spans.Add(new Vector2(span.x, a));
+                if (b < span.y - 0.01f) spans.Add(new Vector2(b, span.y));
+            }
+        }
+
+        static void EmitLines(List<BoxSpec> boxes, Dictionary<int, List<Vector2>> lines, bool horizontal, RectF bounds)
+        {
+            float limit = horizontal ? bounds.H : bounds.W;
+            foreach (KeyValuePair<int, List<Vector2>> pair in lines)
+            {
+                float line = pair.Key * LineGrid;
+                if (line <= 0.06f || line >= limit - 0.06f) continue; // 外墙由外壳负责
+                List<Vector2> spans = pair.Value;
+                for (int i = 0; i < spans.Count; i++)
+                {
+                    float len = spans[i].y - spans[i].x;
+                    if (len < 0.06f) continue;
+                    float mid = (spans[i].x + spans[i].y) * 0.5f;
+                    boxes.Add(horizontal
+                        ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, WallThickness)
+                        : new BoxSpec(line, CeilingY * 0.5f, mid, WallThickness, CeilingY, len + 0.02f));
+                }
+            }
         }
 
         /// <summary>Elevator bank strip inside the core (north side, 4 m opening).</summary>
@@ -397,10 +444,40 @@ namespace EscapeFromWork.LevelGen
 
         public static void CollectPanelBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
+            // 房间：3.6 × 3.0 m 网格铺 600 × 1200 灯盘，贴近真实吊顶的排布
             for (int i = 0; i < plan.Rooms.Count; i++)
             {
                 RectF r = plan.Rooms[i].Rect;
-                boxes.Add(new BoxSpec(r.Center.x, CeilingY - 0.03f, r.Center.y, 1.2f, 0.04f, 0.6f));
+                if (r.W < 2.4f || r.H < 2.4f) continue;
+                int cols = Mathf.Max(1, Mathf.FloorToInt((r.W - 1.2f) / 3.6f) + 1);
+                int rows = Mathf.Max(1, Mathf.FloorToInt((r.H - 1.2f) / 3.0f) + 1);
+                for (int cx = 0; cx < cols; cx++)
+                {
+                    for (int cz = 0; cz < rows; cz++)
+                    {
+                        float x = r.X + r.W * (cx + 0.5f) / cols;
+                        float z = r.Y + r.H * (cz + 0.5f) / rows;
+                        bool alongX = (cx + cz) % 2 == 0;
+                        boxes.Add(new BoxSpec(x, CeilingY - 0.03f, z,
+                            alongX ? 1.2f : 0.6f, 0.04f, alongX ? 0.6f : 1.2f));
+                    }
+                }
+            }
+            // 走廊：沿长轴每 6 m 一盏
+            for (int i = 0; i < plan.Corridors.Count; i++)
+            {
+                RectF c = plan.Corridors[i].Rect;
+                bool horizontal = c.W >= c.H;
+                float length = Mathf.Max(c.W, c.H);
+                int count = Mathf.Max(1, Mathf.RoundToInt(length / 6f));
+                for (int k = 0; k < count; k++)
+                {
+                    float t = (k + 0.5f) / count;
+                    float x = horizontal ? c.X + c.W * t : c.X + c.W * 0.5f;
+                    float z = horizontal ? c.Y + c.H * 0.5f : c.Y + c.H * t;
+                    boxes.Add(new BoxSpec(x, CeilingY - 0.03f, z,
+                        horizontal ? 0.6f : 1.2f, 0.04f, horizontal ? 1.2f : 0.6f));
+                }
             }
         }
 
@@ -429,7 +506,7 @@ namespace EscapeFromWork.LevelGen
         }
 
         /// <summary>Global light budget (per-floor) sampled evenly over every candidate position.</summary>
-        public const int LightBudget = 48;
+        public const int LightBudget = 72;
 
         public static List<Vector2> SampleLights(List<Vector2> positions, int budget)
         {
@@ -491,7 +568,7 @@ namespace EscapeFromWork.LevelGen
         static void Push(List<Door> doors, HashSet<string> seen, Door d)
         {
             if (d.Width <= 0.05f) return;
-            string key = Mathf.RoundToInt(d.Center.x * 10f) + ":" + Mathf.RoundToInt(d.Center.y * 10f) + ":" + (int)d.Side;
+            string key = Mathf.RoundToInt(d.Center.x * 10f) + ":" + Mathf.RoundToInt(d.Center.y * 10f);
             if (!seen.Add(key)) return;
             doors.Add(d);
         }
@@ -513,7 +590,7 @@ namespace EscapeFromWork.LevelGen
                 Light l = go.AddComponent<Light>();
                 l.type = LightType.Point;
                 l.range = 18f;
-                l.intensity = 9f;
+                l.intensity = 8f;
                 l.color = new Color(1f, 0.95f, 0.87f);
                 l.shadows = LightShadows.None;
             }
