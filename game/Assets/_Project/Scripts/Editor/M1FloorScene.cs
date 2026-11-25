@@ -260,6 +260,8 @@ namespace EscapeFromWork.EditorTools
         {
             EnsureFolders();
             FloorMaterials flat = BuildDebugMaterial();
+            flat.Wall = BuildDebugMaterial("DebugWall", new Color(0.16f, 0.18f, 0.22f));
+            flat.SightBreak = flat.Wall;
             FloorSpec spec = ConfigureSpec(FloorSpec.Default(DefaultSeed));
             FloorPlan plan = FloorGenerator.Generate(spec);
 
@@ -268,6 +270,13 @@ namespace EscapeFromWork.EditorTools
             RenderSettings.ambientLight = new Color(0.92f, 0.92f, 0.92f);
 
             GameObject root = FloorGeometry.Build(plan, flat, null);
+            // 顶视调试要把吊顶藏掉，否则从上往下只能看到吊顶
+            MeshRenderer[] hidden = root.GetComponentsInChildren<MeshRenderer>();
+            for (int i = 0; i < hidden.Length; i++)
+            {
+                string n = hidden[i].gameObject.name;
+                if (n.StartsWith("Ceiling") || n.Contains("LightPanel")) hidden[i].enabled = false;
+            }
             int verts = 0;
             MeshFilter[] filters = root.GetComponentsInChildren<MeshFilter>();
             for (int i = 0; i < filters.Length; i++)
@@ -299,7 +308,7 @@ namespace EscapeFromWork.EditorTools
 
             RectF core = plan.Core;
             camera.orthographic = true;
-            camera.orthographicSize = 45f;
+            camera.orthographicSize = plan.Bounds.H * 0.5f + 8f;
             camera.transform.position = new Vector3(core.Center.x, 90f, core.Y);
             camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             camera.fieldOfView = 60f;
@@ -307,9 +316,9 @@ namespace EscapeFromWork.EditorTools
             Debug.Log("[M1] geometry debug shots written");
         }
 
-        static FloorMaterials BuildDebugMaterial()
+        static Material BuildDebugMaterial(string assetName, Color color)
         {
-            string path = MatDir + "/DebugGray.mat";
+            string path = MatDir + "/" + assetName + ".mat";
             Material m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null)
             {
@@ -318,10 +327,15 @@ namespace EscapeFromWork.EditorTools
                 m = new Material(shader);
                 AssetDatabase.CreateAsset(m, path);
             }
-            Color gray = new Color(0.72f, 0.72f, 0.74f);
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", gray);
-            if (m.HasProperty("_Color")) m.SetColor("_Color", gray);
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            if (m.HasProperty("_Color")) m.SetColor("_Color", color);
             EditorUtility.SetDirty(m);
+            return m;
+        }
+
+        static FloorMaterials BuildDebugMaterial()
+        {
+            Material m = BuildDebugMaterial("DebugGray", new Color(0.72f, 0.72f, 0.74f));
 
             FloorMaterials mats = new FloorMaterials();
             mats.Wall = m; mats.Floor = m; mats.Ceiling = m; mats.Column = m; mats.Core = m;
