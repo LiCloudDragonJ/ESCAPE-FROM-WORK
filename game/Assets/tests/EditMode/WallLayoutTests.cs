@@ -70,16 +70,21 @@ namespace EscapeFromWork.Tests
             for (int d = 0; d < doors.Count; d++)
             {
                 Door door = doors[d];
-                bool found = false;
-                for (int b = 0; b < boxes.Count && !found; b++)
+                bool hasLintel = false;
+                bool blockedAtBodyHeight = false;
+                for (int b = 0; b < boxes.Count; b++)
                 {
                     BoxSpec box = boxes[b];
-                    if (System.Math.Abs(box.Center.y - lintelY) > 0.05f) continue;
                     float dx = System.Math.Abs(box.Center.x - door.Center.x);
                     float dz = System.Math.Abs(box.Center.z - door.Center.y);
-                    if (dx <= 0.35f && dz <= 0.35f) found = true;
+                    if (dx > 0.35f || dz > 0.35f) continue;
+                    if (System.Math.Abs(box.Center.y - lintelY) <= 0.05f) hasLintel = true;
+                    if (box.Center.y < FloorGeometry.DoorHeight - 0.05f) blockedAtBodyHeight = true;
                 }
-                Assert.IsTrue(found, "seed " + seed + " 门 (" + door.Center.x + "," + door.Center.y + ") 没有门楣");
+                // 短墙段（< 0.6 m）会被整段删掉，门变成通高门洞，此时不需要门楣；
+                // 但只要该处还有墙，就必须有门楣，否则就是"头顶悬空的洞"。
+                Assert.IsTrue(hasLintel || !blockedAtBodyHeight,
+                    "seed " + seed + " 门 (" + door.Center.x + "," + door.Center.y + ") 有墙无门楣");
             }
         }
     }

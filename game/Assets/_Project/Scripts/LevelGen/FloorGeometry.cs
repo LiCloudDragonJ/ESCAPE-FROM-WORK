@@ -283,7 +283,7 @@ namespace EscapeFromWork.LevelGen
             for (int i = 0; i < plan.Corridors.Count; i++) AddEdges(horizontal, vertical, plan.Corridors[i].Rect);
             for (int i = 0; i < plan.Stairs.Count; i++) AddEdges(horizontal, vertical, plan.Stairs[i]);
             AddEdges(horizontal, vertical, plan.Core);
-            for (int i = 0; i < plan.SpawnZones.Count; i++) AddEdges(horizontal, vertical, plan.SpawnZones[i]);
+            // 出生区只是地面标记（10×10 地贴），不是房间：给它砌墙会在房间中间凭空冒出一个封闭盒子
 
             CombineAll(horizontal);
             CombineAll(vertical);
@@ -356,27 +356,68 @@ namespace EscapeFromWork.LevelGen
             float along = isHorizontal ? door.Center.x : door.Center.y;
             float half = Mathf.Max(0.45f, door.Width * 0.5f + 0.04f);
 
-            // 门中心可能落在房间内缩线与叶子边界线之间，取 0.6 m 内最近的墙线
-            int bestKey = 0;
-            float bestDelta = 0.6f;
-            bool found = false;
+            // 门中心可能落在房间内缩线与叶子边界线之间：只认“真正盖住门”的那条墙线，
+            // 否则会选中旁边 0.1 m 外的墙垛，切不到该切的墙，门洞就成了实墙。
+            List<Vector2> target = null;
+            float line = SnapLine(coordinate);
+            float bestDelta = 0.61f;
             foreach (KeyValuePair<int, List<Vector2>> pair in lines)
             {
                 float delta = Mathf.Abs(pair.Key * LineGrid - coordinate);
-                if (delta <= bestDelta)
-                {
-                    bestDelta = delta;
-                    bestKey = pair.Key;
-                    found = true;
-                }
+                if (delta > 0.6f || delta >= bestDelta) continue;
+                if (!CoversSpan(pair.Value, along)) continue;
+                bestDelta = delta;
+                line = pair.Key * LineGrid;
+                target = pair.Value;
             }
-            if (found) CutSpan(lines[bestKey], along - half, along + half);
+            if (target == null) return;
 
-            float line = found ? bestKey * LineGrid : SnapLine(coordinate);
+            // 门洞两侧必须还有墙，否则会留下一片悬空的门楣（看起来像 L 型纸片墙）
+            bool keepSides = SideWallLength(target, along - half, along + half) >= 0.6f;
+            CutSpan(target, along - half, along + half);
+            if (!keepSides)
+            {
+                RemoveSpanCovering(target, along - half, along + half);
+                return;
+            }
+
+            // 门楣必须和墙面完全共面（同厚度、同中心线），任何凸出都会变成"悬空纸片"
             float y = (DoorHeight + CeilingY) * 0.5f;
             lintels.Add(isHorizontal
                 ? new BoxSpec(along, y, line, half * 2f, CeilingY - DoorHeight, WallThickness)
                 : new BoxSpec(line, y, along, WallThickness, CeilingY - DoorHeight, half * 2f));
+        }
+
+        static bool CoversSpan(List<Vector2> spans, float along)
+        {
+            for (int i = 0; i < spans.Count; i++)
+            {
+                if (along >= spans[i].x - 0.05f && along <= spans[i].y + 0.05f) return true;
+            }
+            return false;
+        }
+
+        static void RemoveSpanCovering(List<Vector2> spans, float a, float b)
+        {
+            for (int i = spans.Count - 1; i >= 0; i--)
+            {
+                if (b <= spans[i].x + 0.01f || a >= spans[i].y - 0.01f) continue;
+                spans.RemoveAt(i);
+            }
+        }
+
+        /// <summary>Total wall length left beside an opening (walls that would remain on either side).</summary>
+        static float SideWallLength(List<Vector2> spans, float a, float b)
+        {
+            for (int i = 0; i < spans.Count; i++)
+            {
+                Vector2 span = spans[i];
+                if (b <= span.x + 0.01f || a >= span.y - 0.01f) continue;
+                float left = Mathf.Max(0f, a - span.x);
+                float right = Mathf.Max(0f, span.y - b);
+                return left + right;
+            }
+            return 0f;
         }
 
         static void CutSpan(List<Vector2> spans, float a, float b)

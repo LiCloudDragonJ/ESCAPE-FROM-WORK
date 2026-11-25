@@ -333,6 +333,39 @@ namespace EscapeFromWork.EditorTools
             return m;
         }
 
+        [MenuItem("Escape From Work/M1/Capture Wall Detail Debug")]
+        public static void CaptureWallDetail()
+        {
+            EnsureFolders();
+            FloorMaterials flat = BuildDebugMaterial();
+            flat.Wall = BuildDebugMaterial("DebugWall", new Color(0.16f, 0.18f, 0.22f));
+            flat.SightBreak = BuildDebugMaterial("DebugSightBreak", new Color(0.62f, 0.16f, 0.12f));
+            FloorSpec spec = ConfigureSpec(FloorSpec.Default(DefaultSeed));
+            FloorPlan plan = FloorGenerator.Generate(spec);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.95f, 0.95f, 0.95f);
+            GameObject root = FloorGeometry.Build(plan, flat, null);
+            MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>();
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                string n = renderers[i].gameObject.name;
+                if (n.StartsWith("Ceiling") || n.Contains("LightPanel")) renderers[i].enabled = false;
+            }
+
+            GameObject camObject = new GameObject("DetailCamera");
+            Camera camera = camObject.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 22f;
+            camera.farClipPlane = 400f;
+            Vector2 look = new Vector2(plan.Core.Center.x + 26f, plan.Core.Center.y + 4f);
+            camera.transform.position = new Vector3(look.x, 34f, look.y - 20f);
+            camera.transform.rotation = Quaternion.Euler(58f, 0f, 0f);
+            string dir = System.IO.Path.GetDirectoryName(Application.dataPath) + "/../docs/3d-rebuild/screenshots/";
+            Shot(camera, camera.transform.position, new Vector3(look.x, 0f, look.y), dir + "m1-wall-detail.png");
+            Debug.Log("[M1] wall detail shot written");
+        }
+
         static FloorMaterials BuildDebugMaterial()
         {
             Material m = BuildDebugMaterial("DebugGray", new Color(0.72f, 0.72f, 0.74f));
