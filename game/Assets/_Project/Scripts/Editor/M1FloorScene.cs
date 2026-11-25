@@ -594,7 +594,7 @@ namespace EscapeFromWork.EditorTools
             mats.Wall = ArtOrColor("Wall", new Color(0.78f, 0.77f, 0.74f));
             mats.Floor = ArtOrColor("Floor", new Color(0.46f, 0.47f, 0.50f));
             mats.Ceiling = ArtOrColor("Ceiling", new Color(0.86f, 0.86f, 0.84f));
-            mats.Column = ArtOrColor("Column", new Color(0.70f, 0.70f, 0.68f));
+            mats.Column = Tint(ArtOrColor("Column", new Color(0.70f, 0.70f, 0.68f)), new Color(0.62f, 0.62f, 0.61f));
             mats.Core = ArtOrColor("Core", new Color(0.55f, 0.57f, 0.60f));
             mats.Stair = ArtOrColor("Stair", new Color(0.38f, 0.40f, 0.43f));
             mats.PropLarge = ArtOrColor("PropLarge", new Color(0.55f, 0.42f, 0.30f));
@@ -605,6 +605,29 @@ namespace EscapeFromWork.EditorTools
             mats.Extraction = Emissive("Extraction", new Color(0.95f, 0.65f, 0.25f), new Color(1.1f, 0.55f, 0.15f));
             mats.Spawn = Emissive("Spawn", new Color(0.20f, 0.28f, 0.23f), new Color(0.05f, 0.12f, 0.07f));
             return mats;
+        }
+
+        /// <summary>
+        /// Art slots share textures; tinting a copy keeps a column from reading as a wall slab
+        /// when it stands right next to painted plaster.
+        /// </summary>
+        static Material Tint(Material source, Color color)
+        {
+            if (source == null) return null;
+            string path = MatDir + "/Tint_" + source.name.Replace("Art_", string.Empty) + ".mat";
+            Material m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(source);
+                AssetDatabase.CreateAsset(m, path);
+            }
+            m.shader = source.shader;
+            if (source.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", source.GetTexture("_BaseMap"));
+            if (source.HasProperty("_BumpMap")) m.SetTexture("_BumpMap", source.GetTexture("_BumpMap"));
+            if (source.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            if (source.HasProperty("_Color")) m.SetColor("_Color", color);
+            EditorUtility.SetDirty(m);
+            return m;
         }
 
         static Material ArtOrColor(string slot, Color color)
