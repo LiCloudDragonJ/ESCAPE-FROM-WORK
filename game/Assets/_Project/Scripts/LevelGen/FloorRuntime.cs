@@ -15,6 +15,9 @@ namespace EscapeFromWork.LevelGen
         public int CorridorLevels = 3;
         public FloorMaterials Materials;
 
+        [Tooltip("可选：把 PropSpec.Name 映射成真模型；留空则全部用灰盒盒子")]
+        public PropCatalog Catalog;
+
         [Tooltip("生成 3D 几何（编辑器里已烘焙时关掉，避免重复）")]
         public bool BuildGeometry = true;
         public bool BuildNavMesh = true;
@@ -48,7 +51,7 @@ namespace EscapeFromWork.LevelGen
         {
             if (Plan == null) return null;
             if (Geometry != null) Destroy(Geometry);
-            Geometry = FloorGeometry.Build(Plan, Materials, transform);
+            Geometry = FloorGeometry.Build(Plan, Materials, transform, Catalog);
             return Geometry;
         }
 

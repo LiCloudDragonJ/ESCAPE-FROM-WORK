@@ -17,6 +17,9 @@ namespace EscapeFromWork.LevelGen
         public int CorridorLevels = 3;
         public FloorMaterials Materials;
 
+        [Tooltip("可选：把 PropSpec.Name 映射成真模型；留空则全部用灰盒盒子")]
+        public PropCatalog Catalog;
+
         [Tooltip("观看者；留空时用 Camera.main")]
         public Transform Viewer;
 
@@ -155,7 +158,7 @@ namespace EscapeFromWork.LevelGen
             float start = Time.realtimeSinceStartup;
 
             List<Mesh> meshes;
-            GameObject go = FloorChunkGeometry.BuildChunk(manifest, Materials, _root.transform, out meshes);
+            GameObject go = FloorChunkGeometry.BuildChunk(manifest, Materials, _root.transform, Catalog, out meshes);
             var view = new ChunkView { Go = go, Meshes = meshes };
             _views[index] = view;
 

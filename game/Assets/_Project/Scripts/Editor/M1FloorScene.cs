@@ -48,6 +48,7 @@ namespace EscapeFromWork.EditorTools
             runtime.Prototype = spec.Prototype;
             runtime.CorridorLevels = spec.CorridorLevels;
             runtime.Materials = mats;
+            runtime.Catalog = PropCatalog.LoadOrCreateDefault();
             runtime.Viewer = player.transform;
             runtime.LoadRadius = FloorStreamer.DefaultLoadRadius;
             runtime.UnloadRadius = FloorStreamer.DefaultUnloadRadius;
@@ -95,6 +96,7 @@ namespace EscapeFromWork.EditorTools
             runtime.Prototype = spec.Prototype;
             runtime.CorridorLevels = spec.CorridorLevels;
             runtime.Materials = mats;
+            runtime.Catalog = PropCatalog.LoadOrCreateDefault();
             runtime.BuildGeometry = false;
             runtime.BuildNavMesh = true;
 

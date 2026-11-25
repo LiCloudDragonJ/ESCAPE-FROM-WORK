@@ -117,6 +117,12 @@ namespace EscapeFromWork.LevelGen
 
         public static GameObject Build(FloorPlan plan, FloorMaterials mats, Transform parent)
         {
+            return Build(plan, mats, parent, null);
+        }
+
+        /// <summary>Single-shot build; prop names present in the catalog become prefab instances.</summary>
+        public static GameObject Build(FloorPlan plan, FloorMaterials mats, Transform parent, PropCatalog catalog)
+        {
             if (mats == null) mats = FallbackMaterials();
 
             GameObject root = new GameObject("Floor_" + plan.Spec.Seed);
@@ -177,6 +183,7 @@ namespace EscapeFromWork.LevelGen
                     sightBreak.AddBox(Center(p.Rect, CeilingY * 0.5f), new Vector3(p.Rect.W, CeilingY, p.Rect.H));
                     continue;
                 }
+                if (PropSpawner.TrySpawn(catalog, p, root.transform)) continue;
                 Vector3 size = new Vector3(p.Rect.W, h, p.Rect.H);
                 MeshAccum target = p.Spec.Size == PropSize.Large ? large : p.Spec.Size == PropSize.Medium ? medium : small;
                 target.AddBox(Center(p.Rect, h * 0.5f), size);
@@ -724,11 +731,13 @@ namespace EscapeFromWork.LevelGen
             {
                 GameObject go = new GameObject("Light_" + i);
                 go.transform.SetParent(lights.transform, false);
-                go.transform.position = new Vector3(positions[i].x, CeilingY - 0.3f, positions[i].y);
+                // Hung 1 m under the ceiling: a light flush against the slab burns a hard
+                // hotspot into the acoustic tile right above it.
+                go.transform.position = new Vector3(positions[i].x, CeilingY - 1.0f, positions[i].y);
                 Light l = go.AddComponent<Light>();
                 l.type = LightType.Point;
-                l.range = 18f;
-                l.intensity = 8f;
+                l.range = 16f;
+                l.intensity = 5.5f;
                 l.color = new Color(1f, 0.95f, 0.87f);
                 l.shadows = LightShadows.None;
             }

@@ -41,6 +41,13 @@ namespace EscapeFromWork.LevelGen
         /// <summary>Build one chunk and return the meshes that must be destroyed on unload.</summary>
         public static GameObject BuildChunk(FloorChunkManifest manifest, FloorMaterials mats, Transform parent, out List<Mesh> meshes)
         {
+            return BuildChunk(manifest, mats, parent, null, out meshes);
+        }
+
+        /// <summary>Same as above, but prop names found in the catalog become prefab instances.</summary>
+        public static GameObject BuildChunk(FloorChunkManifest manifest, FloorMaterials mats, Transform parent,
+            PropCatalog catalog, out List<Mesh> meshes)
+        {
             if (manifest == null) throw new System.ArgumentNullException("manifest");
             if (mats == null) mats = FloorGeometry.FallbackMaterials();
             meshes = new List<Mesh>();
@@ -72,6 +79,7 @@ namespace EscapeFromWork.LevelGen
                         new Vector3(p.Rect.W, FloorGeometry.CeilingY, p.Rect.H));
                     continue;
                 }
+                if (PropSpawner.TrySpawn(catalog, p, root.transform)) continue;
                 float h = p.Spec.Size == PropSize.Large ? 1.05f : p.Spec.Size == PropSize.Medium ? 0.75f : 0.5f;
                 FloorGeometry.MeshAccum target = p.Spec.Size == PropSize.Large ? large
                     : p.Spec.Size == PropSize.Medium ? medium : small;
