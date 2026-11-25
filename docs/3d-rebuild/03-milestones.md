@@ -127,12 +127,13 @@
 - 几何补平铺 UV：`FloorGeometry.WorldUv`（1 uv = 1 米，按法线主轴投影），否则灰盒无 UV 贴图无法映射。
 - 截图已用 AI 材质重出（`m1-floor3d-spawn/corridor/core.png`）；灯光/曝光仍偏亮偏平，手感与光照调优留给 Play 模式。
 
-**M1 剩余**
+**M1 剩余（详见 §12 收尾计划，2026-11-25 定稿）**
 
-- 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
-- 灯光/曝光调优：当前 batchmode 截图偏亮、材质对比弱（灯池 48 盏与 ambient 需要实机调）。
-- PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
-- 分块 LOD / 剔除组与每块独立 NavMesh（设计文档口径，代码仍是整层 NavMesh）。
+- M1-A 房间轮廓不再清一色矩形（凹龛 → 45° 切角 → L 形套间，分三步做）。
+- M1-B 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
+- M1-C 灯光/曝光调优：当前 batchmode 截图偏亮、材质对比弱（灯池 48 盏与 ambient 需要实机调）。
+- M1-D PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
+- M1-E 分块 LOD / 剔除组与每块独立 NavMesh（设计文档口径，代码仍是整层 NavMesh）。
 
 ## 7. 手感迭代（2026-11-25，供 Play 模式实测）
 
@@ -263,6 +264,96 @@
 
 **重出图**（同日 16:49）：`m1-floor3d-spawn.png`、`m1-floor3d-corridor.png`、`m1-floor3d-core.png` —— 墙面连续、门洞两侧是厚墙墩，走廊里不再有能钻进去的斜缝。
 
-**仍待办**：房间全是轴对齐矩形（BSP 二分所致），需要 45° 切角 / L 形合并 / 凹龛这类非矩形轮廓才有建筑感，属生成器的大改，另行评估。
+**仍待办**：房间全是轴对齐矩形（BSP 二分所致），需要 45° 切角 / L 形合并 / 凹龛这类非矩形轮廓才有建筑感，属生成器的大改，已排进 §12 的 M1-A（凹龛 → 45° 切角 → L 形套间）。
+
+## 12. M1 收尾计划（2026-11-25 定稿，换机交接用）
+
+M1 的目标是"能跑起来的灰盒楼层"：程序化生成 + 3D 实体化 + 迷雾 HUD + 8 块流式加载已经能出图，剩下的五项按下面的顺序做。**B、C 只需要 Play 模式看，建议换到高性能机先做这两项**（最快出结论），再回生成器做 A，最后 D、E。
+
+### 12.1 M1-A 房间轮廓不再是清一色矩形
+
+现在的房间全部来自 BSP 二叉切分，所以必然是轴对齐矩形，调参数变不出来。分三步，每步独立可交付、独立可回滚。
+
+**A1 凹龛/壁柱（0.5–1 天，纯装饰，风险最低）**
+
+- 数据：房间增加 `List<RectF> Niches`（相对房间坐标）。`FloorGenerator.Emit` 里每间房 30% 概率在一条非门洞边挖 0.4–0.6m 深、2–3m 宽的凹龛。
+- 几何：`FloorGeometry.AddEdgeBoxes` 遇到凹龛边时改画"凹龛三面 + 两侧墙墩"，地板遮罩多一块凹龛矩形。
+- 验收：覆盖率测试仍 <1%；截图能看到墙上的浅凹（茶水间/打印位观感）。
+- 风险：凹龛挖到房间边界外时会与邻房墙重叠 —— 先只允许朝本层空白/走廊一侧挖。
+
+**A2 45° 切角（2–3 天，主力，最能破方格感）**
+
+- 数据模型升级（本项主要成本）：房间从 `RectF` 升级为**矩形 + 切角列表**，最多 8 顶点。新增结构 `RoomShape { RectF Bounds; Vector2[] Outline; }`，走廊/核心筒/楼梯保持矩形（Outline 即 4 点）。`FloorPlan.Rooms` 的 Rect 字段保留作包围盒，凡"点是否在房内"的判断一律走 `RoomShape.Contains`。
+- 生成：每间房随机切 0–2 个角，边长 1.5–3m；约束：切后最短边 ≥2.5m、门所在边不切、切角不越过门洞。
+- 几何：房间墙从"四条边"改成"逐边（含斜边）"生成，新增 `AddWallSegment(Vector2 a, Vector2 b, float thickness)`；斜边用旋转盒或沿边分段小盒（0.4m 一节），**每段绕序必须顺时针** —— 参考 §10 的教训与 `MeshWindingTests`。地板/吊顶遮罩、`CollectVoidBoxes` 的栅格化掩膜同步改成多边形填充。
+- 门：斜边暂不放门，`AffinityDoor` 仍只挑轴对齐边。
+- 迷雾/小地图：`MapRaster.Build` 的房间填充从矩形改多边形（逐像素奇偶判定即可，800×640 一次性成本可接受）。
+- 验收：新增测试 `Chamfer_CutsOnlyOutsideWalkableArea`（切角三角形区域不可走、房间其余部分仍可走）；`FloorCoverageTests` <1%；`MeshWindingTests` 全绿；出 spawn/corridor/core 三张对比图。
+- 风险：斜边接缝（切角处的地板缝）—— 复用 `Rasterise` 的实心体兜底，先跑覆盖率再调视觉。
+
+**A3 L 形套间（3–4 天，空间感提升最大但牵动断言）**
+
+- 生成：在 BSP 树上把两个相邻同 zone 叶子合并成一个 L 形大间（矩形 + 一条腿），或在 `Emit` 后把一间"扩展"进邻居短边；中间那道墙开 2.4m 宽洞（复用 `LoopDoors` 机制）。
+- 影响面：房间数量下降 → `ExtractionSpreadTests`（每个出生区 ≥2 个远端撤离点）、`FloorGeneratorBatchTests` 的 4–6 撤离点上限、`ChunkStreamingTests` 的构件数分布。
+- 验收：1000 种子批测全绿、覆盖率 <1%、出图能看到"开放办公区 + 里间"的层次。
+- 风险：合并后房间过大会让"每 40㎡ 一盏点光、共 48 盏"的预算不够 —— 大房间改为只给两盏。
+
+### 12.2 M1-B 真实帧率 60fps 与灯池验收（0.5 天，必须 Play 模式）
+
+batchmode 测不出帧率，只能在高性能机 Play 模式实测。步骤：
+
+1. 打开 `game/Assets/_Project/Scenes/FloorTest.unity`，Play，看 PerfHud 读数（帧率/帧时间/draw call）。
+2. Window > Analysis > Profiler：SetPass calls 目标 <3500；Batches 看 static batching 是否生效；Lights 看 48 盏灯的开销。
+3. 再打开 `FloorStreamingTest.unity` Play 走一圈，观察分块切换是否有 >16ms 尖峰。
+4. 数据填到 §12.7 的表里。
+
+验收：1080p 平均 ≥90fps、1% low ≥60fps；开关迷雾 HUD 掉帧 ≤2fps；切块单帧 <16ms。
+
+### 12.3 M1-C 灯光与曝光调优（0.5 天，实机）
+
+现状：batchmode 截图偏亮偏平，材质对比弱。当前 ambient 0.70/0.71/0.75、点光 intensity 9 / range 18 / 48 盏、URP SSAO Intensity 1.35 / Radius 0.65。
+
+建议调法（在 Play 模式里边看边调，不要靠 batchmode 截图判断）：
+
+- ambient 先降到 0.25–0.35，让灯光成为主光源；再加一盏极弱方向光（0.05）避免纯死黑。
+- 点光 intensity 6–8、range 14；天花板灯板保持自发光。
+- Volume：Tonemapping 用 ACES，Bloom threshold 1.1，Exposure 保持 0（别开自动曝光，灰盒会闪）。
+- 验收：Play 模式截图与真实观感一致，暗部不糊成黑块、亮部不过曝。
+
+### 12.4 M1-D PropCatalog 打通灰盒与真模型（1–2 天）
+
+- 数据：`PropCatalog`（ScriptableObject）：`id / prefab / footprint(W×D) / height / collider(Box|Convex|None) / minArea / placement`。
+- 生成器：掩体生成改成按区域权重从 catalog 抽 id，`FloorPlan` 里写 `PropInstance { id, pos, yaw }`；catalog 未填时回落现有灰盒（视觉不变，便于逐件替换）。
+- 资产规范见 [04-3d-assets.md](04-3d-assets.md)：1 unit = 1m、pivot 底面中心、正面 +Z、URP Lit、图集 ≤8、贴图 1K/512、三级 LOD 1.5k/900/300 面。
+- 性能硬要求：825 件掩体必须 static batching + GPU instancing，否则直接爆 3500 draw call 预算。同 id 相邻件用 instancing，室内大件走 static。
+- 验收：新增测试 `PropCatalog_EveryGeneratedIdResolves`（1000 种子，所有 id 都能解析）；灰盒与真模型 footprint 误差 <10%。
+
+### 12.5 M1-E 分块 LOD 与每块独立 NavMesh（2–3 天）
+
+- 现状：整层一块 NavMesh、无 LOD、8 块几何合计 13.4ms（编辑器实测）。
+- NavMesh：按块 bounds 外扩 2m 烘焙 `NavMeshData`，切块时 `NavMesh.AddNavMeshData` / `RemoveNavMeshData`；边缘 2m 重叠保证跨块寻路连得上。
+- LOD：距离 >2 块的块不生成 Props_Small / SightBreaks，或换低模；远景块 `Renderer.enabled = false` + 层剔除。
+- 验收：Play 模式切块单帧 <8ms；跨块寻路测试（脚本从块 0 走到块 7）成功；draw call 不随加载块数线性增长。
+
+### 12.6 换机交接清单
+
+1. `git pull origin main`（本计划即为该提交）。
+2. 确认编辑器仍是 **1.11.1（2022.3.62t18）**，Tuanjie Hub 不要自动升级 —— 升级会静默重写 ProjectVersion 与 URP 资产。
+3. 场景文件不要跨机 merge：到新机器先用菜单 **Escape From Work/M1/Build 3D Floor Scene** 重建 `FloorTest.unity`；同一时间只允许一台机器编辑该场景。
+4. 测试（**不要加 -quit**，加了拿不到结果）：
+   `"<编辑器>/Tuanjie.exe" -batchmode -projectPath "<repo>/game" -runTests -testPlatform EditMode -testFilter <过滤词> -testResults <绝对路径>.xml -logFile <日志>`
+   全量 EditMode 当前基线：66/66 通过（`InteriorWallsCoverTheInsetRing` 因断言过严已删除，不在仓库）。
+5. 出图：`-executeMethod EscapeFromWork.EditorTools.M1FloorScene.Build`，再 `.Capture`（三张 1080p）。
+6. 单次 Unity 调用常 >120 秒，脚本里必须起后台任务再收结果。
+
+### 12.7 实测记录（换机后填）
+
+| 项目 | 机器 | 日期 | 结果 |
+|---|---|---|---|
+| 60fps / 1% low | | | |
+| draw call / SetPass | | | |
+| 灯池 48 盏实机观感 | | | |
+| 切块峰值帧时间 | | | |
+
 
 
