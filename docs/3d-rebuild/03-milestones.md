@@ -200,3 +200,23 @@
 - 核心筒镜头改为站在离核心筒最近、面积 ≥150㎡ 的大开间里朝核心筒看，能同时拍到房间、柱网与吊顶。
 
 **测试**：新增 `game/Assets/tests/EditMode/WallLayoutTests.cs`（同线不叠两层墙、每扇门都有门楣）；全部 EditMode 55 项通过。
+## 9. 柱子贴墙 / 美术接口（2026-11-25 下午）
+
+**"悬空竖条"的真因是柱子，不是墙**（`FloorGeometry.CollectColumnBoxes`）
+
+- 诊断：临时菜单 `M1FloorScene.CaptureGroupColors` 给 13 组材质上平涂调试色（墙红、柱绿、吊顶深蓝灰…），输出 `docs/3d-rebuild/screenshots/m1-group-colors.png`。结果 4 根竖条全是**绿色 = 结构柱**。
+- 真因：8m 柱网直接出 0.6×0.6 柱，没排除落在墙线上的柱；0.6 的柱被 0.2 的墙切掉一半，只剩 0.2–0.3 的薄片贴在墙边，读起来就是"贴在墙上的薄板 / L 型纸片墙"。
+- 修复：出柱前先收集墙盒（外壳 + 内墙），柱中心距任一墙盒 < 墙半宽 + 0.3 + 0.05 就丢弃。
+- 回归测试：`WallLayoutTests.Columns_NeverStandInsideAWall`（seed 1/3/7，柱盒与墙盒 XZ 相交即失败）。
+
+**PropCatalog：灰盒与真模型的同一接口**
+
+- `game/Assets/_Project/Scripts/LevelGen/PropCatalog.cs`：ScriptableObject，`Entry{ Name, Prefab, Size, Offset, AddBoxCollider }`；`PropSpawner.TrySpawn` 负责实例化、按走廊方向转 90°、必要时补 BoxCollider。
+- 生成器完全不知道 prefab 的存在：名字命中就出模型，没命中就继续用合并灰盒（`FloorChunkGeometry.BuildChunk` / `FloorGeometry.Build` 都加了 catalog 重载）。
+- 资产默认落在 `game/Assets/_Project/Data/PropCatalog.asset`，M1 构建时自动创建并挂到运行时。
+- 建模规范写在 `docs/3d-rebuild/04-3d-assets.md`：1 unit = 1m、pivot 底面中心、正面 +Z、单碰撞体（禁止 MeshCollider）、面数 1500/900/300 各带一级 LOD、共享图集。
+
+**灯光**：点光从贴顶（CeilingY-0.3）下挂到 CeilingY-1.0，range 18→16，intensity 8→5.5，吊顶正上方的硬热点明显减轻。
+
+**测试**：全部 EditMode **59/59 通过**（`game/m1-tests63.xml`）。
+
