@@ -134,3 +134,31 @@
 - PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
 - 分块 LOD / 剔除组与每块独立 NavMesh（设计文档口径，代码仍是整层 NavMesh）。
 
+## 7. 手感迭代（2026-11-25，供 Play 模式实测）
+
+**目标**：先让人能"跑起来"感受移动/镜头，再谈战斗。改动集中在控制器与跑测工具，生成器参数未动。
+
+**FirstPersonController 手感改动**（`game/Assets/_Project/Scripts/Gameplay/Player/FirstPersonController.cs`）
+
+| 项 | 旧 | 新 | 理由 |
+|---|---|---|---|
+| 走 / 冲刺 / 蹲 | 4.2 / 7.0 / 1.8 | **4.4 / 7.6 / 1.9** | 12 人 / 3,200㎡ 的层，走速 4.2 略拖 |
+| 地面加速 | 30 单一值 | **加速 40 / 减速 48** 分开 | 旧值松手后滑行过长，像冰面 |
+| 空中控制 | 6 | **8 加速 / 2 阻力** | 跳上掩体时能微调落点 |
+| 跳跃 | 1.05m，无缓冲 | **1.0m + 0.12s 跳跃缓冲** | 落地前一帧按跳不再吞输入 |
+| 重力 | -24 | **-26** | 下落更利落，配合 1m 跳高 |
+| 冲刺 FOV | 无 | **+7° 缓动（7/s）** | 速度感 |
+| 头部晃动 | 无 | **走 2.6cm / 冲刺 4cm，步幅 1.7m，含横向 35%** | 移动有重量；F1 可关 |
+| 落地缓冲 | 无 | **按落地速度下沉，上限 14cm，9/s 恢复** | 从掩体跳下不再"贴地滑走" |
+
+**跑测工具**
+
+- `UI/PlayTestControls.cs`（十字准星也在这里画）：**R 换一层（种子 +17）**，会重建分块几何、NavMesh、地图迷雾并把玩家传送到新出生区、朝向核心筒；**H 收起/展开控制说明**。
+- `FirstPersonController.Teleport(pos, yaw)`：换层时清速度/晃动相位，避免带着旧速度摔进新层。
+- `FloorStreamingRuntime.Regenerate(seed)`：销毁旧块/外壳/NavMesh，重置统计后重新 Initialize。
+- `MapHud.Rebuild(plan)`：换层后地图、迷雾、撤离点标记一起重建。
+- 场景入口：`Assets/_Project/Scenes/FloorStreamingTest.unity`（Build Settings 第一项）。
+
+**操作**：WASD 移动 / Shift 冲刺 / Ctrl 蹲 / Space 跳 / M 地图 / F1 视角晃动 / F3 帧率 / R 换层 / `[` `]` 实时调鼠标灵敏度 / Esc 解锁鼠标 / 左键锁回。锁定时屏幕中央有十字准星。
+
+**本轮未做**（下一步）：武器与射击手感、体力条、脚步/环境音、灯光曝光调优、PropCatalog。

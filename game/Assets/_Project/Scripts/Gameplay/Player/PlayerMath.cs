@@ -23,6 +23,26 @@ namespace EscapeFromWork.Gameplay
             return Mathf.Clamp(pitch, -Mathf.Abs(maxPitch), Mathf.Abs(maxPitch));
         }
 
+        /// Moves current toward target by at most maxDelta (frame-rate independent when fed delta*speed).
+        public static float Approach(float current, float target, float maxDelta)
+        {
+            if (maxDelta <= 0f) return current;
+            return Mathf.MoveTowards(current, target, maxDelta);
+        }
+
+        /// Vertical head-bob offset for a phase in radians; never exceeds amplitude.
+        public static float BobOffset(float phase, float amplitude)
+        {
+            return Mathf.Sin(phase) * Mathf.Abs(amplitude);
+        }
+
+        /// Camera dip on landing: fallSpeed is negative when falling, dip is positive and capped.
+        public static float LandingDip(float fallSpeed, float scale, float maxDip)
+        {
+            float dip = -fallSpeed * Mathf.Max(0f, scale);
+            return Mathf.Clamp(dip, 0f, Mathf.Max(0f, maxDip));
+        }
+
         public static Vector3 ClampHorizontal(Vector3 velocity, float maxSpeed)
         {
             Vector3 flat = new Vector3(velocity.x, 0f, velocity.z);

@@ -104,6 +104,30 @@ namespace EscapeFromWork.LevelGen
             Initialize(null, materials, viewer);
         }
 
+        /// Rebuilds the whole floor with a new seed (play-test R key). Old chunks, shell and
+        /// NavMesh are destroyed, then the streaming pipeline starts again around the viewer.
+        public void Regenerate(int seed)
+        {
+            int count = Grid != null ? Grid.Count : 0;
+            for (int i = 0; i < count; i++) DestroyChunk(i);
+            _views.Clear();
+            if (_root != null) Destroy(_root);
+            if (_navMeshInstance.valid) NavMesh.RemoveNavMeshData(_navMeshInstance);
+            _navMeshInstance = default;
+            if (_navMesh != null) Destroy(_navMesh);
+            _navMesh = null;
+            Streamer = null;
+            Grid = null;
+            Plan = null;
+            ChunksBuilt = 0;
+            ChunksUnloaded = 0;
+            LastBuildMs = 0f;
+            PeakBuildMs = 0f;
+            TotalBuildMs = 0f;
+
+            Initialize(seed, Band, Prototype, CorridorLevels, Materials, Viewer);
+        }
+
         void Update()
         {
             if (Streamer == null) return;

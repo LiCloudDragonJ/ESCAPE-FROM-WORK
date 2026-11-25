@@ -3,21 +3,25 @@ using UnityEngine.InputSystem;
 
 namespace EscapeFromWork.Gameplay
 {
-    /// First-person controller for M0: walk / sprint / crouch / jump, stairs and slopes via CharacterController.
+    /// First-person controller: walk / sprint / crouch / jump, stairs and slopes via CharacterController.
+    /// Feel pass: separate ground accel/decel, jump buffering, sprint FOV kick, head bob and landing dip.
     [RequireComponent(typeof(CharacterController))]
     public sealed class FirstPersonController : MonoBehaviour
     {
         [Header("Movement")]
-        public float walkSpeed = 4.2f;
-        public float sprintSpeed = 7.0f;
-        public float crouchSpeed = 1.8f;
-        public float groundAcceleration = 30f;
-        public float airAcceleration = 6f;
+        public float walkSpeed = 4.4f;
+        public float sprintSpeed = 7.6f;
+        public float crouchSpeed = 1.9f;
+        public float groundAcceleration = 40f;
+        public float groundDeceleration = 48f;
+        public float airAcceleration = 8f;
+        public float airDrag = 2f;
 
         [Header("Jump")]
-        public float jumpHeight = 1.05f;
-        public float gravity = -24f;
+        public float jumpHeight = 1.0f;
+        public float gravity = -26f;
         public float coyoteTime = 0.12f;
+        public float jumpBuffer = 0.12f;
 
         [Header("Crouch")]
         public float standHeight = 1.8f;
@@ -31,18 +35,39 @@ namespace EscapeFromWork.Gameplay
         public float gamepadLookSpeed = 140f;
         public float maxPitch = 85f;
 
+        [Header("Camera feel")]
+        public bool bobEnabled = true;
+        public float sprintFovKick = 7f;
+        public float fovLerp = 7f;
+        public float bobAmplitudeWalk = 0.026f;
+        public float bobAmplitudeSprint = 0.04f;
+        public float bobStride = 1.7f;
+        public float bobLateral = 0.35f;
+        public float landDipScale = 0.014f;
+        public float landDipMax = 0.14f;
+        public float landDipRecover = 9f;
+
         public Transform cameraRig;
 
         CharacterController controller;
         PlayerInputActions input;
+        Camera viewCamera;
+        float baseFov = 78f;
         Vector3 horizontalVelocity;
         float verticalVelocity;
         float lastGroundedAt = -99f;
+        float lastJumpPressedAt = -99f;
         float eyeHeight;
         float pitch;
+        float bobPhase;
+        float landDip;
+        bool wasGrounded;
         bool cursorLocked;
 
         public float CurrentSpeed => new Vector3(controller.velocity.x, 0f, controller.velocity.z).magnitude;
+        public float FallSpeed => verticalVelocity;
+        public bool IsSprinting { get; private set; }
+        public bool IsCrouched => controller.height < standHeight - 0.05f;
 
         /// CharacterController.isGrounded can miss contact on frames with a tiny delta; probe down as a fallback.
         public bool IsGrounded
@@ -88,7 +113,12 @@ namespace EscapeFromWork.Gameplay
         void Update()
         {
             Ticks++;
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) LockCursor(false);
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame) LockCursor(false);
+                if (keyboard.f1Key.wasPressedThisFrame) bobEnabled = !bobEnabled;
+            }
             if (!cursorLocked)
             {
                 if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) LockCursor(true);
@@ -98,6 +128,7 @@ namespace EscapeFromWork.Gameplay
             UpdateLook();
             UpdateCrouch();
             UpdateMove();
+            UpdateCamera();
         }
 
         public void LockCursor(bool locked)
@@ -111,10 +142,27 @@ namespace EscapeFromWork.Gameplay
         {
             cameraRig = rig;
             if (cameraRig == null) return;
+            viewCamera = cameraRig.GetComponent<Camera>();
+            if (viewCamera != null) baseFov = viewCamera.fieldOfView;
             Vector3 p = cameraRig.localPosition;
             p.y = eyeHeight;
             cameraRig.localPosition = p;
             cameraRig.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
+        /// Drops the player onto a spawn point (used when the floor is regenerated).
+        public void Teleport(Vector3 position, float yaw)
+        {
+            controller.enabled = false;
+            transform.position = position;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            controller.enabled = true;
+            horizontalVelocity = Vector3.zero;
+            verticalVelocity = 0f;
+            landDip = 0f;
+            bobPhase = 0f;
+            pitch = 0f;
+            if (cameraRig != null) cameraRig.localRotation = Quaternion.identity;
         }
 
         void UpdateLook()
@@ -133,8 +181,7 @@ namespace EscapeFromWork.Gameplay
         void UpdateCrouch()
         {
             bool wantsCrouch = input.Crouch.IsPressed();
-            bool crouched = controller.height < standHeight - 0.05f;
-            bool stayCrouched = !wantsCrouch && !crouched && !CanStand();
+            bool stayCrouched = !wantsCrouch && IsCrouched && !CanStand();
 
             float targetHeight = (wantsCrouch || stayCrouched) ? crouchHeight : standHeight;
             float targetEye = targetHeight < standHeight - 0.05f ? crouchEye : standEye;
@@ -142,13 +189,6 @@ namespace EscapeFromWork.Gameplay
             controller.height = PlayerMath.Damp(controller.height, targetHeight, crouchLerp, Time.deltaTime);
             controller.center = new Vector3(0f, controller.height * 0.5f, 0f);
             eyeHeight = PlayerMath.Damp(eyeHeight, targetEye, crouchLerp, Time.deltaTime);
-
-            if (cameraRig != null)
-            {
-                Vector3 p = cameraRig.localPosition;
-                p.y = eyeHeight;
-                cameraRig.localPosition = p;
-            }
         }
 
         bool CanStand()
@@ -165,25 +205,65 @@ namespace EscapeFromWork.Gameplay
             if (wish.sqrMagnitude > 1f) wish.Normalize();
 
             bool grounded = IsGrounded;
-            bool crouched = controller.height < standHeight - 0.05f;
-            bool sprinting = input.Sprint.IsPressed() && !crouched && move.y > 0.1f;
-            float speed = crouched ? crouchSpeed : (sprinting ? sprintSpeed : walkSpeed);
-            float acceleration = grounded ? groundAcceleration : airAcceleration;
+            bool crouched = IsCrouched;
+            IsSprinting = input.Sprint.IsPressed() && !crouched && move.y > 0.1f;
+            float speed = crouched ? crouchSpeed : (IsSprinting ? sprintSpeed : walkSpeed);
 
-            horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, wish * speed, acceleration * Time.deltaTime);
+            bool hasInput = wish.sqrMagnitude > 0.0004f;
+            float accel = grounded
+                ? (hasInput ? groundAcceleration : groundDeceleration)
+                : (hasInput ? airAcceleration : airDrag);
+            Vector3 target = wish * speed;
+            horizontalVelocity = Vector3.MoveTowards(horizontalVelocity, target, accel * Time.deltaTime);
 
             if (grounded) lastGroundedAt = Time.time;
-            if (input.Jump.WasPressedThisFrame() && Time.time - lastGroundedAt <= coyoteTime)
+            if (input.Jump.WasPressedThisFrame()) lastJumpPressedAt = Time.time;
+
+            bool bufferedJump = Time.time - lastJumpPressedAt <= jumpBuffer;
+            if (bufferedJump && Time.time - lastGroundedAt <= coyoteTime)
             {
                 verticalVelocity = PlayerMath.JumpVelocity(jumpHeight, gravity);
                 lastGroundedAt = -99f;
+                lastJumpPressedAt = -99f;
             }
 
             verticalVelocity += gravity * Time.deltaTime;
+            float impactSpeed = verticalVelocity;
             if (grounded && verticalVelocity < 0f) verticalVelocity = -2f;
+
+            // Landing dip: use the fall speed from before the ground clamp.
+            if (grounded && !wasGrounded)
+                landDip = Mathf.Max(landDip, PlayerMath.LandingDip(impactSpeed, landDipScale, landDipMax));
+            wasGrounded = grounded;
 
             Vector3 motion = horizontalVelocity + Vector3.up * verticalVelocity;
             controller.Move(motion * Time.deltaTime);
+
+            float planar = new Vector2(horizontalVelocity.x, horizontalVelocity.z).magnitude;
+            if (grounded && planar > 0.2f)
+                bobPhase += planar / Mathf.Max(0.5f, bobStride) * Mathf.PI * 2f * Time.deltaTime;
+            landDip = PlayerMath.Damp(landDip, 0f, landDipRecover, Time.deltaTime);
+        }
+
+        void UpdateCamera()
+        {
+            if (cameraRig == null) return;
+
+            float speed01 = Mathf.InverseLerp(walkSpeed, sprintSpeed, CurrentSpeed);
+            float amplitude = Mathf.Lerp(bobAmplitudeWalk, bobAmplitudeSprint, speed01) * (IsCrouched ? 0.6f : 1f);
+            float vertical = bobEnabled ? PlayerMath.BobOffset(bobPhase, amplitude) : 0f;
+            float lateral = bobEnabled ? Mathf.Sin(bobPhase * 0.5f) * amplitude * bobLateral : 0f;
+
+            Vector3 p = cameraRig.localPosition;
+            p.x = lateral;
+            p.y = eyeHeight + vertical - landDip;
+            cameraRig.localPosition = p;
+
+            if (viewCamera != null)
+            {
+                float targetFov = baseFov + (IsSprinting ? sprintFovKick : 0f);
+                viewCamera.fieldOfView = PlayerMath.Damp(viewCamera.fieldOfView, targetFov, fovLerp, Time.deltaTime);
+            }
         }
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using EscapeFromWork.Gameplay;
 using EscapeFromWork.LevelGen;
+using EscapeFromWork.UI;
 
 namespace EscapeFromWork.EditorTools
 {
@@ -35,6 +36,8 @@ namespace EscapeFromWork.EditorTools
 
             Vector3 spawn = SpawnPoint(plan);
             GameObject player = BuildPlayer(spawn);
+            Vector3 toCore = new Vector3(plan.Core.Center.x - spawn.x, 0f, plan.Core.Center.y - spawn.z);
+            if (toCore.sqrMagnitude > 0.01f) player.transform.rotation = Quaternion.LookRotation(toCore, Vector3.up);
             EscapeFromWork.UI.MapHud hud = player.AddComponent<EscapeFromWork.UI.MapHud>();
             hud.Initialize(plan, player.transform);
 
@@ -50,6 +53,11 @@ namespace EscapeFromWork.EditorTools
             runtime.UnloadRadius = FloorStreamer.DefaultUnloadRadius;
             runtime.BuildsPerFrame = FloorStreamer.DefaultBuildsPerUpdate;
             runtime.BuildNavMesh = true;
+
+            PlayTestControls controls = player.AddComponent<PlayTestControls>();
+            controls.Runtime = runtime;
+            controls.Hud = hud;
+            controls.Player = player.GetComponent<FirstPersonController>();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, StreamingScenePath);

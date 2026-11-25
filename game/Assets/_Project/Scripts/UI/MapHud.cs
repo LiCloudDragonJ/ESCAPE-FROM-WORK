@@ -292,6 +292,16 @@ namespace EscapeFromWork.UI
             _camera = viewer != null ? viewer.GetComponentInChildren<Camera>() : Camera.main;
         }
 
+        /// Rebuilds map + fog for a new floor plan (runtime floor regeneration).
+        public void Rebuild(FloorPlan plan)
+        {
+            if (_mapTex != null) Destroy(_mapTex);
+            if (_fogTex != null) Destroy(_fogTex);
+            if (_diamond != null) Destroy(_diamond);
+            _open = false;
+            Initialize(plan, Viewer);
+        }
+
         void Update()
         {
             Keyboard keyboard = Keyboard.current;
