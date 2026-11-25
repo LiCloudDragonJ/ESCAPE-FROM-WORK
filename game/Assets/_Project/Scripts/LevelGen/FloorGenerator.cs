@@ -54,6 +54,7 @@ namespace EscapeFromWork.LevelGen
             System.Random propRng = new System.Random(unchecked(spec.Seed * 31 + 7));
             CoverPlacer.Place(best, spec, propRng);
             CoverPlacer.AddSightBreaks(best, spec, propRng);
+            CoverPlacer.EnforceClearLane(best, spec);
             CoverPlacer.DropPropsNearDoors(best);
 
             return best;
@@ -160,6 +161,7 @@ namespace EscapeFromWork.LevelGen
 
             AssignCorridorDoors(plan);
             AddLoopDoors(plan, spec, rng);
+            AddDeadEndBypass(plan, spec, rng);
             EnsureConnectivity(plan);
             AddExtractions(plan, spec, rng);
             AddSpawnZones(plan, spec);
@@ -174,9 +176,9 @@ namespace EscapeFromWork.LevelGen
             if (r.W < 7f || r.H < 7f) return;
 
             float area = r.Area;
-            if (area < 26f) return;
+            if (area < spec.MinRoomArea) return;
 
-            float stopP = area > 420f ? 0.02f : area > 240f ? 0.16f : area > 120f ? 0.42f : area > 60f ? 0.68f : 0.86f;
+            float stopP = area > 520f ? 0.02f : area > 300f ? 0.18f : area > 160f ? 0.48f : area > 90f ? 0.74f : 0.9f;
             stopP *= PrototypeLeafBias(spec.Prototype);
             // 硬上限：再大的房间也不许留（否则会切出篮球场）
             if (area > 620f || r.W > 42f || r.H > 34f) stopP = 0f;
@@ -213,6 +215,10 @@ namespace EscapeFromWork.LevelGen
                 bLen = (verticalCut ? r.XMax : r.YMax) - cut - band;
                 if (aLen < 3.6f || bLen < 3.6f) return;
             }
+
+            // 小到放不下一个房间的子区域不要切出来，否则那份面积变成谁也进不去的黑洞
+            float cross = verticalCut ? r.H : r.W;
+            if (aLen * cross < spec.MinRoomArea * 1.1f || bLen * cross < spec.MinRoomArea * 1.1f) return;
 
             n.A = new Node();
             n.B = new Node();
@@ -304,7 +310,7 @@ namespace EscapeFromWork.LevelGen
                     pieces[i].H - spec.WallInset * 2f);
 
                 if (cell.W < 2.6f || cell.H < 2.6f) continue;
-                if (cell.Area > 26f) AddRoom(plan, cell);
+                if (cell.Area > 18f) AddRoom(plan, cell);
             }
         }
 
@@ -489,6 +495,100 @@ namespace EscapeFromWork.LevelGen
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// 死胡同消除：只有一道门的房间再补一道，优先串到相邻房间（套间门），其次通向走廊。
+        /// 迷宫感主要来自大量单出入口的小房间；补门之后一条单线变成一条环路，追击和绕行都能成立。
+        /// </summary>
+        static void AddDeadEndBypass(FloorPlan plan, FloorSpec spec, System.Random rng)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                if (DoorCount(room) >= 2) continue;
+                if (room.Rect.Area < 8f) continue;
+
+                // 1) 通向相邻房间
+                int bestRoom = -1;
+                Vector2 roomCenter = Vector2.zero;
+                DoorSide roomSide = DoorSide.South;
+                float roomLen = 0f;
+                for (int j = 0; j < plan.Rooms.Count; j++)
+                {
+                    if (j == i) continue;
+                    Vector2 c;
+                    DoorSide s;
+                    float len;
+                    if (!FindDoorBetween(room.Rect, plan.Rooms[j].Rect, out c, out s, out len)) continue;
+                    if (len < 1.2f || len <= roomLen) continue;
+                    if (DoorNear(room, c, 1.4f)) continue;
+                    roomLen = len;
+                    bestRoom = j;
+                    roomCenter = c;
+                    roomSide = s;
+                }
+
+                if (bestRoom >= 0)
+                {
+                    Door d;
+                    d.Center = roomCenter;
+                    d.Side = roomSide;
+                    d.Width = Mathf.Clamp(roomLen * 0.45f, 0.9f, 1.6f);
+                    d.Corridor = -1;
+                    d.OtherRoom = bestRoom;
+                    room.ExtraDoors.Add(d);
+                    plan.LoopDoors.Add(d);
+                    plan.Rooms[i] = room;
+                    continue;
+                }
+
+                // 2) 通向走廊
+                int bestCorridor = -1;
+                Vector2 corrCenter = Vector2.zero;
+                DoorSide corrSide = DoorSide.South;
+                float corrLen = 0f;
+                for (int c = 0; c < plan.Corridors.Count; c++)
+                {
+                    Vector2 center;
+                    DoorSide side;
+                    float len;
+                    if (!FindDoorBetween(room.Rect, plan.Corridors[c].Rect, out center, out side, out len)) continue;
+                    if (len < 1.2f || len <= corrLen) continue;
+                    if (DoorNear(room, center, 1.4f)) continue;
+                    corrLen = len;
+                    bestCorridor = c;
+                    corrCenter = center;
+                    corrSide = side;
+                }
+
+                if (bestCorridor < 0) continue;
+                Door extra;
+                extra.Center = corrCenter;
+                extra.Side = corrSide;
+                extra.Width = Mathf.Clamp(corrLen * 0.45f, 0.9f, 1.6f);
+                extra.Corridor = bestCorridor;
+                extra.OtherRoom = -1;
+                room.ExtraDoors.Add(extra);
+                plan.Rooms[i] = room;
+            }
+        }
+
+        static int DoorCount(Room room)
+        {
+            int count = room.HasDoor ? 1 : 0;
+            if (room.ExtraDoors != null) count += room.ExtraDoors.Count;
+            return count;
+        }
+
+        static bool DoorNear(Room room, Vector2 point, float radius)
+        {
+            float sq = radius * radius;
+            if (room.HasDoor && (room.Door.Center - point).sqrMagnitude < sq) return true;
+            if (room.ExtraDoors == null) return false;
+            for (int i = 0; i < room.ExtraDoors.Count; i++)
+                if ((room.ExtraDoors[i].Center - point).sqrMagnitude < sq) return true;
+            return false;
         }
 
         /// <summary>从走廊出发做图遍历，把没接上的房间连到最近的可达房间，连不上就丢掉。</summary>

@@ -264,68 +264,104 @@ namespace EscapeFromWork.LevelGen
             AddAxisBox(boxes, width + WallThickness * 0.5f, 0f, WallThickness, depth, 0f, CeilingY, false);
         }
 
-        /// <summary>Walls of every room, deduplicated, with door openings and lintels.</summary>
+        /// <summary>
+        /// Interior walls, generated from walkability rather than from room outlines.
+        /// Rooms sit inset from their BSP leaf, so per-room edge walls left 0.2–0.4 m slivers
+        /// between neighbours that showed straight into the unbuilt void. Building walls on the
+        /// boundary between walkable and non-walkable cells seals every seam; a doorway is a
+        /// hole in that boundary with a lintel over it, not a gap cut out of a long box.
+        /// </summary>
         public static void CollectWallBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
-            Dictionary<string, RectF> edges = new Dictionary<string, RectF>();
-            for (int i = 0; i < plan.Rooms.Count; i++)
-            {
-                RectF r = plan.Rooms[i].Rect;
-                AddEdge(edges, r.X, r.Y, r.XMax, r.Y);
-                AddEdge(edges, r.X, r.YMax, r.XMax, r.YMax);
-                AddEdge(edges, r.X, r.Y, r.X, r.YMax);
-                AddEdge(edges, r.XMax, r.Y, r.XMax, r.YMax);
-            }
+            const float cell = 0.25f;
+            int cols = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.W / cell));
+            int rows = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.H / cell));
+            bool[] walk = new bool[cols * rows];
+
+            for (int i = 0; i < plan.Rooms.Count; i++) Stamp(walk, cols, rows, cell, plan.Rooms[i].Rect);
+            for (int i = 0; i < plan.Corridors.Count; i++) Stamp(walk, cols, rows, cell, plan.Corridors[i].Rect);
+            for (int i = 0; i < plan.Stairs.Count; i++) Stamp(walk, cols, rows, cell, plan.Stairs[i]);
+            Stamp(walk, cols, rows, cell, plan.Core);
+            for (int i = 0; i < plan.SpawnZones.Count; i++) Stamp(walk, cols, rows, cell, plan.SpawnZones[i]);
 
             List<Door> doors = CollectDoors(plan);
+            for (int i = 0; i < doors.Count; i++) StampDoor(walk, cols, rows, cell, doors[i]);
 
-            foreach (KeyValuePair<string, RectF> pair in edges)
+            // Horizontal boundaries: a wall wherever the cells above and below disagree.
+            for (int j = 1; j < rows; j++)
             {
-                RectF e = pair.Value;
-                bool horizontal = Mathf.Abs(e.YMax - e.Y) < 0.01f;
-                List<float[]> gaps = new List<float[]>();
-                for (int i = 0; i < doors.Count; i++)
+                int start = -1;
+                for (int i = 0; i <= cols; i++)
                 {
-                    Door d = doors[i];
-                    if (horizontal)
+                    bool solid = i < cols && walk[i + (j - 1) * cols] != walk[i + j * cols];
+                    if (solid && start < 0) start = i;
+                    else if (!solid && start >= 0)
                     {
-                        if (Mathf.Abs(d.Center.y - e.Y) > 0.35f) continue;
-                        float a = d.Center.x - d.Width * 0.5f, b = d.Center.x + d.Width * 0.5f;
-                        if (b <= e.X + 0.05f || a >= e.XMax - 0.05f) continue;
-                        gaps.Add(new float[] { Mathf.Max(a, e.X), Mathf.Min(b, e.XMax) });
-                    }
-                    else
-                    {
-                        if (Mathf.Abs(d.Center.x - e.X) > 0.35f) continue;
-                        float a = d.Center.y - d.Width * 0.5f, b = d.Center.y + d.Width * 0.5f;
-                        if (b <= e.Y + 0.05f || a >= e.YMax - 0.05f) continue;
-                        gaps.Add(new float[] { Mathf.Max(a, e.Y), Mathf.Min(b, e.YMax) });
+                        AddWallRun(boxes, true, start * cell, i * cell, j * cell);
+                        start = -1;
                     }
                 }
-                gaps.Sort((g1, g2) => g1[0].CompareTo(g2[0]));
-
-                float start = horizontal ? e.X : e.Y;
-                float end = horizontal ? e.XMax : e.YMax;
-                float cursor = start;
-                for (int i = 0; i < gaps.Count; i++)
-                {
-                    float ga = gaps[i][0], gb = gaps[i][1];
-                    if (ga > cursor + MinSegment) AddSegment(boxes, horizontal, cursor, ga, e);
-                    cursor = Mathf.Max(cursor, gb);
-                    // Lintel above the opening.
-                    if (gb - ga > MinSegment)
-                    {
-                        float cx = horizontal ? (ga + gb) * 0.5f : e.X;
-                        float cz = horizontal ? e.Y : (ga + gb) * 0.5f;
-                        Vector3 lc = new Vector3(cx, (DoorHeight + CeilingY) * 0.5f, cz);
-                        Vector3 ls = horizontal
-                            ? new Vector3(gb - ga, CeilingY - DoorHeight, WallThickness)
-                            : new Vector3(WallThickness, CeilingY - DoorHeight, gb - ga);
-                        boxes.Add(new BoxSpec(lc, ls));
-                    }
-                }
-                if (end > cursor + MinSegment) AddSegment(boxes, horizontal, cursor, end, e);
             }
+
+            // Vertical boundaries.
+            for (int i = 1; i < cols; i++)
+            {
+                int start = -1;
+                for (int j = 0; j <= rows; j++)
+                {
+                    bool solid = j < rows && walk[(i - 1) + j * cols] != walk[i + j * cols];
+                    if (solid && start < 0) start = j;
+                    else if (!solid && start >= 0)
+                    {
+                        AddWallRun(boxes, false, start * cell, j * cell, i * cell);
+                        start = -1;
+                    }
+                }
+            }
+
+            // Lintel over every doorway so an opening is 2.1 m tall instead of floor to ceiling.
+            for (int i = 0; i < doors.Count; i++)
+            {
+                Door d = doors[i];
+                bool horizontal = d.Side == DoorSide.North || d.Side == DoorSide.South;
+                float width = Mathf.Max(0.6f, d.Width);
+                float y = (DoorHeight + CeilingY) * 0.5f;
+                boxes.Add(horizontal
+                    ? new BoxSpec(d.Center.x, y, d.Center.y, width, CeilingY - DoorHeight, WallThickness)
+                    : new BoxSpec(d.Center.x, y, d.Center.y, WallThickness, CeilingY - DoorHeight, width));
+            }
+        }
+
+        static void AddWallRun(List<BoxSpec> boxes, bool horizontal, float a, float b, float line)
+        {
+            float len = b - a;
+            if (len < 0.05f) return;
+            float mid = (a + b) * 0.5f;
+            boxes.Add(horizontal
+                ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, WallThickness)
+                : new BoxSpec(line, CeilingY * 0.5f, mid, WallThickness, CeilingY, len + 0.02f));
+        }
+
+        static void Stamp(bool[] walk, int cols, int rows, float cell, RectF r)
+        {
+            if (r.W <= 0.05f || r.H <= 0.05f) return;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(r.X / cell));
+            int x1 = Mathf.Min(cols - 1, Mathf.FloorToInt((r.XMax - 0.001f) / cell));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(r.Y / cell));
+            int y1 = Mathf.Min(rows - 1, Mathf.FloorToInt((r.YMax - 0.001f) / cell));
+            for (int y = y0; y <= y1; y++)
+                for (int x = x0; x <= x1; x++) walk[x + y * cols] = true;
+        }
+
+        static void StampDoor(bool[] walk, int cols, int rows, float cell, Door d)
+        {
+            bool horizontal = d.Side == DoorSide.North || d.Side == DoorSide.South;
+            float halfWidth = Mathf.Max(0.55f, d.Width * 0.5f + 0.08f);
+            float halfDepth = 0.7f; // bridges the inset on both sides of the wall line
+            RectF area = horizontal
+                ? new RectF(d.Center.x - halfWidth, d.Center.y - halfDepth, halfWidth * 2f, halfDepth * 2f)
+                : new RectF(d.Center.x - halfDepth, d.Center.y - halfWidth, halfDepth * 2f, halfWidth * 2f);
+            Stamp(walk, cols, rows, cell, area);
         }
 
         /// <summary>Elevator bank strip inside the core (north side, 4 m opening).</summary>

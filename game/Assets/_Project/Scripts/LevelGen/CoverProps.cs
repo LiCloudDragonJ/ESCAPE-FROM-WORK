@@ -59,6 +59,72 @@ namespace EscapeFromWork.LevelGen
     /// </summary>
     public static class CoverPlacer
     {
+        /// <summary>
+        /// 硬保证每条走廊的中间净宽：掩体、隔断墙都是按格子摆的，摆完之后可能在同一横截面上
+        /// 两侧同时超深。这里沿长轴每 0.5 m 采样一次，只要净宽不够就拿掉该截面上最深的那件
+        /// （优先拿普通掩体，隔断墙最后才动）。
+        /// </summary>
+        public static void EnforceClearLane(FloorPlan plan, FloorSpec spec)
+        {
+            if (plan.Props.Count == 0) return;
+            float lane = spec.CorridorClearLane - 0.01f;
+            bool[] removed = new bool[plan.Props.Count];
+
+            for (int ci = 0; ci < plan.Corridors.Count; ci++)
+            {
+                RectF r = plan.Corridors[ci].Rect;
+                bool horiz = r.W >= r.H;
+                float width = horiz ? r.H : r.W;
+                float length = horiz ? r.W : r.H;
+                if (width < lane + 0.2f) continue;
+
+                // 只取这条走廊上的掩体，别为了一个采样点扫全层
+                List<int> idx = new List<int>();
+                for (int i = 0; i < plan.Props.Count; i++)
+                    if (plan.Props[i].CorridorIndex == ci) idx.Add(i);
+                if (idx.Count == 0) continue;
+
+                for (float t = 0.25f; t < length; t += 0.5f)
+                {
+                    for (int guard = 0; guard < 6; guard++)
+                    {
+                        float near = 0f, far = 0f;
+                        int worst = -1;
+                        float worstScore = -1f;
+
+                        for (int k = 0; k < idx.Count; k++)
+                        {
+                            int pi = idx[k];
+                            if (removed[pi]) continue;
+                            PropPlacement p = plan.Props[pi];
+                            float a0 = horiz ? p.Rect.X - r.X : p.Rect.Y - r.Y;
+                            float a1 = a0 + (horiz ? p.Rect.W : p.Rect.H);
+                            if (t < a0 - 0.01f || t > a1 + 0.01f) continue;
+                            float depth = horiz ? p.Rect.H : p.Rect.W;
+                            if (p.FarSide) { if (depth > far) far = depth; }
+                            else if (depth > near) near = depth;
+
+                            bool isBreak = p.Spec.Name == "隔断墙";
+                            float score = depth + (isBreak ? 0.2f : 0f); // 同等深度先拿普通掩体
+                            if (score > worstScore) { worstScore = score; worst = pi; }
+                        }
+
+                        if (width - near - far >= lane) break;
+                        if (worst < 0) break;
+                        removed[worst] = true;
+                    }
+                }
+            }
+
+            bool any = false;
+            for (int i = 0; i < removed.Length; i++) if (removed[i]) { any = true; break; }
+            if (!any) return;
+
+            List<PropPlacement> kept = new List<PropPlacement>(plan.Props.Count);
+            for (int i = 0; i < plan.Props.Count; i++) if (!removed[i]) kept.Add(plan.Props[i]);
+            plan.Props = kept;
+        }
+
         public static void Place(FloorPlan plan, FloorSpec spec, System.Random rng)
         {
             plan.Props.Clear();
