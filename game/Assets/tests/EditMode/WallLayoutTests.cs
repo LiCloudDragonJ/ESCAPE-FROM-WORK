@@ -46,6 +46,34 @@ namespace EscapeFromWork.Tests
         }
 
         [Test]
+        public void Columns_NeverStandInsideAWall(
+            [Values(1, 3, 7)] int seed)
+        {
+            FloorSpec spec = FloorSpec.Default(seed);
+            spec.Band = FloorBand.Tower;
+            spec.Width = 200f; spec.Height = 160f;
+            FloorPlan plan = FloorGenerator.Generate(spec);
+
+            List<BoxSpec> walls = new List<BoxSpec>();
+            FloorGeometry.CollectWallBoxes(plan, walls);
+            List<BoxSpec> columns = new List<BoxSpec>();
+            FloorGeometry.CollectColumnBoxes(plan, columns);
+            Assert.Greater(columns.Count, 10, "seed " + seed + " columns=" + columns.Count);
+
+            for (int c = 0; c < columns.Count; c++)
+            {
+                for (int w = 0; w < walls.Count; w++)
+                {
+                    float dx = System.Math.Abs(columns[c].Center.x - walls[w].Center.x);
+                    float dz = System.Math.Abs(columns[c].Center.z - walls[w].Center.z);
+                    bool overlap = dx < (columns[c].Size.x + walls[w].Size.x) * 0.5f
+                                && dz < (columns[c].Size.z + walls[w].Size.z) * 0.5f;
+                    Assert.IsFalse(overlap, "seed " + seed + " 柱子 (" + columns[c].Center.x + "," + columns[c].Center.z + ") 嵌在墙里");
+                }
+            }
+        }
+
+        [Test]
         public void EveryDoorHasALintelAboveIt(
             [Values(1, 5, 9)] int seed)
         {

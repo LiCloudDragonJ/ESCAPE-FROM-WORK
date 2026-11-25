@@ -255,6 +255,139 @@ namespace EscapeFromWork.EditorTools
             Debug.Log("[M1] screenshots written: spawn / corridor / core");
         }
 
+        [MenuItem("Escape From Work/M1/Capture Group Colors")]
+        public static void CaptureGroupColors()
+        {
+            FloorSpec spec = ConfigureSpec(FloorSpec.Default(DefaultSeed));
+            FloorPlan plan = FloorGenerator.Generate(spec);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(1f, 1f, 1f);
+
+            FloorMaterials mats = new FloorMaterials();
+            mats.Wall = BuildDebugMaterial("Dbg_Wall", new Color(0.85f, 0.20f, 0.20f));
+            mats.Floor = BuildDebugMaterial("Dbg_Floor", new Color(0.18f, 0.18f, 0.18f));
+            mats.Ceiling = BuildDebugMaterial("Dbg_Ceiling", new Color(0.30f, 0.30f, 0.34f));
+            mats.Column = BuildDebugMaterial("Dbg_Column", new Color(0.20f, 0.80f, 0.25f));
+            mats.Core = BuildDebugMaterial("Dbg_Core", new Color(0.20f, 0.45f, 0.95f));
+            mats.Stair = BuildDebugMaterial("Dbg_Stair", new Color(0.10f, 0.80f, 0.90f));
+            mats.PropLarge = BuildDebugMaterial("Dbg_Large", new Color(0.95f, 0.55f, 0.10f));
+            mats.PropMedium = BuildDebugMaterial("Dbg_Medium", new Color(0.95f, 0.85f, 0.20f));
+            mats.PropSmall = BuildDebugMaterial("Dbg_Small", new Color(0.80f, 0.95f, 0.40f));
+            mats.SightBreak = BuildDebugMaterial("Dbg_Break", new Color(0.85f, 0.20f, 0.85f));
+            mats.LightPanel = BuildDebugMaterial("Dbg_Panel", new Color(1f, 1f, 1f));
+            mats.Extraction = BuildDebugMaterial("Dbg_Extract", new Color(1f, 0.40f, 0.85f));
+            mats.Spawn = BuildDebugMaterial("Dbg_Spawn", new Color(0.30f, 0.95f, 0.70f));
+
+            FloorGeometry.Build(plan, mats, null);
+            Physics.SyncTransforms();
+
+            RectF core = plan.Core;
+            Vector2 coreMid = core.Center;
+            RectF coreRoom = new RectF(0f, 0f, 0f, 0f);
+            float best = float.MaxValue;
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.Area < 150f) continue;
+                float d = Vector2.Distance(r.Center, coreMid);
+                if (d < best) { best = d; coreRoom = r; }
+            }
+            Vector3 eye;
+            Vector3 target;
+            if (coreRoom.W > 1f)
+            {
+                Vector2 away = (coreRoom.Center - coreMid).normalized;
+                Vector2 eye2 = coreRoom.Center + new Vector2(away.x * (coreRoom.W * 0.5f - 2f), away.y * (coreRoom.H * 0.5f - 2f));
+                eye = new Vector3(eye2.x, FloorGeometry.EyeHeight, eye2.y);
+                target = new Vector3(coreMid.x, 1.5f, coreMid.y);
+            }
+            else
+            {
+                eye = new Vector3(coreMid.x, FloorGeometry.EyeHeight, coreMid.y);
+                target = eye + new Vector3(1f, -0.2f, 0f);
+            }
+
+            GameObject camObject = new GameObject("GroupCam");
+            Camera cam = camObject.AddComponent<Camera>();
+            cam.fieldOfView = 78f;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 320f;
+            string dir = System.IO.Path.GetDirectoryName(Application.dataPath) + "/../docs/3d-rebuild/screenshots/";
+            Shot(cam, eye, target, dir + "m1-group-colors.png");
+            Debug.Log("[M1] group colors written");
+        }
+
+        [MenuItem("Escape From Work/M1/Probe Core View")]
+        public static void ProbeCoreView()
+        {
+            FloorMaterials mats = BuildMaterials();
+            FloorSpec spec = ConfigureSpec(FloorSpec.Default(DefaultSeed));
+            FloorPlan plan = FloorGenerator.Generate(spec);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            FloorGeometry.Build(plan, mats, null);
+            Physics.SyncTransforms();
+
+            RectF core = plan.Core;
+            Vector2 coreMid = core.Center;
+            RectF coreRoom = new RectF(0f, 0f, 0f, 0f);
+            float coreRoomDistance = float.MaxValue;
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.Area < 150f) continue;
+                float d = Vector2.Distance(r.Center, coreMid);
+                if (d < coreRoomDistance) { coreRoomDistance = d; coreRoom = r; }
+            }
+            Vector3 eye;
+            Vector3 target;
+            if (coreRoom.W > 1f && coreRoom.H > 1f)
+            {
+                Vector2 away = (coreRoom.Center - coreMid).normalized;
+                Vector2 eye2 = coreRoom.Center + new Vector2(away.x * (coreRoom.W * 0.5f - 2f), away.y * (coreRoom.H * 0.5f - 2f));
+                eye = new Vector3(eye2.x, FloorGeometry.EyeHeight, eye2.y);
+                target = new Vector3(coreMid.x, 1.5f, coreMid.y);
+            }
+            else
+            {
+                eye = new Vector3(coreMid.x, FloorGeometry.EyeHeight, coreMid.y);
+                target = eye + new Vector3(1f, -0.2f, 0f);
+            }
+            Debug.Log("[probe] room=" + coreRoom + " eye=" + eye + " target=" + target);
+
+            GameObject camObject = new GameObject("ProbeCam");
+            Camera cam = camObject.AddComponent<Camera>();
+            cam.fieldOfView = 78f;
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 320f;
+            cam.transform.position = eye;
+            cam.transform.rotation = Quaternion.LookRotation((target - eye).normalized, Vector3.up);
+
+            Vector2[] pixels = new Vector2[] {
+                new Vector2(0.078f, 0.48f), new Vector2(0.307f, 0.52f),
+                new Vector2(0.615f, 0.52f), new Vector2(0.792f, 0.57f)
+            };
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                Ray ray = cam.ViewportPointToRay(new Vector3(pixels[i].x, pixels[i].y, 0f));
+                if (Physics.Raycast(ray, out RaycastHit hit, 120f))
+                    Debug.Log("[probe] px" + i + " hit=" + hit.collider.gameObject.name + " at " + hit.point + " dist=" + hit.distance.ToString("F2"));
+                else
+                    Debug.Log("[probe] px" + i + " nothing");
+            }
+            for (int gx = 0; gx < 9; gx++)
+            {
+                for (int gy = 0; gy < 5; gy++)
+                {
+                    Ray ray = cam.ViewportPointToRay(new Vector3((gx + 0.5f) / 9f, 0.35f + gy * 0.12f, 0f));
+                    if (Physics.Raycast(ray, out RaycastHit h2, 120f) && h2.distance < 45f)
+                        Debug.Log("[grid] " + gx + "," + gy + " " + h2.collider.gameObject.name + " d=" + h2.distance.ToString("F1") + " p=" + h2.point);
+                }
+            }
+        }
+
         [MenuItem("Escape From Work/M1/Capture 3D Floor Geometry Debug")]
         public static void CaptureGeometryDebug()
         {

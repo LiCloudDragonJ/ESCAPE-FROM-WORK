@@ -151,6 +151,12 @@ namespace EscapeFromWork.LevelGen
             CollectWallBoxes(plan, boxes);
             AddBoxes(wall, boxes);
 
+            // ---- solid mass in the non-walkable parts of the footprint ----------------
+            boxes.Clear();
+            CollectVoidBoxes(plan, boxes);
+            MeshAccum solidMass = new MeshAccum();
+            AddBoxes(solidMass, boxes);
+
             // ---- elevator bank inside the core (north strip, 4 m opening in the middle) ----
             boxes.Clear();
             CollectCoreBoxes(plan, boxes);
@@ -203,6 +209,7 @@ namespace EscapeFromWork.LevelGen
             Emit(root, "LightPanels", panel, mats.LightPanel);
             Emit(root, "Extractions", extraction, mats.Extraction);
             Emit(root, "SpawnPads", spawn, mats.Spawn);
+            Emit(root, "SolidMass", solidMass, mats.Wall);
 
             AddLights(root, plan);
             return root;
@@ -252,6 +259,77 @@ namespace EscapeFromWork.LevelGen
         {
             floor.AddBox(new Vector3(rect.Center.x, -0.1f, rect.Center.y), new Vector3(rect.W, 0.2f, rect.H));
             ceiling.AddBox(new Vector3(rect.Center.x, CeilingY + 0.03f, rect.Center.y), new Vector3(rect.W, 0.06f, rect.H));
+        }
+
+        /// <summary>
+        /// Solid structural mass filling every part of the footprint that is not walkable
+        /// (shafts, plant rooms, the gaps between BSP rectangles). Without it the plan's holes
+        /// look like open hall with free-standing wall fragments standing in the dark.
+        /// </summary>
+        public static void CollectVoidBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            const float cell = 0.5f;
+            float width = plan.Bounds.W, depth = plan.Bounds.H;
+            int cols = Mathf.Max(1, Mathf.CeilToInt(width / cell));
+            int rows = Mathf.Max(1, Mathf.CeilToInt(depth / cell));
+
+            List<RectF> interior = new List<RectF>();
+            float inflate = plan.Spec.WallInset + 0.12f;
+            for (int i = 0; i < plan.Rooms.Count; i++) interior.Add(plan.Rooms[i].Rect.Inflate(inflate));
+            for (int i = 0; i < plan.Corridors.Count; i++) interior.Add(plan.Corridors[i].Rect.Inflate(0.12f));
+            for (int i = 0; i < plan.Stairs.Count; i++) interior.Add(plan.Stairs[i].Inflate(0.12f));
+            if (plan.Core.W > 0f) interior.Add(plan.Core.Inflate(0.12f));
+            for (int i = 0; i < plan.SpawnZones.Count; i++) interior.Add(plan.SpawnZones[i].Inflate(0.12f));
+
+            bool[] solid = new bool[cols * rows];
+            for (int j = 0; j < rows; j++)
+            {
+                for (int i = 0; i < cols; i++)
+                {
+                    Vector2 c = new Vector2((i + 0.5f) * cell, (j + 0.5f) * cell);
+                    bool inside = false;
+                    for (int k = 0; k < interior.Count && !inside; k++) inside = interior[k].Contains(c);
+                    solid[j * cols + i] = !inside;
+                }
+            }
+
+            // Merge equal horizontal runs downwards: a shaft becomes a few tall boxes.
+            Dictionary<long, int[]> open = new Dictionary<long, int[]>(256);
+            for (int j = 0; j < rows; j++)
+            {
+                HashSet<long> seen = new HashSet<long>();
+                int i2 = 0;
+                while (i2 < cols)
+                {
+                    if (!solid[j * cols + i2]) { i2++; continue; }
+                    int x0 = i2;
+                    while (i2 < cols && solid[j * cols + i2]) i2++;
+                    long key = ((long)x0 << 20) | (long)i2;
+                    seen.Add(key);
+                    int[] span;
+                    if (open.TryGetValue(key, out span)) span[2] = j + 1;
+                    else open[key] = new int[] { x0, i2, j, j + 1 };
+                }
+                List<long> finished = new List<long>();
+                foreach (KeyValuePair<long, int[]> pair in open)
+                {
+                    if (seen.Contains(pair.Key)) continue;
+                    finished.Add(pair.Key);
+                    EmitVoid(boxes, pair.Value, cell, width, depth);
+                }
+                for (int k = 0; k < finished.Count; k++) open.Remove(finished[k]);
+            }
+            foreach (KeyValuePair<long, int[]> pair in open) EmitVoid(boxes, pair.Value, cell, width, depth);
+        }
+
+        static void EmitVoid(List<BoxSpec> boxes, int[] span, float cell, float width, float depth)
+        {
+            float x0 = span[0] * cell;
+            float x1 = Mathf.Min(span[1] * cell, width);
+            float z0 = span[2] * cell;
+            float z1 = Mathf.Min(span[3] * cell, depth);
+            if (x1 - x0 < 0.05f || z1 - z0 < 0.05f) return;
+            boxes.Add(new BoxSpec((x0 + x1) * 0.5f, CeilingY * 0.5f, (z0 + z1) * 0.5f, x1 - x0, CeilingY, z1 - z0));
         }
 
         /// <summary>Outer boundary walls (always loaded, they sit outside the chunk lattice).</summary>
@@ -465,12 +543,31 @@ namespace EscapeFromWork.LevelGen
                 bankHalf, CeilingY, bankDepth));
         }
 
+        /// <summary>
+        /// Structural columns on the 8 m grid. Columns that land on a wall line are dropped:
+        /// a 0.6 m box half-buried in a 0.2 m wall reads as a thin slab glued to the wall
+        /// (the "L 型纸片墙" artifact) instead of a freestanding pillar.
+        /// </summary>
         public static void CollectColumnBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
+            List<BoxSpec> walls = new List<BoxSpec>();
+            CollectShellBoxes(plan, walls);
+            CollectWallBoxes(plan, walls);
+
+            const float half = 0.3f;
             for (int i = 0; i < plan.Columns.Count; i++)
             {
                 Vector2 c = plan.Columns[i];
-                boxes.Add(new BoxSpec(c.x, CeilingY * 0.5f, c.y, 0.6f, CeilingY, 0.6f));
+                bool blocked = false;
+                for (int w = 0; w < walls.Count && !blocked; w++)
+                {
+                    BoxSpec box = walls[w];
+                    float bx = box.Size.x * 0.5f + half + 0.05f;
+                    float bz = box.Size.z * 0.5f + half + 0.05f;
+                    blocked = Mathf.Abs(box.Center.x - c.x) < bx && Mathf.Abs(box.Center.z - c.y) < bz;
+                }
+                if (blocked) continue;
+                boxes.Add(new BoxSpec(c.x, CeilingY * 0.5f, c.y, half * 2f, CeilingY, half * 2f));
             }
         }
 
