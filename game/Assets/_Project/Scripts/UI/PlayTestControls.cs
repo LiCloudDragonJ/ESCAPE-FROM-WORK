@@ -17,12 +17,25 @@ namespace EscapeFromWork.UI
         bool _showHelp = true;
         string _message;
         float _messageUntil;
+        Vector3 _spawnPoint;
+        float _spawnYaw;
+
+        /// <summary>Below this height the player has left the slab; drop them back on the spawn pad.</summary>
+        const float FallLimitY = -4f;
 
         void Start()
         {
             if (Runtime == null) Runtime = FindObjectOfType<FloorStreamingRuntime>();
             if (Player == null) Player = FindObjectOfType<FirstPersonController>();
             if (Hud == null) Hud = FindObjectOfType<MapHud>();
+
+            if (Player != null) _spawnPoint = Player.transform.position;
+            if (Runtime != null && Runtime.Plan != null && Runtime.Plan.SpawnZones.Count > 0)
+            {
+                Vector2 c = Runtime.Plan.SpawnZones[0].Center;
+                _spawnPoint = new Vector3(c.x, 0.2f, c.y);
+                _spawnYaw = Player != null ? Player.transform.eulerAngles.y : 0f;
+            }
         }
 
         void Update()
@@ -36,7 +49,18 @@ namespace EscapeFromWork.UI
             {
                 if (kb.leftBracketKey.wasPressedThisFrame) BumpSensitivity(-0.01f);
                 if (kb.rightBracketKey.wasPressedThisFrame) BumpSensitivity(0.01f);
+                RescueIfFallen();
             }
+        }
+
+        /// Safety net until the slab collider and chunk streaming are proven: a player who slips
+        /// below the floor is put back on the spawn pad instead of falling forever.
+        void RescueIfFallen()
+        {
+            if (Player.transform.position.y > FallLimitY) return;
+            Player.Teleport(_spawnPoint, _spawnYaw);
+            _message = "坠落已救回出生点 (y < " + FallLimitY.ToString("0") + ")";
+            _messageUntil = Time.time + 4f;
         }
 
         /// Live mouse-sensitivity tuning so the feel can be dialled in without leaving Play mode.
@@ -64,7 +88,9 @@ namespace EscapeFromWork.UI
                 float yaw = look.sqrMagnitude > 0.01f
                     ? Quaternion.LookRotation(new Vector3(look.x, 0f, look.y).normalized, Vector3.up).eulerAngles.y
                     : 0f;
-                Player.Teleport(new Vector3(c.x, 0.2f, c.y), yaw);
+                _spawnPoint = new Vector3(c.x, 0.2f, c.y);
+                _spawnYaw = yaw;
+                Player.Teleport(_spawnPoint, yaw);
             }
 
             _message = "seed " + seed + "   rooms " + plan.Rooms.Count + "   props " + plan.Props.Count;

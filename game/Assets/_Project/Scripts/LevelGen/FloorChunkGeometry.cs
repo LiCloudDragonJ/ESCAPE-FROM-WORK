@@ -31,8 +31,8 @@ namespace EscapeFromWork.LevelGen
             FloorGeometry.MeshAccum shellWalls = new FloorGeometry.MeshAccum();
             FloorGeometry.AddBoxes(shellWalls, walls);
 
-            // Thin plates never need colliders; the outer walls do.
-            FloorGeometry.Emit(root, "Floor", floor, mats.Floor, false);
+            // The slab needs a collider (the player stands on it); ceiling stays collider-free.
+            FloorGeometry.Emit(root, "Floor", floor, mats.Floor, true);
             FloorGeometry.Emit(root, "Ceiling", ceiling, mats.Ceiling, false);
             FloorGeometry.Emit(root, "OuterWalls", shellWalls, mats.Wall, true);
             return root;
