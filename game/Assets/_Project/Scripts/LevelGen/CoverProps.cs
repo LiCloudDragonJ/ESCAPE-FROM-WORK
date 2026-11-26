@@ -139,6 +139,8 @@ namespace EscapeFromWork.LevelGen
                 for (int k = 0; k < extra.Count; k++) doorPts.Add(extra[k].Center);
             }
             for (int i = 0; i < plan.LoopDoors.Count; i++) doorPts.Add(plan.LoopDoors[i].Center);
+            // 走廊内部开口（横墙门 / 门斗侧门）也是门口，家具必须让开
+            for (int i = 0; i < plan.CorridorOpenings.Count; i++) doorPts.Add(plan.CorridorOpenings[i].Center);
 
             int[] used = new int[3];
 
@@ -241,108 +243,6 @@ namespace EscapeFromWork.LevelGen
                     cursor += groupLen + 0.4f;
                 }
             }
-        }
-
-        /// <summary>长走廊每隔 26–32m 砌一道隔断墙断掉直线视线；只占一侧，永远留出通行净宽。</summary>
-        public static void AddSightBreaks(FloorPlan plan, FloorSpec spec, System.Random rng)
-        {
-            if (!spec.PlaceCoverProps) return;
-
-            List<Vector2> doors = DoorPoints(plan);
-
-            for (int ci = 0; ci < plan.Corridors.Count; ci++)
-            {
-                RectF r = plan.Corridors[ci].Rect;
-                bool horiz = r.W >= r.H;
-                float width = horiz ? r.H : r.W;
-                float length = horiz ? r.W : r.H;
-                if (length < 34f) continue;
-                if (width < 3.4f) continue;
-
-                float depth = width - spec.CorridorClearLane;
-                if (depth < 0.9f) continue;
-                if (depth > 2.6f) depth = 2.6f;
-
-                bool farFirst = rng.Next(2) == 0;
-                float pos = 16f + (float)rng.NextDouble() * 4f;
-                int index = 0;
-                int placed = 0;
-
-                while (pos < length - 16f)
-                {
-                    if (TryPlaceSightBreak(plan, ci, r, horiz, length, pos, depth, ((index % 2) == 0) == farFirst, doors))
-                        placed++;
-
-                    index++;
-                    pos += 26f + (float)rng.NextDouble() * 6f;
-                }
-
-                // 兜底：节奏被门口/交叉口挤掉时，至少在中段补一道
-                if (placed == 0)
-                {
-                    float mid = length * 0.5f;
-                    for (int k = 0; k < 8; k++)
-                        if (TryPlaceSightBreak(plan, ci, r, horiz, length, mid + k * 2f, depth, farFirst, doors)) break;
-                }
-            }
-        }
-
-        static bool TryPlaceSightBreak(FloorPlan plan, int ci, RectF r, bool horiz, float length,
-            float pos, float depth, bool far, List<Vector2> doors)
-        {
-            if (pos < 2f || pos > length - 2.5f) return false;
-            float w = 0.5f;
-            RectF pr = horiz
-                ? new RectF(r.X + pos, far ? r.YMax - depth - 0.02f : r.Y + 0.02f, w, depth)
-                : new RectF(far ? r.XMax - depth - 0.02f : r.X + 0.02f, r.Y + pos, depth, w);
-
-            // 门口 1.3m 内不砌（比收尾的 1.05m 清空更保守，避免刚放上就被拔掉）
-            RectF pad = pr.Inflate(1.3f);
-            for (int i = 0; i < doors.Count; i++)
-                if (pad.Contains(doors[i])) return false;
-
-            if (OverlapsAny(plan.Props, pr))
-            {
-                // 同一截走廊上的家具让位
-                plan.Props.RemoveAll(p => p.CorridorIndex == ci && p.Rect.Inflate(0.06f).Overlaps(pr));
-                if (OverlapsAny(plan.Props, pr)) return false;
-            }
-
-            // 对侧同跨的家具也要清掉，否则净宽不够
-            float origin = horiz ? r.X : r.Y;
-            float a = origin + pos - 0.9f;
-            float b = origin + pos + w + 0.9f;
-            plan.Props.RemoveAll(p => p.CorridorIndex == ci && p.FarSide != far && AlongOverlaps(p.Rect, horiz, a, b));
-
-            plan.Props.Add(new PropPlacement
-            {
-                Rect = pr,
-                CorridorIndex = ci,
-                FarSide = far,
-                Spec = new PropSpec { Name = "隔断墙", Width = w, Depth = depth, Size = PropSize.Large, BlocksSight = true, Vaultable = false },
-            });
-            return true;
-        }
-
-        static bool AlongOverlaps(RectF p, bool horiz, float a, float b)
-        {
-            float s = horiz ? p.X : p.Y;
-            float e = horiz ? p.XMax : p.YMax;
-            return e > a && s < b;
-        }
-
-        static List<Vector2> DoorPoints(FloorPlan plan)
-        {
-            List<Vector2> doors = new List<Vector2>();
-            for (int i = 0; i < plan.Rooms.Count; i++)
-            {
-                if (plan.Rooms[i].HasDoor) doors.Add(plan.Rooms[i].Door.Center);
-                List<Door> extra = plan.Rooms[i].ExtraDoors;
-                if (extra == null) continue;
-                for (int k = 0; k < extra.Count; k++) doors.Add(extra[k].Center);
-            }
-            for (int i = 0; i < plan.LoopDoors.Count; i++) doors.Add(plan.LoopDoors[i].Center);
-            return doors;
         }
 
         /// <summary>收尾：任何门口 1.05m 以内的掩体一律拔掉（门可能开在别的走廊上，扫描阶段看不全）。</summary>

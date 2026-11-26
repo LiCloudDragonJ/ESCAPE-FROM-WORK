@@ -83,7 +83,9 @@ namespace EscapeFromWork.Tests.EditMode
             {
                 FloorPlan p = FloorGenerator.Generate(Spec(seed));
                 float ratio = p.RoomArea / (p.Spec.Width * p.Spec.Height);
-                Assert.Greater(ratio, 0.55f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
+                // 下界从 0.55 放到 0.50：R2 给每条主廊并了一条 2.3m 服务廊，走廊带宽
+                // 4.8 → 7.1m，房间本来就该让出这部分面积（b9 实测 0.536–0.564）。
+                Assert.Greater(ratio, 0.50f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
                 Assert.Less(ratio, 0.95f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
             }
         }
@@ -107,8 +109,8 @@ namespace EscapeFromWork.Tests.EditMode
             for (int seed = 1; seed <= 40; seed++)
             {
                 FloorPlan p = FloorGenerator.Generate(Spec(seed));
-                Assert.GreaterOrEqual(p.ExtractionCandidates.Count, 6, "seed " + seed + " candidates");
-                Assert.LessOrEqual(p.ExtractionCandidates.Count, 7, "seed " + seed + " candidates");
+                Assert.GreaterOrEqual(p.ExtractionCandidates.Count, 8, "seed " + seed + " candidates");
+                Assert.LessOrEqual(p.ExtractionCandidates.Count, 9, "seed " + seed + " candidates");
                 for (int i = 0; i < p.Extractions.Count; i++)
                 {
                     bool found = false;

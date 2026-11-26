@@ -20,9 +20,9 @@ namespace EscapeFromWork.EditorTools
             { "Wall", "PaintedWall" },
             { "Floor", "CarpetTile" },
             { "Ceiling", "CeilingTile" },
-            { "Column", "ConcreteFloor" },
+            { "Column", "ConcreteWall" },
             { "Core", "DarkMetal" },
-            { "Stair", "ConcreteFloor" },
+            { "Stair", "RubberStair" },
             { "PropLarge", "WoodPanel" },
             { "PropMedium", "DarkMetal" },
             { "PropSmall", "BrushedMetal" },
@@ -41,6 +41,19 @@ namespace EscapeFromWork.EditorTools
                 case "PaintedWall": return 0.667f;   // 1.5 m wall patch
                 case "DarkMetal": return 1.0f;
                 case "WoodPanel": return 1.0f;
+                // R2 批次（AI 颜色颗粒 + 解析图案，见 docs/3d-rebuild/08-materials.md）
+                case "TileFloor": return 0.833f;     // 1.2 m 幅面内排 4×4 白瓷砖
+                case "VenueCarpet": return 1.0f;     // 1 m 深蓝灰地毯
+                case "ConcreteWall": return 0.5f;    // 2 m 清水混凝土
+                case "GlassPanel": return 0.667f;    // 1.5 m 磨砂玻璃
+                case "MetalDoor": return 1.0f;       // 单门幅面
+                case "RubberStair": return 1.0f;     // 80 道/m 防滑凸筋
+                case "ServerPanel": return 1.667f;   // 0.6 m 穿孔板
+                case "ColdMetal": return 1.0f;       // 1 m 冷库板
+                case "EpoxyFloor": return 0.5f;      // 2 m 自流平
+                case "CleanPanel": return 0.833f;    // 1.2 m 洁净墙板
+                case "DiamondPlate": return 1.0f;    // 40 mm 菱形花纹
+                case "IndustrialPaint": return 0.5f; // 2 m 工业涂料钢板
                 default: return 1.0f;
             }
         }

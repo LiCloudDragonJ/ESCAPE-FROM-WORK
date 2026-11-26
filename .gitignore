@@ -164,3 +164,7 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnk
+
+# === Probe / batchmode artifacts ===
+game/*.log
+game/R2PROBE.txt

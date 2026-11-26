@@ -602,8 +602,8 @@ namespace EscapeFromWork.LevelGen
                 BoxSpec a = lintels[i];
                 bool horizontal = a.Size.x >= a.Size.z;
                 float line = horizontal ? a.Center.z : a.Center.x;
-                float a0 = (horizontal ? a.Center.x - a.Size.x : a.Center.z - a.Size.z) * 0.5f;
-                float a1 = (horizontal ? a.Center.x + a.Size.x : a.Center.z + a.Size.z) * 0.5f;
+                float a0 = horizontal ? a.Center.x - a.Size.x * 0.5f : a.Center.z - a.Size.z * 0.5f;
+                float a1 = horizontal ? a.Center.x + a.Size.x * 0.5f : a.Center.z + a.Size.z * 0.5f;
                 for (int j = 0; j < i; j++)
                 {
                     BoxSpec b = lintels[j];
@@ -612,8 +612,8 @@ namespace EscapeFromWork.LevelGen
                     float otherLine = horizontal ? b.Center.z : b.Center.x;
                     if (Mathf.Abs(line - otherLine) > 0.02f || Mathf.Abs(a.Center.y - b.Center.y) > 0.01f) continue;
                     if (Mathf.Abs(horizontal ? a.Size.z - b.Size.z : a.Size.x - b.Size.x) > 0.01f) continue;
-                    float b0 = (horizontal ? b.Center.x - b.Size.x : b.Center.z - b.Size.z) * 0.5f;
-                    float b1 = (horizontal ? b.Center.x + b.Size.x : b.Center.z + b.Size.z) * 0.5f;
+                    float b0 = horizontal ? b.Center.x - b.Size.x * 0.5f : b.Center.z - b.Size.z * 0.5f;
+                    float b1 = horizontal ? b.Center.x + b.Size.x * 0.5f : b.Center.z + b.Size.z * 0.5f;
                     if (b0 > a1 + 0.01f || a0 > b1 + 0.01f) continue;
                     float lo = Mathf.Min(a0, b0), hi = Mathf.Max(a1, b1);
                     Vector3 center = b.Center, size = b.Size;
@@ -1053,6 +1053,8 @@ namespace EscapeFromWork.LevelGen
                     for (int j = 0; j < room.ExtraDoors.Count; j++) Push(doors, seen, room.ExtraDoors[j]);
             }
             for (int i = 0; i < plan.LoopDoors.Count; i++) Push(doors, seen, plan.LoopDoors[i]);
+            // 走廊内部的横墙门 / 门斗侧门：走廊矩形四边默认全是实墙，这些是唯一的穿墙通道
+            for (int i = 0; i < plan.CorridorOpenings.Count; i++) Push(doors, seen, plan.CorridorOpenings[i]);
             return doors;
         }
 

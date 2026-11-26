@@ -27,8 +27,11 @@ namespace EscapeFromWork.LevelGen
             public RectF Rect;
             public Node A;
             public Node B;
-        public RectF Corridor;
-        public bool HasCorridor;
+            public RectF Corridor;
+            public bool HasCorridor;
+            /// <summary>与主廊并行的那条服务廊（带宽 ServiceCorridor），只在主廊旁存在。</summary>
+            public RectF ServiceCorridor;
+            public bool HasService;
             public int Depth;
             public bool IsLeaf { get { return A == null; } }
         }
@@ -58,7 +61,6 @@ namespace EscapeFromWork.LevelGen
 
             System.Random propRng = new System.Random(unchecked(spec.Seed * 31 + 7));
             CoverPlacer.Place(best, spec, propRng);
-            CoverPlacer.AddSightBreaks(best, spec, propRng);
             CoverPlacer.EnforceClearLane(best, spec);
             CoverPlacer.DropPropsNearDoors(best);
             // 切角三角区在斜墙里面，桌子/隔断不能长在那里（走廊不会命中，房间角会）。
@@ -236,6 +238,11 @@ namespace EscapeFromWork.LevelGen
 
             Emit(root, plan, spec, rng);
 
+            // R2 建筑级断点：长走廊切段 + 门斗 + 并行服务廊。这一步只动走廊矩形与开口登记，
+            // 必须排在门分配之前（房间门要按切段后的走廊重新找），也必须排在外墙/内墙生成之前
+            // 才能让门洞真的被挖出来。
+            CorridorBreaks.Apply(plan, spec);
+
             AssignCorridorDoors(plan);
             AddLoopDoors(plan, spec, rng);
             AddDeadEndBypass(plan, spec, rng);
@@ -257,8 +264,10 @@ namespace EscapeFromWork.LevelGen
 
             float stopP = area > 900f ? 0.0f : area > 620f ? 0.06f : area > 400f ? 0.30f : area > 220f ? 0.62f : area > 120f ? 0.85f : 0.95f;
             stopP *= PrototypeLeafBias(spec.Prototype);
-            // 硬上限：再大的房间也不许留（否则会切出篮球场）
-            if (area > 900f || r.W > 48f || r.H > 40f) stopP = 0f;
+            // 硬上限：再大的房间也不许留（否则会切出篮球场）。
+            // 长边也卡在 30m：R2 要求最长直线视线 ≤45m，而"走廊 + 一整间 42m 的大厅"光这两段就
+            // 已经 49m 了（实测 seed 5）。30m 的房间 + 最长的一段走廊 31.8m 也还在 45m 以外有余量。
+            if (area > 900f || r.W > 30f || r.H > 30f) stopP = 0f;
             if (rng.NextDouble() < stopP) return;
 
             bool verticalCut;
@@ -274,22 +283,27 @@ namespace EscapeFromWork.LevelGen
                 if (len < 8f) return;
             }
 
-            // 走廊宽度在切的时候就留出来：A 到切线为止，B 从切线 + 走廊宽开始。
+            // 走廊宽度在切的时候就留出来：A 到切线为止，B 从切线 + 走廊总宽开始。
             // 否则以切线为中心的走廊带会压进两侧子区域，房间和走廊必然重叠。
+            // 主廊（4.8m）旁边再并一条 2.3m 服务廊：两条共用同一条墙线，不会夹出一条 0.4m 的
+            // 空腔（那正是"从缝里看到虚空"的老问题）。
             float band = CorridorWidth(r, spec);
             if (band < 0.01f) band = 0f;
+            bool service = band >= spec.MainCorridor - 0.01f && spec.ServiceCorridor >= 1.2f;
+            float serviceBand = service ? spec.ServiceCorridor : 0f;
+            float total = band + serviceBand;
 
             float u = 0.27f + (float)rng.NextDouble() * 0.46f;
             float cut = (verticalCut ? r.X : r.Y) + len * u;
 
             float aLen = cut - (verticalCut ? r.X : r.Y);
-            float bLen = (verticalCut ? r.XMax : r.YMax) - cut - band;
+            float bLen = (verticalCut ? r.XMax : r.YMax) - cut - total;
             if (aLen < 3.6f || bLen < 3.6f)
             {
                 // 让开走廊后不够宽，退回按一半对半切一次
                 cut = (verticalCut ? r.X : r.Y) + len * 0.5f;
                 aLen = cut - (verticalCut ? r.X : r.Y);
-                bLen = (verticalCut ? r.XMax : r.YMax) - cut - band;
+                bLen = (verticalCut ? r.XMax : r.YMax) - cut - total;
                 if (aLen < 3.6f || bLen < 3.6f) return;
             }
 
@@ -305,16 +319,19 @@ namespace EscapeFromWork.LevelGen
             if (verticalCut)
             {
                 n.A.Rect = new RectF(r.X, r.Y, aLen, r.H);
-                n.B.Rect = new RectF(cut + band, r.Y, bLen, r.H);
+                n.B.Rect = new RectF(cut + total, r.Y, bLen, r.H);
                 n.Corridor = new RectF(cut, r.Y, band, r.H);
+                if (service) n.ServiceCorridor = new RectF(cut + band, r.Y, serviceBand, r.H);
             }
             else
             {
                 n.A.Rect = new RectF(r.X, r.Y, r.W, aLen);
-                n.B.Rect = new RectF(r.X, cut + band, r.W, bLen);
+                n.B.Rect = new RectF(r.X, cut + total, r.W, bLen);
                 n.Corridor = new RectF(r.X, cut, r.W, band);
+                if (service) n.ServiceCorridor = new RectF(r.X, cut + band, r.W, serviceBand);
             }
             n.HasCorridor = band > 0f;
+            n.HasService = service;
 
             SplitNode(n.A, spec, rng);
             SplitNode(n.B, spec, rng);
@@ -349,19 +366,8 @@ namespace EscapeFromWork.LevelGen
             {
                 if (n.HasCorridor)
                 {
-                    RectF line = n.Corridor;
-                    // 穿过核心筒/楼梯的走廊不能整段丢掉——丢掉会把整层切成互不相连的两半，
-                    // 而是绕开障碍切成几段继续铺。
-                    List<RectF> segs = new List<RectF>();
-                    segs.Add(line);
-                    segs = Clip(segs, plan.Core);
-                    for (int i = 0; i < plan.Stairs.Count; i++) segs = Clip(segs, plan.Stairs[i]);
-                    for (int i = 0; i < segs.Count; i++)
-                    {
-                        RectF seg = segs[i];
-                        if (seg.W < 0.8f || seg.H < 0.8f) continue;
-                        AddCorridor(plan, seg, Mathf.Min(seg.W, seg.H) >= spec.MainCorridor - 0.01f);
-                    }
+                    EmitCorridorBand(plan, spec, n.Corridor, false);
+                    if (n.HasService) EmitCorridorBand(plan, spec, n.ServiceCorridor, true);
                 }
 
                 Emit(n.A, plan, spec, rng);
@@ -387,7 +393,35 @@ namespace EscapeFromWork.LevelGen
                     pieces[i].H - spec.WallInset * 2f);
 
                 if (cell.W < 2.6f || cell.H < 2.6f) continue;
-                if (cell.Area > 18f) AddRoomClipped(plan, cell);
+                if (cell.Area > 18f)
+                {
+                    // 被核心筒/楼梯切出来的长条（>32m 长、<8m 宽）不是房间，是绕行廊：
+                    // 当房间会在一条 4.6m 宽的条带里留下 40m+ 通视（实测 seed 3 的 R4 = 43.7×4.6）。
+                    // 交给走廊管线，CorridorBreaks 会按 28m 站距切段并开门。
+                    if (Mathf.Max(cell.W, cell.H) > 32f && Mathf.Min(cell.W, cell.H) < 8f)
+                        AddCorridor(plan, cell, false, false);
+                    else
+                        AddRoomClipped(plan, cell);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 一条走廊带穿过核心筒/楼梯时不能整段丢掉（丢掉会把整层切成互不相连的两半），
+        /// 而是绕开障碍切成几段继续铺。
+        /// </summary>
+        static void EmitCorridorBand(FloorPlan plan, FloorSpec spec, RectF line, bool service)
+        {
+            List<RectF> segs = new List<RectF>();
+            segs.Add(line);
+            segs = Clip(segs, plan.Core);
+            for (int i = 0; i < plan.Stairs.Count; i++) segs = Clip(segs, plan.Stairs[i]);
+            for (int i = 0; i < segs.Count; i++)
+            {
+                RectF seg = segs[i];
+                if (seg.W < 0.8f || seg.H < 0.8f) continue;
+                bool main = !service && Mathf.Min(seg.W, seg.H) >= spec.MainCorridor - 0.01f;
+                AddCorridor(plan, seg, main, service);
             }
         }
 
@@ -1138,11 +1172,14 @@ namespace EscapeFromWork.LevelGen
             return false;
         }
 
-        static void AddCorridor(FloorPlan plan, RectF r, bool main)
+        static void AddCorridor(FloorPlan plan, RectF r, bool main, bool service)
         {
             Corridor c;
             c.Rect = r;
             c.Main = main;
+            c.Service = service;
+            c.Vestibule = false;
+            c.Vertical = r.H >= r.W;
             plan.Corridors.Add(c);
         }
 
@@ -1231,10 +1268,16 @@ namespace EscapeFromWork.LevelGen
             RectF freight = new RectF(plan.Core.X + plan.Core.W * 0.5f - 2.2f, plan.Core.YMax - 2.4f, 4.4f, 2.4f);
             pool.Add(MakeExtraction(freight, ExtractionKind.Freight, 15f, false, true, "撤离 · 货梯"));
 
-            RectF basketW = new RectF(0.2f, spec.Height * 0.75f - 3f, 2.4f, 6f);
-            RectF basketE = new RectF(spec.Width - 2.6f, spec.Height * 0.25f - 3f, 2.4f, 6f);
-            pool.Add(MakeExtraction(basketW, ExtractionKind.WindowBasket, 25f, false, false, "撤离 · 擦窗机"));
-            pool.Add(MakeExtraction(basketE, ExtractionKind.WindowBasket, 25f, false, false, "撤离 · 擦窗机"));
+            // 擦窗机轨道沿四条边各有一个停靠位：只放东西两个的话，贴着同一侧角的出生区
+            // 走到哪儿都不到"对角线 60%"，凑不出两个远端撤离（实测 seed 88 Tower 只有 1 个）。
+            RectF basketSW = new RectF(0.2f, spec.Height * 0.25f - 3f, 2.4f, 6f);
+            RectF basketNW = new RectF(0.2f, spec.Height * 0.75f - 3f, 2.4f, 6f);
+            RectF basketSE = new RectF(spec.Width - 2.6f, spec.Height * 0.25f - 3f, 2.4f, 6f);
+            RectF basketNE = new RectF(spec.Width - 2.6f, spec.Height * 0.75f - 3f, 2.4f, 6f);
+            pool.Add(MakeExtraction(basketSW, ExtractionKind.WindowBasket, 25f, false, false, "撤离 · 擦窗机"));
+            pool.Add(MakeExtraction(basketNW, ExtractionKind.WindowBasket, 25f, false, false, "撤离 · 擦窗机"));
+            pool.Add(MakeExtraction(basketSE, ExtractionKind.WindowBasket, 25f, false, false, "撤离 · 擦窗机"));
+            pool.Add(MakeExtraction(basketNE, ExtractionKind.WindowBasket, 25f, false, false, "撤离 · 擦窗机"));
 
             if (spec.Band == FloorBand.Top)
             {

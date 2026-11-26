@@ -93,22 +93,19 @@ public class CoverPropsTests
     }
 
     [Test]
-    public void LongCorridors_HaveSightBreaks()
+    public void LongCorridors_AreBrokenByArchitectureNotProps()
     {
+        // R2 之前是在走廊里砌"隔断墙"道具断视线，那套已经删了：断点改成建筑动作
+        // （走廊每 28m 切段 + 门斗 + 并行服务廊）。所以这里不再数道具，而是数段长与门斗。
         foreach (FloorPlan plan in Plans())
         {
+            Assert.That(CorridorBreaks.CountVestibules(plan), Is.GreaterThan(10), "整层没有建筑断点");
+
             for (int ci = 0; ci < plan.Corridors.Count; ci++)
             {
                 RectF c = plan.Corridors[ci].Rect;
                 float length = Mathf.Max(c.W, c.H);
-                float width = Mathf.Min(c.W, c.H);
-                if (length < 34f || width < 3.4f) continue;
-
-                int breaks = 0;
-                for (int i = 0; i < plan.Props.Count; i++)
-                    if (plan.Props[i].CorridorIndex == ci && plan.Props[i].Spec.Name == "隔断墙") breaks++;
-
-                Assert.That(breaks, Is.GreaterThanOrEqualTo(1), "长走廊没有隔断墙，视线能一直打穿");
+                Assert.That(length, Is.LessThanOrEqualTo(32.5f), "有一段走廊超过 32.5m，视线能一路打穿");
             }
         }
     }

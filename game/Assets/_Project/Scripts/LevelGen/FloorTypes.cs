@@ -36,7 +36,17 @@ namespace EscapeFromWork.LevelGen
     public struct Corridor
     {
         public RectF Rect;
+        /// <summary>主走廊（4.8m）：小地图上按主廊上色。</summary>
         public bool Main;
+        /// <summary>主廊旁边并行的服务廊（带宽 2.3m / 净宽 1.9m）：只走人，不摆家具。</summary>
+        public bool Service;
+        /// <summary>长走廊切段时插入的 3m 门斗：两端横墙各开一扇错位门。</summary>
+        public bool Vestibule;
+        /// <summary>
+        /// 长轴是否沿 Z。门斗是 3m（长轴）× 带宽，带宽 4.8m 时单看长方形会把长轴判反，
+        /// 所以由 CorridorBreaks 在切段时写进来，别再让下游用 W/H 比大小去猜。
+        /// </summary>
+        public bool Vertical;
     }
 
     public struct Zone
@@ -182,6 +192,11 @@ namespace EscapeFromWork.LevelGen
         public float ColumnGrid = 8f;
         public float MainCorridor = 4.8f;
         public float SecondaryCorridor = 3.6f;
+        /// <summary>
+        /// 主廊旁并行的服务廊带宽。两条共一条墙线（墙厚 0.4m），所以净宽 = 带宽 - 0.4m：
+        /// 2.3m 带宽 → 1.9m 净宽，落在验收要求的 1.8–2.1m 内。
+        /// </summary>
+        public float ServiceCorridor = 2.3f;
         public Vector2 CoreSize = new Vector2(16f, 12f);
         public float CoreNorthOffset = 4f;
         public float WallInset = 0.2f;
@@ -230,6 +245,11 @@ namespace EscapeFromWork.LevelGen
         public List<RectF> SpawnZones = new List<RectF>();
         /// <summary>房间与房间之间的额外门（绕过走廊的环路边）。</summary>
         public List<Door> LoopDoors = new List<Door>();
+        /// <summary>
+        /// 走廊内部开口：横墙门、门斗↔服务廊侧门。走廊矩形的四条边默认全部是实墙，
+        /// 所以任何"走廊从这堵墙穿过去"的地方都必须在这里显式登记，否则会被墙封死。
+        /// </summary>
+        public List<Door> CorridorOpenings = new List<Door>();
 
         public float RoomArea
         {
