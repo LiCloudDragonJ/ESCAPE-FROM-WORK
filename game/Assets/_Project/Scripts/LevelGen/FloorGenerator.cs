@@ -49,6 +49,7 @@ namespace EscapeFromWork.LevelGen
 
             // 栅格连通修补只对最终选中的方案做一次（每轮 attempt 都做会把 1000 种子批测拖到十几分钟）
             EnsureGridConnectivity(best, spec);
+            AddCornerCuts(best, spec);
             EnsureExtractionSpread(best, spec);
 
             System.Random propRng = new System.Random(unchecked(spec.Seed * 31 + 7));
@@ -56,8 +57,64 @@ namespace EscapeFromWork.LevelGen
             CoverPlacer.AddSightBreaks(best, spec, propRng);
             CoverPlacer.EnforceClearLane(best, spec);
             CoverPlacer.DropPropsNearDoors(best);
+            // 切角三角区在斜墙里面，桌子/隔断不能长在那里（走廊不会命中，房间角会）。
+            best.Props.RemoveAll(p => RoomShape.BlockedInFloor(best, p.Rect.Center));
 
             return best;
+        }
+
+        /// <summary>
+        /// 给房间切 45° 角：BSP 出来的房间全是轴对齐矩形，一层看下来像格子间。每个房间
+        /// （短边 ≥6m 的）有六成概率切 1–2 个角，边长 1.4–3.2m；切角三角区之后由
+        /// RoomShape 统一判定为"不可站"，并在 FloorGeometry 里补一道斜墙封口。
+        /// 约束：切完边要够长、门（含套间门/环路门）附近不切，否则门会被切掉。
+        /// </summary>
+        static void AddCornerCuts(FloorPlan plan, FloorSpec spec)
+        {
+            System.Random rng = new System.Random(unchecked(spec.Seed * 4099 + 53));
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                RectF r = room.Rect;
+                float shortest = Mathf.Min(r.W, r.H);
+                if (shortest < 6f) continue;
+                if (rng.NextDouble() > 0.62) continue;
+
+                int count = rng.NextDouble() < 0.3 ? 2 : 1;
+                List<CornerCut> cuts = new List<CornerCut>(count);
+                for (int k = 0; k < count; k++)
+                {
+                    int corner = rng.Next(4);
+                    if (HasCut(cuts, corner)) continue;
+                    float size = RoomShape.MinCut + (float)rng.NextDouble() * (RoomShape.MaxCut - RoomShape.MinCut);
+                    size = Mathf.Min(size, shortest * 0.4f);
+                    if (size < RoomShape.MinCut) continue;
+                    if (shortest < size * 2f + 1.6f) continue;
+                    if (DoorNear(plan, room, RoomShape.CornerPoint(r, corner), size + 1.2f)) continue;
+                    cuts.Add(new CornerCut(corner, size));
+                }
+                if (cuts.Count == 0) continue;
+                room.Cuts = cuts;
+                plan.Rooms[i] = room;
+            }
+        }
+
+        static bool HasCut(List<CornerCut> cuts, int corner)
+        {
+            for (int i = 0; i < cuts.Count; i++) if (cuts[i].Corner == corner) return true;
+            return false;
+        }
+
+        static bool DoorNear(FloorPlan plan, Room room, Vector2 corner, float radius)
+        {
+            float r2 = radius * radius;
+            if (room.HasDoor && (room.Door.Center - corner).sqrMagnitude < r2) return true;
+            if (room.ExtraDoors != null)
+                for (int i = 0; i < room.ExtraDoors.Count; i++)
+                    if ((room.ExtraDoors[i].Center - corner).sqrMagnitude < r2) return true;
+            for (int i = 0; i < plan.LoopDoors.Count; i++)
+                if ((plan.LoopDoors[i].Center - corner).sqrMagnitude < r2) return true;
+            return false;
         }
 
         /// <summary>
@@ -77,11 +134,21 @@ namespace EscapeFromWork.LevelGen
 
             // far[s * count + e]：从出生区 s 走到候选 e 是否够远
             bool[] far = new bool[Mathf.Max(1, spawns) * count];
+            float[] distToCandidate = new float[count];
             for (int s = 0; s < spawns; s++)
             {
                 float[] dist = FloorValidator.Flood(grid, plan.SpawnZones[s].Center);
+                float farthest = 0f;
                 for (int e = 0; e < count; e++)
-                    far[s * count + e] = FloorValidator.WalkDistanceAt(grid, dist, plan.ExtractionCandidates[e].Center) >= required;
+                {
+                    float d = FloorValidator.WalkDistanceAt(grid, dist, plan.ExtractionCandidates[e].Center);
+                    distToCandidate[e] = d;
+                    if (d > farthest) farthest = d;
+                }
+                // 与 FloorValidator.AuditSpawns 用同一套阈值：超大层达不到 60% 对角线时按可达最远的 70% 算。
+                float threshold = FloorValidator.FarThreshold(required, farthest);
+                for (int e = 0; e < count; e++)
+                    far[s * count + e] = distToCandidate[e] >= threshold;
             }
 
             System.Random pick = new System.Random(unchecked(spec.Seed * 7717 + 29));
@@ -148,6 +215,12 @@ namespace EscapeFromWork.LevelGen
             float stairY = spec.Height * 0.5f - 10f;
             plan.Stairs.Add(new RectF(2f, stairY, 8f, 20f));
             plan.Stairs.Add(new RectF(spec.Width - 10f, stairY, 8f, 20f));
+
+            // 外廓先定：房间、墙、地板、导航栅格都要贴着它裁，不能先铺满矩形再补角。
+            List<RectF> envelopeKeepOut = new List<RectF>();
+            envelopeKeepOut.Add(plan.Core);
+            for (int i = 0; i < plan.Stairs.Count; i++) envelopeKeepOut.Add(plan.Stairs[i]);
+            plan.Envelope = FloorEnvelope.Build(spec.Width, spec.Height, rng, envelopeKeepOut);
 
             AddZones(plan, spec);
             AddColumns(plan, spec);
@@ -310,7 +383,7 @@ namespace EscapeFromWork.LevelGen
                     pieces[i].H - spec.WallInset * 2f);
 
                 if (cell.W < 2.6f || cell.H < 2.6f) continue;
-                if (cell.Area > 18f) AddRoom(plan, cell);
+                if (cell.Area > 18f) AddRoomClipped(plan, cell);
             }
         }
 
@@ -336,7 +409,25 @@ namespace EscapeFromWork.LevelGen
             return output;
         }
 
-        static void AddRoom(FloorPlan plan, RectF cell)
+        /// <summary>
+        /// 收房间前先裁到外廓：贴着外廓那一圈的房间会被切成梯形/五边形/L 形，
+        /// 而不是先铺满矩形房间、再给边角补个角。Rect 只留作包围盒。
+        /// </summary>
+        static void AddRoomClipped(FloorPlan plan, RectF cell)
+        {
+            if (plan.Envelope == null) { AddRoom(plan, cell, null); return; }
+            List<Vector2[]> parts = FloorEnvelope.ClipRect(plan.Envelope, cell);
+            if (parts.Count == 0) return;
+            // 缺口把一个矩形劈成两块时，只留最大的一块；剩下那块在后面封成实心。
+            Vector2[] poly = parts[0];
+            float area = Mathf.Abs(FloorEnvelope.SignedArea(poly));
+            if (area < 18f) return;
+            AddRoom(plan, cell, poly);
+        }
+
+        static void AddRoom(FloorPlan plan, RectF cell) { AddRoom(plan, cell, null); }
+
+        static void AddRoom(FloorPlan plan, RectF cell, Vector2[] outline)
         {
             Room room;
             room.Rect = cell;
@@ -348,6 +439,8 @@ namespace EscapeFromWork.LevelGen
             room.CorridorIndex = -1;
             room.DoorToCorridor = false;
             room.ExtraDoors = new List<Door>();
+            room.Cuts = null;
+            room.Outline = outline;
             plan.Rooms.Add(room);
         }
 
@@ -1145,6 +1238,18 @@ namespace EscapeFromWork.LevelGen
                 pool.Add(MakeExtraction(rappel, ExtractionKind.RoofRappel, 30f, false, false, "撤离 · 天台下索"));
             }
 
+            // 贴边的设施（擦窗机/天台下索）可能落在截角或缺口外面：沿指向层心的方向拉回外廓内。
+            for (int i = 0; i < pool.Count; i++)
+            {
+                ExtractionPoint p = pool[i];
+                if (plan.Envelope == null) break;
+                if (FloorEnvelope.Contains(plan.Envelope.Outline, p.Center)) continue;
+                Vector2 q = PullInsideFloor(plan, p.Center);
+                p.Rect = new RectF(q.x - p.Rect.W * 0.5f, q.y - p.Rect.H * 0.5f, p.Rect.W, p.Rect.H);
+                p.Center = p.Rect.Center;
+                pool[i] = p;
+            }
+
             // 打乱候选顺序：选点组合按此顺序做确定性 tie-break，种子不同则候选优先序也不同
             for (int i = pool.Count - 1; i > 0; i--)
             {
@@ -1170,6 +1275,28 @@ namespace EscapeFromWork.LevelGen
             return p;
         }
 
+        /// <summary>出生区候选：中心必须在外廓内部、且离外廓边缘有半个出生区的余量。</summary>
+        static bool SpawnCandidateInside(FloorPlan plan, RectF r)
+        {
+            if (plan.Envelope == null) return true;
+            float margin = Mathf.Min(8f, Mathf.Min(r.W, r.H) * 0.5f);
+            return FloorEnvelope.Contains(plan.Envelope.Outline, r.Center)
+                && FloorEnvelope.DistanceToEdge(plan.Envelope.Outline, r.Center) >= margin;
+        }
+
+        /// <summary>把一个可能落在外廓外面的点，沿指向层心的方向拉回外廓内部。</summary>
+        static Vector2 PullInsideFloor(FloorPlan plan, Vector2 p)
+        {
+            if (plan.Envelope == null) return p;
+            Vector2 c = plan.Bounds.Center;
+            for (int step = 0; step <= 20; step++)
+            {
+                Vector2 q = Vector2.Lerp(p, c, step * 0.05f);
+                if (FloorEnvelope.Contains(plan.Envelope.Outline, q)) return q;
+            }
+            return c;
+        }
+
         /// <summary>出生区必须落在真实可走的地面上：四个角各取最近的房间/走廊，而不是写死角落坐标。</summary>
         static void AddSpawnZones(FloorPlan plan, FloorSpec spec)
         {
@@ -1182,16 +1309,23 @@ namespace EscapeFromWork.LevelGen
             };
 
             List<RectF> candidates = new List<RectF>();
+            List<RectF> loose = new List<RectF>();
             for (int i = 0; i < plan.Rooms.Count; i++)
             {
                 RectF r = plan.Rooms[i].Rect;
-                if (r.W >= 4f && r.H >= 4f) candidates.Add(r);
+                if (r.W < 4f || r.H < 4f) continue;
+                loose.Add(r);
+                if (SpawnCandidateInside(plan, r)) candidates.Add(r);
             }
             for (int i = 0; i < plan.Corridors.Count; i++)
             {
                 RectF r = plan.Corridors[i].Rect;
-                if (r.W >= 4f && r.H >= 4f) candidates.Add(r);
+                if (r.W < 4f || r.H < 4f) continue;
+                loose.Add(r);
+                if (SpawnCandidateInside(plan, r)) candidates.Add(r);
             }
+            // 外廓截角/缺口会吃掉角上的房间；万一没有足够贴着四角的候选，就退回全部房间。
+            if (candidates.Count < corners.Length) candidates = loose;
 
             List<int> used = new List<int>();
             for (int c = 0; c < corners.Length; c++)
@@ -1207,7 +1341,8 @@ namespace EscapeFromWork.LevelGen
 
                 if (best < 0)
                 {
-                    Vector2 p = corners[c];
+                    // 没有可用房间时不写死角落：角落可能正好在外廓截角/缺口外面。
+                    Vector2 p = PullInsideFloor(plan, corners[c]);
                     plan.SpawnZones.Add(new RectF(p.x - 6f, p.y - 6f, 12f, 12f));
                     continue;
                 }

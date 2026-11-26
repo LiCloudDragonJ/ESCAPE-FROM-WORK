@@ -18,10 +18,25 @@ namespace EscapeFromWork.Tests
             for (int i = 0; i < boxes.Count; i++)
             {
                 BoxSpec b = boxes[i];
-                if (Mathf.Abs(b.Center.x - pt.x) <= b.Size.x * 0.5f &&
-                    Mathf.Abs(b.Center.z - pt.y) <= b.Size.z * 0.5f) return true;
+                float dx = pt.x - b.Center.x;
+                float dz = pt.y - b.Center.z;
+                if (Mathf.Abs(b.Yaw) > 1e-4f)
+                {
+                    // Same rotation the mesh builder uses; chamfer walls are rotated boxes.
+                    float c = Mathf.Cos(b.Yaw), s = Mathf.Sin(b.Yaw);
+                    float lx = dx * c - dz * s;
+                    float lz = dx * s + dz * c;
+                    dx = lx; dz = lz;
+                }
+                if (Mathf.Abs(dx) <= b.Size.x * 0.5f && Mathf.Abs(dz) <= b.Size.z * 0.5f) return true;
             }
             return false;
+        }
+
+        static bool InsideEnvelope(FloorPlan plan, Vector2 pt)
+        {
+            if (plan.Envelope == null || plan.Envelope.Outline == null) return true;
+            return FloorEnvelope.Contains(plan.Envelope.Outline, pt);
         }
 
         static bool Walkable(FloorPlan plan, Vector2 pt)
@@ -53,6 +68,8 @@ namespace EscapeFromWork.Tests
                 for (float x = step * 0.5f; x < plan.Bounds.W; x += step)
                 {
                     Vector2 pt = new Vector2(x, z);
+                    // Outside the envelope is open air (notches, chamfers, sky) — not a hole.
+                    if (!InsideEnvelope(plan, pt)) continue;
                     total++;
                     if (Walkable(plan, pt)) continue;
                     if (InAny(fill, pt)) continue;

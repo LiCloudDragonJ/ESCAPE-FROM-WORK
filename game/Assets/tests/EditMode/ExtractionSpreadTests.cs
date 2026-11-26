@@ -34,7 +34,8 @@ namespace EscapeFromWork.Tests
                     FloorValidator.SpawnAudit a = audits[i];
                     Assert.GreaterOrEqual(a.FarExtractions, 2,
                         "seed " + seed + " spawn " + i + " far extractions=" + a.FarExtractions
-                        + " required=" + a.RequiredDistance.ToString("0") + "m");
+                        + " required=" + a.RequiredDistance.ToString("0") + "m"
+                        + " applied=" + a.AppliedDistance.ToString("0") + "m");
                 }
             }
         }

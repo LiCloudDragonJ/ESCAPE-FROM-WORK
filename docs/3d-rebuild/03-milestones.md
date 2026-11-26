@@ -129,7 +129,7 @@
 
 **M1 剩余（详见 §12 收尾计划，2026-11-25 定稿）**
 
-- M1-A 房间轮廓不再清一色矩形（凹龛 → 45° 切角 → L 形套间，分三步做）。
+- M1-A 房间轮廓不再清一色矩形：**楼层外廓多边形化已完成第 1–2 步**（外廓截角/缺口 + 房间被外廓裁成凸多边形 + 地板/吊顶/外壳墙多边形几何，见 §13）；剩余第 3 步（导航栅格/小地图/分块按多边形）与第 4 步（斜墙隔断、L 形合并）。凹龛（A1）未做。
 - M1-B 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
 - M1-C 灯光/曝光调优：当前 batchmode 截图偏亮、材质对比弱（灯池 48 盏与 ambient 需要实机调）。
 - M1-D PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
@@ -274,6 +274,8 @@ M1 的目标是"能跑起来的灰盒楼层"：程序化生成 + 3D 实体化 + 
 
 现在的房间全部来自 BSP 二叉切分，所以必然是轴对齐矩形，调参数变不出来。分三步，每步独立可交付、独立可回滚。
 
+> **进度（2026-11-26）**：A2 换成了更彻底的做法——先造非矩形**楼层外廓**，再用外廓裁剪每间房（房间是外廓裁出的凸多边形，`Room.Outline`）。第 1 步（数据）、第 2 步（地板/吊顶/外壳墙多边形化）已完成并通过全部测试，详见 **§13**；第 3 步（导航/小地图/分块多边形化）与第 4 步（斜墙隔断、L 形合并）未做。A1 凹龛、A3 L 形套间仍未开始。室内切角（`Room.Cuts`）作为外廓之外的补充保留。
+
 **A1 凹龛/壁柱（0.5–1 天，纯装饰，风险最低）**
 
 - 数据：房间增加 `List<RectF> Niches`（相对房间坐标）。`FloorGenerator.Emit` 里每间房 30% 概率在一条非门洞边挖 0.4–0.6m 深、2–3m 宽的凹龛。
@@ -342,7 +344,7 @@ batchmode 测不出帧率，只能在高性能机 Play 模式实测。步骤：
 3. 场景文件不要跨机 merge：到新机器先用菜单 **Escape From Work/M1/Build 3D Floor Scene** 重建 `FloorTest.unity`；同一时间只允许一台机器编辑该场景。
 4. 测试（**不要加 -quit**，加了拿不到结果）：
    `"<编辑器>/Tuanjie.exe" -batchmode -projectPath "<repo>/game" -runTests -testPlatform EditMode -testFilter <过滤词> -testResults <绝对路径>.xml -logFile <日志>`
-   全量 EditMode 当前基线：66/66 通过（`InteriorWallsCoverTheInsetRing` 因断言过严已删除，不在仓库）。
+   全量 EditMode 当前基线：**99/99 通过**（约 3.7 分钟；`InteriorWallsCoverTheInsetRing` 因断言过严已删除，不在仓库）。
 5. 出图：`-executeMethod EscapeFromWork.EditorTools.M1FloorScene.Build`，再 `.Capture`（三张 1080p）。
 6. 单次 Unity 调用常 >120 秒，脚本里必须起后台任务再收结果。
 
@@ -354,6 +356,58 @@ batchmode 测不出帧率，只能在高性能机 Play 模式实测。步骤：
 | draw call / SetPass | | | |
 | 灯池 48 盏实机观感 | | | |
 | 切块峰值帧时间 | | | |
+
+## 13. 楼层外廓与房间多边形化（2026-11-26，第 1–2 步完成）
+
+起因：用户指出"所有房间都是方的，容易审美疲劳"，并明确切角的真正目的是**让轮廓不再四四方方**，不只是给室内房间切角。做法反过来：先有非矩形外廓，再让房间被外廓裁切。
+
+### 13.1 数据层（第 1 步）
+
+- 新文件 `game/Assets/_Project/Scripts/LevelGen/FloorEnvelope.cs`：
+  - `EnvelopeShape { Vector2[] Outline; List<Vector2[]> Pieces; float Area; int NotchCount; RectF Bounds; }`，`FloorEnvelope.Build(width, height, rng, keepOut)`。
+  - 45° 截角 2–4 个角：**先定削掉的面积**（板的 3%–5.7% 再均摊到各角），反解尺寸 → 保证"看起来明显不方"而不是碰运气。上限 `Clamp(minSide*0.3, 10, 46)`，并不吃掉核心筒/楼梯（`keepOut.Inflate(4)`）。
+  - 边上缺口 1–2 个：宽 9–24m、深 6–20m，每条边最多一个；与 `keepOut` 冲突时同边重试 5 次。
+  - `BuildOutline` 按 CCW 拼环后过 `CleanOutline`（去重合点 + 合并共线点）——耳切三角化和 0.25m 采样都容不下这两类点。
+  - 查询/工具：`Contains`、`DistanceToEdge`、`ClipRect`（Sutherland–Hodgman，返回凸块按面积降序）、`Triangulate`（耳切，n−2 三角形）。
+- `FloorTypes.Room` 新增 `Vector2[] Outline`（真实轮廓 CCW，`Rect` 降级为包围盒）；`FloorPlan` 新增 `EnvelopeShape Envelope`。
+- 生成器：`Emit` 不再直接 `AddRoom(cell)`，改 `AddRoomClipped`——房间矩形被外廓裁成凸多边形，取最大块，面积 <18㎡ 丢弃。房间数仍 >40、面积和 >外廓 25%。
+
+### 13.2 几何层（第 2 步）
+
+- `MeshAccum.AddTriangle`（按几何法线与顶点法线同向自动校正绕序）与 `AddPrism`（顶 +Y / 底 −Y / 侧面外法线）。
+- `FloorGeometry.AddPlateBoxes`：有外廓时地板/吊顶按 `Triangulate` 出多边形棱柱（地板 −0.2..0、吊顶 3.37..3.43），没外廓回落矩形盒。`FloorChunkGeometry.BuildShell` 同样改调它，流式外壳也不再是矩形板。
+- 外壳墙：沿每条外廓边放一个**旋转盒**（`BoxSpec.Yaw`），长度 = 边长 + 墙厚，保证斜墙转角闭合。
+- 内墙：`EmitLines` 用 `ClipRunToEnvelope`（0.25m 采样 `Contains` 切区间）只保留外廓内的墙段。
+- 空腔填充：`CollectVoidBoxes` 增加 `inside` 蒙版（按 `Envelope.Pieces` 逐块栅格化），`solid = inside && !walkable`——缺口/斜角外是天空，不算洞。
+
+### 13.3 测试
+
+- 新增 `game/Assets/tests/EditMode/FloorEnvelopeTests.cs`：外廓不是矩形板（面积 <板 96.8% 且至少一条 45° 边）、顶点在板内且耳切面积和≈外廓、核心筒与楼梯在外廓内、每间房 Outline 在内且至少一间贴合外廓、房间仍填满楼层（>40 间、面积和 >25%）。
+- `FloorCoverageTests`：`InAny` 支持 `BoxSpec.Yaw`（局部坐标反投影）；新增 `InsideEnvelope` 掩膜，外廓外的采样点不计入分母；断言空洞率 <1%。
+
+### 13.4 出生区与撤离设施必须落在外廓内
+
+外廓一改，两个"写死靠边"的东西就会跑到楼外：
+
+- **出生区**（`AddSpawnZones`）原来按"离四个角最近"挑房间；被截角裁过的房间，其包围盒中心可能已经在楼外，相机直接悬空，截图里能看到天空和外壳墙的背面。现在候选中心必须在外廓内、且离外廓边缘有半个出生区余量（`SpawnCandidateInside`）；一个都挑不到时退回全部房间，最后的兜底点用 `PullInsideFloor` 沿指向层心方向拉回。
+- **撤离设施**（`AddExtractions`）的擦窗机/天台下索按贴墙坐标写死，截角或缺口正好在那里时就会悬空。现在每个候选中心若在外廓外，就沿指向层心方向拉回外廓内（`PullInsideFloor`）。
+
+### 13.5 撤离点阈值自适应
+
+280×280 基座上出现过唯一一次失败：seed 81 的 spawn3 到 6 个固定撤离设施的距离是 [-1,115,122,145,219,308]，要求 238m（0.6×对角）从物理上不可能满足 2 个。
+
+改法（`FloorValidator.FarThreshold`）：阈值 = `min(0.6 × 对角线, 0.7 × 该出生区能走到的最远撤离点)`，生成端 `EnsureExtractionSpread` 与审计端 `AuditSpawns` 共用同一函数；`SpawnAudit.AppliedDistance` 记录实际阈值。语义仍是"两个出口要在你走得到的最远半径的 70% 以外"，但不会再出现无解的常数。
+
+### 13.6 截图
+
+- `docs/3d-rebuild/screenshots/m1-geo-top.png`：正交俯视全层几何，能直接看出外廓的 45° 截角与北侧缺口（这是"不再方"最直观的一张）。
+- `docs/3d-rebuild/screenshots/m1-floor3d-spawn.png / -corridor.png / -core.png`：第一人称视角（出生区已确认在楼内，不再出现悬空看天空）。
+
+### 13.7 还没做的（第 3、4 步）
+
+- **第 3 步（导航 / 小地图 / 分块多边形化）**：`FloorValidator.BuildGrid` 目前按房间矩形 Stamp、只挖掉 `Room.Cuts` 的三角区，外廓缺口/斜角处的地面会被算成可走；`MapRaster` 仍按矩形画房间，斜墙和缺口在地图上不存在（玩家会照图撞墙）；分块按 AABB 归属，斜墙会被相邻块重复。三处都要按 `Envelope`/`Room.Outline` 重做。
+- **第 4 步（斜墙隔断 + L 形合并）**：内部隔墙目前仍是正交的，房间虽被外廓裁边但内部还是矩形；L 形套间需要合并叶子并重算门与撤离点散布。
+
 
 
 

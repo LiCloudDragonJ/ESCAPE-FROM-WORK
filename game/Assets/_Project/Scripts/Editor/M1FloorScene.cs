@@ -467,8 +467,11 @@ namespace EscapeFromWork.EditorTools
 
             RectF core = plan.Core;
             camera.orthographic = true;
-            camera.orthographicSize = plan.Bounds.H * 0.5f + 8f;
-            camera.transform.position = new Vector3(core.Center.x, 90f, core.Y);
+            // 画面是 16:9：正交尺寸给的是垂直半高，层宽 200m 时必须把水平方向也算进去，否则左右会被裁掉。
+            float aspect = 16f / 9f;
+            camera.orthographicSize = Mathf.Max(plan.Bounds.H * 0.5f, plan.Bounds.W * 0.5f / aspect) + 8f;
+            // 必须用 core 的中心（不是 core.Y 左上角），否则俯视图会偏到画面一角。
+            camera.transform.position = new Vector3(plan.Bounds.Center.x, 90f, plan.Bounds.Center.y);
             camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             camera.fieldOfView = 60f;
             Shot(camera, camera.transform.position, camera.transform.position + Vector3.down, dir + "m1-geo-top.png");
@@ -588,7 +591,18 @@ namespace EscapeFromWork.EditorTools
         static void Shot(Camera camera, Vector3 eye, Vector3 target, string path)
         {
             camera.transform.position = eye;
-            camera.transform.LookAt(target);
+            Vector3 look = target - eye;
+            look.y = 0f;
+            if (look.sqrMagnitude < 0.0001f && target.y < eye.y)
+            {
+                // 正交俯视：LookAt 垂直向下时 up 向量退化，相机朝向会随机翻滚；直接指定 -Y 朝下、+Z 朝上。
+                camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            }
+            else
+            {
+                camera.transform.LookAt(target);
+            }
+            camera.aspect = 1920f / 1080f;
             RenderTexture rt = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32);
             camera.targetTexture = rt;
             camera.Render();

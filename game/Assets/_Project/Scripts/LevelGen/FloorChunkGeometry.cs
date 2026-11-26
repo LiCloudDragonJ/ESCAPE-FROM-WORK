@@ -19,12 +19,9 @@ namespace EscapeFromWork.LevelGen
             GameObject root = new GameObject("FloorShell_" + plan.Spec.Seed);
             if (parent != null) root.transform.SetParent(parent, false);
 
-            float width = plan.Bounds.W, depth = plan.Bounds.H;
-
             FloorGeometry.MeshAccum floor = new FloorGeometry.MeshAccum();
-            floor.AddBox(new Vector3(width * 0.5f, -0.1f, depth * 0.5f), new Vector3(width, 0.2f, depth));
             FloorGeometry.MeshAccum ceiling = new FloorGeometry.MeshAccum();
-            ceiling.AddBox(new Vector3(width * 0.5f, FloorGeometry.CeilingY + 0.03f, depth * 0.5f), new Vector3(width, 0.06f, depth));
+            FloorGeometry.AddPlateBoxes(plan, floor, ceiling);
 
             List<BoxSpec> walls = new List<BoxSpec>();
             FloorGeometry.CollectShellBoxes(plan, walls);
@@ -57,6 +54,7 @@ namespace EscapeFromWork.LevelGen
 
             FloorGeometry.MeshAccum walls = new FloorGeometry.MeshAccum();
             FloorGeometry.AddBoxes(walls, manifest.WallBoxes);
+            FloorGeometry.AddBoxes(walls, manifest.ChamferBoxes);
             FloorGeometry.MeshAccum core = new FloorGeometry.MeshAccum();
             FloorGeometry.AddBoxes(core, manifest.CoreBoxes);
             FloorGeometry.MeshAccum columns = new FloorGeometry.MeshAccum();

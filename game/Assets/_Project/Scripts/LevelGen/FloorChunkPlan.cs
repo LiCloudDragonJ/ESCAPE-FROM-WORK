@@ -19,6 +19,8 @@ namespace EscapeFromWork.LevelGen
         public readonly List<BoxSpec> ColumnBoxes = new List<BoxSpec>();
         public readonly List<BoxSpec> StairBoxes = new List<BoxSpec>();
         public readonly List<BoxSpec> PanelBoxes = new List<BoxSpec>();
+        /// <summary>45° 切角斜墙：带 Yaw，不能按轴对齐裁剪，整件归到 AABB 相交的每一块。</summary>
+        public readonly List<BoxSpec> ChamferBoxes = new List<BoxSpec>();
 
         public readonly List<PropPlacement> Props = new List<PropPlacement>();
         public readonly List<ExtractionPoint> Extractions = new List<ExtractionPoint>();
@@ -40,7 +42,8 @@ namespace EscapeFromWork.LevelGen
             get
             {
                 return WallBoxes.Count + CoreBoxes.Count + ColumnBoxes.Count + StairBoxes.Count
-                    + PanelBoxes.Count + Props.Count + Extractions.Count + SpawnPads.Count + Lights.Count;
+                    + PanelBoxes.Count + ChamferBoxes.Count + Props.Count + Extractions.Count
+                    + SpawnPads.Count + Lights.Count;
             }
         }
     }
@@ -66,6 +69,8 @@ namespace EscapeFromWork.LevelGen
             FloorGeometry.CollectColumnBoxes(plan, columns);
             List<BoxSpec> stairs = new List<BoxSpec>();
             FloorGeometry.CollectStairBoxes(plan, stairs);
+            List<BoxSpec> chamfers = new List<BoxSpec>();
+            FloorGeometry.CollectChamferBoxes(plan, chamfers);
 
             for (int i = 0; i < grid.Count; i++)
             {
@@ -74,6 +79,14 @@ namespace EscapeFromWork.LevelGen
                 ClipInto(manifests[i].CoreBoxes, core, rect);
                 ClipInto(manifests[i].ColumnBoxes, columns, rect);
                 ClipInto(manifests[i].StairBoxes, stairs, rect);
+            }
+
+            // 切角斜墙是带 Yaw 的盒子：按 AABB 归块（跨块的整件给每一块，重复画不影响观感，
+            // 反而保证任何一块单独加载时角落都是封住的）。
+            for (int i = 0; i < chamfers.Count; i++)
+            {
+                List<int> owners = grid.Overlapping(chamfers[i].Footprint);
+                for (int c = 0; c < owners.Count; c++) manifests[owners[c]].ChamferBoxes.Add(chamfers[i]);
             }
 
             // Props and panels are boxes too: clip them like walls so a wide desk or a

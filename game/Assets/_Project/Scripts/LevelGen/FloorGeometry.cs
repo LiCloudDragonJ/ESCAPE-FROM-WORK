@@ -22,20 +22,48 @@ namespace EscapeFromWork.LevelGen
         public Material Spawn;
     }
 
-    /// <summary>One axis-aligned box of greybox geometry (center + size, world space).</summary>
+    /// <summary>
+    /// One box of greybox geometry (center + size, world space). Yaw rotates it about +Y so a
+    /// 45° chamfer wall can be a box instead of a hand-built triangle; 0 means axis-aligned and
+    /// every legacy caller keeps working unchanged.
+    /// </summary>
     public struct BoxSpec
     {
         public Vector3 Center;
         public Vector3 Size;
+        /// <summary>Rotation about +Y in radians (local +X is the long axis).</summary>
+        public float Yaw;
 
-        public BoxSpec(Vector3 center, Vector3 size) { Center = center; Size = size; }
+        public BoxSpec(Vector3 center, Vector3 size) { Center = center; Size = size; Yaw = 0f; }
         public BoxSpec(float cx, float cy, float cz, float sx, float sy, float sz)
         {
             Center = new Vector3(cx, cy, cz);
             Size = new Vector3(sx, sy, sz);
+            Yaw = 0f;
+        }
+
+        public BoxSpec(Vector3 center, Vector3 size, float yaw)
+        {
+            Center = center;
+            Size = size;
+            Yaw = yaw;
         }
 
         public float Volume { get { return Size.x * Size.y * Size.z; } }
+
+        /// <summary>XZ footprint of a possibly rotated box (AABB, conservative).</summary>
+        public RectF Footprint
+        {
+            get
+            {
+                if (Mathf.Abs(Yaw) < 0.0001f)
+                    return new RectF(Center.x - Size.x * 0.5f, Center.z - Size.z * 0.5f, Size.x, Size.z);
+                float c = Mathf.Abs(Mathf.Cos(Yaw)), s = Mathf.Abs(Mathf.Sin(Yaw));
+                float w = Size.x * c + Size.z * s;
+                float d = Size.x * s + Size.z * c;
+                return new RectF(Center.x - w * 0.5f, Center.z - d * 0.5f, w, d);
+            }
+        }
     }
 
     /// <summary>
@@ -62,7 +90,13 @@ namespace EscapeFromWork.LevelGen
             public readonly List<Vector2> Uvs = new List<Vector2>();
             public readonly List<int> Triangles = new List<int>();
 
-            public void AddBox(Vector3 center, Vector3 size)
+            public void AddBox(Vector3 center, Vector3 size) { AddBoxRotated(center, size, 0f); }
+
+            /// <summary>
+            /// Axis box with a rotation about +Y (chamfer walls). Rotation is orientation
+            /// preserving, so the same clockwise winding stays correct as seen from outside.
+            /// </summary>
+            public void AddBoxRotated(Vector3 center, Vector3 size, float yawRadians)
             {
                 float x0 = center.x - size.x * 0.5f, x1 = center.x + size.x * 0.5f;
                 float y0 = center.y - size.y * 0.5f, y1 = center.y + size.y * 0.5f;
@@ -71,12 +105,82 @@ namespace EscapeFromWork.LevelGen
                 // Winding must be clockwise as seen from OUTSIDE: with the old order the four
                 // side faces pointed inward, so a box only showed its far (inner) faces —
                 // the "only the left and back faces exist" artifact.
-                Face(new Vector3(x0, y1, z1), new Vector3(x0, y0, z1), new Vector3(x1, y0, z1), new Vector3(x1, y1, z1), Vector3.forward);
-                Face(new Vector3(x1, y1, z0), new Vector3(x1, y0, z0), new Vector3(x0, y0, z0), new Vector3(x0, y1, z0), Vector3.back);
-                Face(new Vector3(x1, y1, z1), new Vector3(x1, y0, z1), new Vector3(x1, y0, z0), new Vector3(x1, y1, z0), Vector3.right);
-                Face(new Vector3(x0, y1, z0), new Vector3(x0, y0, z0), new Vector3(x0, y0, z1), new Vector3(x0, y1, z1), Vector3.left);
-                Face(new Vector3(x0, y1, z1), new Vector3(x1, y1, z1), new Vector3(x1, y1, z0), new Vector3(x0, y1, z0), Vector3.up);
-                Face(new Vector3(x0, y0, z0), new Vector3(x1, y0, z0), new Vector3(x1, y0, z1), new Vector3(x0, y0, z1), Vector3.down);
+                Face(Rp(x0, y1, z1, center, yawRadians), Rp(x0, y0, z1, center, yawRadians),
+                     Rp(x1, y0, z1, center, yawRadians), Rp(x1, y1, z1, center, yawRadians), Rn(0f, 0f, 1f, yawRadians));
+                Face(Rp(x1, y1, z0, center, yawRadians), Rp(x1, y0, z0, center, yawRadians),
+                     Rp(x0, y0, z0, center, yawRadians), Rp(x0, y1, z0, center, yawRadians), Rn(0f, 0f, -1f, yawRadians));
+                Face(Rp(x1, y1, z1, center, yawRadians), Rp(x1, y0, z1, center, yawRadians),
+                     Rp(x1, y0, z0, center, yawRadians), Rp(x1, y1, z0, center, yawRadians), Rn(1f, 0f, 0f, yawRadians));
+                Face(Rp(x0, y1, z0, center, yawRadians), Rp(x0, y0, z0, center, yawRadians),
+                     Rp(x0, y0, z1, center, yawRadians), Rp(x0, y1, z1, center, yawRadians), Rn(-1f, 0f, 0f, yawRadians));
+                Face(Rp(x0, y1, z1, center, yawRadians), Rp(x1, y1, z1, center, yawRadians),
+                     Rp(x1, y1, z0, center, yawRadians), Rp(x0, y1, z0, center, yawRadians), Rn(0f, 1f, 0f, yawRadians));
+                Face(Rp(x0, y0, z0, center, yawRadians), Rp(x1, y0, z0, center, yawRadians),
+                     Rp(x1, y0, z1, center, yawRadians), Rp(x0, y0, z1, center, yawRadians), Rn(0f, -1f, 0f, yawRadians));
+            }
+
+            static Vector3 Rp(float x, float y, float z, Vector3 center, float yawRadians)
+            {
+                if (Mathf.Abs(yawRadians) < 0.00001f) return new Vector3(x, y, z);
+                float c = Mathf.Cos(yawRadians), s = Mathf.Sin(yawRadians);
+                float dx = x - center.x, dz = z - center.z;
+                return new Vector3(center.x + dx * c + dz * s, y, center.z - dx * s + dz * c);
+            }
+
+            static Vector3 Rn(float x, float y, float z, float yawRadians)
+            {
+                if (Mathf.Abs(yawRadians) < 0.00001f) return new Vector3(x, y, z);
+                float c = Mathf.Cos(yawRadians), s = Mathf.Sin(yawRadians);
+                return new Vector3(x * c + z * s, y, -x * s + z * c);
+            }
+
+            /// <summary>
+            /// One triangle with an explicit facing. The vertex order is corrected against the
+            /// normal before it is stored, so a polygon triangulation can never reintroduce the
+            /// "back faces only" bug by getting its winding backwards.
+            /// </summary>
+            public void AddTriangle(Vector3 a, Vector3 b, Vector3 c, Vector3 n)
+            {
+                if (Vector3.Dot(Vector3.Cross(b - a, c - a), n) < 0f)
+                {
+                    Vector3 swap = b; b = c; c = swap;
+                }
+                int i = Vertices.Count;
+                Vertices.Add(a); Vertices.Add(b); Vertices.Add(c);
+                Normals.Add(n); Normals.Add(n); Normals.Add(n);
+                Uvs.Add(WorldUv(a, n)); Uvs.Add(WorldUv(b, n)); Uvs.Add(WorldUv(c, n));
+                Triangles.Add(i); Triangles.Add(i + 1); Triangles.Add(i + 2);
+            }
+
+            /// <summary>
+            /// Extrude a floor outline into a slab (top face up, bottom face down, side faces
+            /// outward). Used for the floor plate and the suspended ceiling, which now follow the
+            /// non-rectangular building envelope instead of a bounding rectangle.
+            /// </summary>
+            public void AddPrism(Vector2[] outline, List<int> triangleIndices, float y0, float y1)
+            {
+                if (outline == null || outline.Length < 3) return;
+                for (int i = 0; i + 2 < triangleIndices.Count; i += 3)
+                {
+                    Vector2 a = outline[triangleIndices[i]];
+                    Vector2 b = outline[triangleIndices[i + 1]];
+                    Vector2 c = outline[triangleIndices[i + 2]];
+                    AddTriangle(new Vector3(a.x, y1, a.y), new Vector3(b.x, y1, b.y), new Vector3(c.x, y1, c.y), Vector3.up);
+                    AddTriangle(new Vector3(a.x, y0, a.y), new Vector3(b.x, y0, b.y), new Vector3(c.x, y0, c.y), Vector3.down);
+                }
+                for (int i = 0; i < outline.Length; i++)
+                {
+                    Vector2 a = outline[i];
+                    Vector2 b = outline[(i + 1) % outline.Length];
+                    Vector2 d = b - a;
+                    if (d.sqrMagnitude < 1e-6f) continue;
+                    Vector2 outward = new Vector2(d.y, -d.x).normalized;
+                    Vector3 n = new Vector3(outward.x, 0f, outward.y);
+                    Vector3 p0 = new Vector3(a.x, y0, a.y), p1 = new Vector3(b.x, y0, b.y);
+                    Vector3 p2 = new Vector3(b.x, y1, b.y), p3 = new Vector3(a.x, y1, a.y);
+                    AddTriangle(p0, p1, p2, n);
+                    AddTriangle(p0, p2, p3, n);
+                }
             }
 
             void Face(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n)
@@ -118,6 +222,25 @@ namespace EscapeFromWork.LevelGen
             }
         }
 
+        /// <summary>
+        /// Floor plate + suspended ceiling. Both follow the building envelope when there is one,
+        /// so the plate has chamfered corners and edge notches instead of being a rectangle.
+        /// Shared by the one-shot bake and the streamed always-loaded shell.
+        /// </summary>
+        public static void AddPlateBoxes(FloorPlan plan, MeshAccum floor, MeshAccum ceiling)
+        {
+            if (plan.Envelope != null && plan.Envelope.Outline != null && plan.Envelope.Outline.Length >= 3)
+            {
+                List<int> slabTris = FloorEnvelope.Triangulate(plan.Envelope.Outline);
+                floor.AddPrism(plan.Envelope.Outline, slabTris, -0.2f, 0f);
+                ceiling.AddPrism(plan.Envelope.Outline, slabTris, CeilingY, CeilingY + 0.06f);
+                return;
+            }
+            float width = plan.Bounds.W, depth = plan.Bounds.H;
+            floor.AddBox(new Vector3(width * 0.5f, -0.1f, depth * 0.5f), new Vector3(width, 0.2f, depth));
+            ceiling.AddBox(new Vector3(width * 0.5f, CeilingY + 0.03f, depth * 0.5f), new Vector3(width, 0.06f, depth));
+        }
+
         public static GameObject Build(FloorPlan plan, FloorMaterials mats, Transform parent)
         {
             return Build(plan, mats, parent, null);
@@ -143,8 +266,9 @@ namespace EscapeFromWork.LevelGen
             // ---- floor slab and suspended ceiling: one continuous plate over the whole
             // footprint. Per-room plates would leave 0.2 m slivers where rooms are inset
             // from their BSP leaf, and the sky shows through them.
-            floor.AddBox(new Vector3(width * 0.5f, -0.1f, depth * 0.5f), new Vector3(width, 0.2f, depth));
-            ceiling.AddBox(new Vector3(width * 0.5f, CeilingY + 0.03f, depth * 0.5f), new Vector3(width, 0.06f, depth));
+            // The plate follows the building envelope: a chamfered / notched outline instead of
+            // the bounding rectangle, so the floor reads as a non-rectangular plate in space.
+            AddPlateBoxes(plan, floor, ceiling);
 
             List<BoxSpec> boxes = new List<BoxSpec>();
             CollectPanelBoxes(plan, boxes);
@@ -165,6 +289,11 @@ namespace EscapeFromWork.LevelGen
             CollectVoidBoxes(plan, boxes);
             MeshAccum solidMass = new MeshAccum();
             AddBoxes(solidMass, boxes);
+
+            // ---- 45° chamfer walls closing the cut room corners ----------------------
+            boxes.Clear();
+            CollectChamferBoxes(plan, boxes);
+            AddBoxes(wall, boxes);
 
             // ---- elevator bank inside the core (north strip, 4 m opening in the middle) ----
             boxes.Clear();
@@ -261,7 +390,11 @@ namespace EscapeFromWork.LevelGen
         // ---- geometry collectors (single source of truth for bake + streaming) ------
         public static void AddBoxes(MeshAccum acc, List<BoxSpec> boxes)
         {
-            for (int i = 0; i < boxes.Count; i++) acc.AddBox(boxes[i].Center, boxes[i].Size);
+            for (int i = 0; i < boxes.Count; i++)
+            {
+                BoxSpec b = boxes[i];
+                acc.AddBoxRotated(b.Center, b.Size, b.Yaw);
+            }
         }
 
         /// <summary>Floor slab and ceiling plates for a horizontal rect (used by chunk builds).</summary>
@@ -295,8 +428,36 @@ namespace EscapeFromWork.LevelGen
             if (plan.Core.W > 0f) Rasterise(walkable, cols, rows, cell, plan.Core, 0f);
             for (int i = 0; i < plan.SpawnZones.Count; i++) Rasterise(walkable, cols, rows, cell, plan.SpawnZones[i], 0f);
 
+            // Outside the envelope is open air, not hidden structure: only fill cells that are
+            // actually inside the floor plate, otherwise the notches get bricked back up.
+            bool[] inside = new bool[cols * rows];
+            if (plan.Envelope != null && plan.Envelope.Pieces != null)
+            {
+                for (int k = 0; k < plan.Envelope.Pieces.Count; k++)
+                {
+                    Vector2[] piece = plan.Envelope.Pieces[k];
+                    RectF pb = FloorEnvelope.BoundsOf(piece);
+                    int x0 = Mathf.Max(0, Mathf.FloorToInt(pb.X / cell));
+                    int x1 = Mathf.Min(cols, Mathf.CeilToInt(pb.XMax / cell));
+                    int y0 = Mathf.Max(0, Mathf.FloorToInt(pb.Y / cell));
+                    int y1 = Mathf.Min(rows, Mathf.CeilToInt(pb.YMax / cell));
+                    for (int y = y0; y < y1; y++)
+                    {
+                        for (int x = x0; x < x1; x++)
+                        {
+                            Vector2 c = new Vector2((x + 0.5f) * cell, (y + 0.5f) * cell);
+                            if (FloorEnvelope.Contains(piece, c)) inside[y * cols + x] = true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < inside.Length; i++) inside[i] = true;
+            }
+
             bool[] solid = new bool[cols * rows];
-            for (int i = 0; i < solid.Length; i++) solid[i] = !walkable[i];
+            for (int i = 0; i < solid.Length; i++) solid[i] = inside[i] && !walkable[i];
 
             // Merge equal horizontal runs downwards: a shaft becomes a few tall boxes.
             Dictionary<long, int[]> open = new Dictionary<long, int[]>(256);
@@ -360,10 +521,30 @@ namespace EscapeFromWork.LevelGen
         /// <summary>Outer boundary walls (always loaded, they sit outside the chunk lattice).</summary>
         public static void CollectShellBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
+            float body = WallBodyThickness(plan);
+            if (plan.Envelope != null && plan.Envelope.Outline != null)
+            {
+                // Exterior walls follow every outline edge, including the 45° chamfers and the
+                // sides of the notches. Each edge becomes one rotated box centered on the edge.
+                Vector2[] outline = plan.Envelope.Outline;
+                for (int i = 0; i < outline.Length; i++)
+                {
+                    Vector2 a = outline[i];
+                    Vector2 b = outline[(i + 1) % outline.Length];
+                    Vector2 d = b - a;
+                    float len = d.magnitude;
+                    if (len < 0.05f) continue;
+                    float yaw = Mathf.Atan2(-(b.y - a.y), b.x - a.x);
+                    Vector2 mid = (a + b) * 0.5f;
+                    boxes.Add(new BoxSpec(new Vector3(mid.x, CeilingY * 0.5f, mid.y),
+                        new Vector3(len + body, CeilingY, body), yaw));
+                }
+                return;
+            }
+
             float width = plan.Bounds.W, depth = plan.Bounds.H;
             // Centred on the footprint edge so the wall body also covers the WallInset ring on the
             // inside; the outer face sticks out by half the body, which nobody sees.
-            float body = WallBodyThickness(plan);
             float half = body * 0.5f;
             AddAxisBox(boxes, 0f, -half, width, body, 0f, CeilingY, true);
             AddAxisBox(boxes, 0f, depth - half, width, body, 0f, CeilingY, true);
@@ -406,9 +587,35 @@ namespace EscapeFromWork.LevelGen
             List<Door> doors = CollectDoors(plan);
             for (int i = 0; i < doors.Count; i++) CutDoor(horizontal, vertical, doors[i], lintels, body);
 
-            EmitLines(boxes, horizontal, true, plan.Bounds, body);
-            EmitLines(boxes, vertical, false, plan.Bounds, body);
+            EmitLines(boxes, horizontal, true, plan, body);
+            EmitLines(boxes, vertical, false, plan, body);
             boxes.AddRange(lintels);
+        }
+
+        /// <summary>
+        /// 45° chamfer walls: one rotated box per cut room corner, sealing the triangle off from
+        /// the room. The two legs of the triangle are the room's own walls, so this single
+        /// diagonal closes the pocket; the cut region is excluded from walkable cells and prop
+        /// placement through <see cref="RoomShape"/>.
+        /// </summary>
+        public static void CollectChamferBoxes(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            float body = WallBodyThickness(plan);
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                if (room.Cuts == null) continue;
+                for (int c = 0; c < room.Cuts.Count; c++)
+                {
+                    CornerCut cut = room.Cuts[c];
+                    if (cut.Size < 0.4f) continue;
+                    Vector2 center;
+                    float length, yaw;
+                    RoomShape.CutWall(room.Rect, cut, out center, out length, out yaw);
+                    boxes.Add(new BoxSpec(new Vector3(center.x, CeilingY * 0.5f, center.y),
+                        new Vector3(length + body, CeilingY, body), yaw));
+                }
+            }
         }
 
         const float LineGrid = 0.05f;
@@ -551,9 +758,12 @@ namespace EscapeFromWork.LevelGen
             return Mathf.Max(WallThickness, plan.Spec.WallInset * 2f);
         }
 
-        static void EmitLines(List<BoxSpec> boxes, Dictionary<int, List<Vector2>> lines, bool horizontal, RectF bounds, float thickness)
+        static void EmitLines(List<BoxSpec> boxes, Dictionary<int, List<Vector2>> lines, bool horizontal, FloorPlan plan, float thickness)
         {
+            RectF bounds = plan.Bounds;
             float limit = horizontal ? bounds.H : bounds.W;
+            EnvelopeShape envelope = plan.Envelope;
+            List<Vector2> clipped = new List<Vector2>();
             foreach (KeyValuePair<int, List<Vector2>> pair in lines)
             {
                 float line = pair.Key * LineGrid;
@@ -561,14 +771,52 @@ namespace EscapeFromWork.LevelGen
                 List<Vector2> spans = pair.Value;
                 for (int i = 0; i < spans.Count; i++)
                 {
-                    float len = spans[i].y - spans[i].x;
-                    if (len < 0.06f) continue;
-                    float mid = (spans[i].x + spans[i].y) * 0.5f;
-                    boxes.Add(horizontal
-                        ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, thickness)
-                        : new BoxSpec(line, CeilingY * 0.5f, mid, thickness, CeilingY, len + 0.02f));
+                    float a = spans[i].x, b = spans[i].y;
+                    if (b - a < 0.06f) continue;
+                    if (envelope == null)
+                    {
+                        AddWallRun(boxes, horizontal, line, a, b, thickness);
+                        continue;
+                    }
+                    // Interior partitions are still axis aligned, but the floor is not: keep only
+                    // the parts of the run that are inside the envelope.
+                    clipped.Clear();
+                    ClipRunToEnvelope(envelope, horizontal, line, a, b, clipped);
+                    for (int k = 0; k < clipped.Count; k++)
+                        AddWallRun(boxes, horizontal, line, clipped[k].x, clipped[k].y, thickness);
                 }
             }
+        }
+
+        static void AddWallRun(List<BoxSpec> boxes, bool horizontal, float line, float a, float b, float thickness)
+        {
+            float len = b - a;
+            if (len < 0.06f) return;
+            float mid = (a + b) * 0.5f;
+            boxes.Add(horizontal
+                ? new BoxSpec(mid, CeilingY * 0.5f, line, len + 0.02f, CeilingY, thickness)
+                : new BoxSpec(line, CeilingY * 0.5f, mid, thickness, CeilingY, len + 0.02f));
+        }
+
+        static void ClipRunToEnvelope(EnvelopeShape envelope, bool horizontal, float line, float a, float b, List<Vector2> intervals)
+        {
+            const float step = 0.25f;
+            bool open = false;
+            float start = 0f;
+            for (float t = a; t <= b + 0.001f; t += step)
+            {
+                float tt = Mathf.Min(t, b);
+                Vector2 p = horizontal ? new Vector2(tt, line) : new Vector2(line, tt);
+                bool inside = FloorEnvelope.Contains(envelope.Outline, p);
+                if (inside && !open) { open = true; start = tt; }
+                else if (!inside && open)
+                {
+                    open = false;
+                    if (tt - start > 0.2f) intervals.Add(new Vector2(start, tt));
+                }
+                if (tt >= b) break;
+            }
+            if (open && b - start > 0.2f) intervals.Add(new Vector2(start, b));
         }
 
         /// <summary>Elevator bank strip inside the core (north side, 4 m opening).</summary>

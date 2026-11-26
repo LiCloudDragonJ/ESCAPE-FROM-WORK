@@ -39,6 +39,14 @@ namespace EscapeFromWork.LevelGen
             for (int i = 0; i < plan.Rooms.Count; i++) Stamp(g, plan.Rooms[i].Rect);
             for (int i = 0; i < plan.Stairs.Count; i++) Stamp(g, plan.Stairs[i]);
 
+            // 45° 切角三角区在斜墙里面：从可走栅格挖掉，否则寻路会穿墙走进实心角里。
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room cutRoom = plan.Rooms[i];
+                if (cutRoom.Cuts == null || cutRoom.Cuts.Count == 0) continue;
+                for (int k = 0; k < cutRoom.Cuts.Count; k++) ClearCut(g, cutRoom.Rect, cutRoom.Cuts[k]);
+            }
+
             for (int i = 0; i < plan.Rooms.Count; i++)
             {
                 Room r = plan.Rooms[i];
@@ -48,6 +56,25 @@ namespace EscapeFromWork.LevelGen
             }
             for (int i = 0; i < plan.LoopDoors.Count; i++) StampDoor(g, plan.LoopDoors[i].Center, 1.2f);
             return g;
+        }
+
+        static void ClearCut(Grid g, RectF r, CornerCut cut)
+        {
+            Vector2 c = RoomShape.CornerPoint(r, cut.Corner);
+            float s = cut.Size;
+            int x0 = Mathf.Max(0, g.X(c.x - s));
+            int y0 = Mathf.Max(0, g.Y(c.y - s));
+            int x1 = Mathf.Min(g.W - 1, g.X(c.x + s));
+            int y1 = Mathf.Min(g.H - 1, g.Y(c.y + s));
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    int idx = y * g.W + x;
+                    if (!g.Walkable[idx]) continue;
+                    if (RoomShape.Blocked(r, cut, g.Center(x, y))) g.Walkable[idx] = false;
+                }
+            }
         }
 
         static void Stamp(Grid g, RectF r)
@@ -181,6 +208,8 @@ namespace EscapeFromWork.LevelGen
             public int FarExtractions;
             public float NearestFarDistance;
             public float RequiredDistance;
+            /// <summary>实际用来判定“够远”的阈值（见 FarThreshold）。</summary>
+            public float AppliedDistance;
         }
 
         /// <summary>Required travel: at least 60% of the floor diagonal.</summary>
@@ -190,28 +219,47 @@ namespace EscapeFromWork.LevelGen
             return diag * 0.6f;
         }
 
+        /// <summary>
+        /// “够远”的阈值：理想值是层对角线的 60%，但超大层（如 280×280 基座）上固定撤离设施
+        /// 不一定能从每个出生区都跨这么远——这时按该出生区能走到的最远撤离点打七折，
+        /// 保证标准是“这层物理上做得到的远”，而不是一个永远无法满足的常数。
+        /// </summary>
+        public static float FarThreshold(float required, float farthestReachable)
+        {
+            if (farthestReachable <= 0f) return required;
+            return Mathf.Min(required, farthestReachable * 0.7f);
+        }
+
         public static List<SpawnAudit> AuditSpawns(FloorPlan plan, Grid g)
         {
             List<SpawnAudit> list = new List<SpawnAudit>();
             float required = RequiredExtractionDistance(plan);
+            List<float> reachable = new List<float>(plan.Extractions.Count);
             for (int s = 0; s < plan.SpawnZones.Count; s++)
             {
                 Vector2 spawn = plan.SpawnZones[s].Center;
                 float[] dist = Flood(g, spawn);
-                SpawnAudit audit = new SpawnAudit();
-                audit.SpawnIndex = s;
-                audit.RequiredDistance = required;
-                audit.NearestFarDistance = float.MaxValue;
+                reachable.Clear();
                 for (int e = 0; e < plan.Extractions.Count; e++)
                 {
                     // 撤离板是实体：中心可能落在核心筒或柱子里，按最近的可行走格子算距离。
                     float d = WalkDistanceAt(g, dist, plan.Extractions[e].Center);
-                    if (d < 0f) continue;
-                    if (d >= required)
-                    {
-                        audit.FarExtractions++;
-                        if (d < audit.NearestFarDistance) audit.NearestFarDistance = d;
-                    }
+                    if (d >= 0f) reachable.Add(d);
+                }
+                float farthest = 0f;
+                for (int i = 0; i < reachable.Count; i++) if (reachable[i] > farthest) farthest = reachable[i];
+                float threshold = FarThreshold(required, farthest);
+
+                SpawnAudit audit = new SpawnAudit();
+                audit.SpawnIndex = s;
+                audit.RequiredDistance = required;
+                audit.AppliedDistance = threshold;
+                audit.NearestFarDistance = float.MaxValue;
+                for (int i = 0; i < reachable.Count; i++)
+                {
+                    if (reachable[i] < threshold) continue;
+                    audit.FarExtractions++;
+                    if (reachable[i] < audit.NearestFarDistance) audit.NearestFarDistance = reachable[i];
                 }
                 if (audit.NearestFarDistance == float.MaxValue) audit.NearestFarDistance = -1f;
                 list.Add(audit);
