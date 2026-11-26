@@ -178,8 +178,8 @@ namespace EscapeFromWork.LevelGen
                 float b = st + VestibuleLength * 0.5f;
                 if (a - prev >= MinPiece) AddPiece(pieces, c, vertical, prev, a, band, across, false);
                 AddPiece(pieces, c, vertical, a, b, band, across, true);
-                AddCrossDoor(openings, vertical, band, across, a, doorWidth, true);
-                AddCrossDoor(openings, vertical, band, across, b, doorWidth, false);
+                AddCrossDoor(openings, vertical, band, across, a, doorWidth);
+                AddCrossDoor(openings, vertical, band, across, b, doorWidth);
                 prev = b;
             }
             if (end - prev >= MinPiece) AddPiece(pieces, c, vertical, prev, end, band, across, false);
@@ -205,12 +205,24 @@ namespace EscapeFromWork.LevelGen
         /// <summary>
         /// 横墙门。一左一右错位是这一步的全部意义：两扇门沿带宽方向不重叠，直线看过去
         /// 左边那扇后面永远是墙。
+        ///
+        /// 取哪一侧必须由门的**绝对坐标**决定，不能按"这条走廊上的第几个站"编号：走廊被
+        /// Core/楼梯切开后，同一条直线上的几段走廊各自从 0 开始编号，交接处的两扇门就会
+        /// 落在同一侧（实测 seed 7 从 (91.1,0.9) 一眼看到 60m 外，正是 26.5/29.5 两扇门
+        /// 都在低侧）。用 line / VestibuleLength 的奇偶做取侧，同一条线上的门天然交替。
         /// </summary>
         static void AddCrossDoor(List<Door> openings, bool vertical, float band, float across,
-            float line, float width, bool nearSide)
+            float line, float width)
         {
             float half = width * 0.5f;
             float margin = Mathf.Max(0.2f, (band - width * 2f) * 0.25f);
+            // 取侧：line 的奇偶保证同一条走廊上的门交替，across 的奇偶再拆开"两条几乎重叠的走廊"
+            // （RoomDoorPolicy 的喉道连接器会跟主廊并在一起，两者的 across 差 0.05–2.5m）。
+            // 只用 line 的话，两条重叠走廊各自贡献一扇门、恰好落在同一侧，直线就能穿过去
+            // （实测 seed 7 在 (91.1,0.9) 一眼看到 60m 外）。
+            // 用 floor 而不是 round：RoundToInt 在 .5 上取偶数，25.5/3=8.5→8、28.5/3=9.5→10，
+            // 同一个门斗的两扇门会算成同奇偶、落在同一侧（实测 seed 1 视线 51.5m）。
+            bool nearSide = ((Mathf.FloorToInt(line / VestibuleLength) + Mathf.FloorToInt(across)) & 1) == 0;
             float centre = nearSide ? across + margin + half : across + band - margin - half;
 
             Door d;

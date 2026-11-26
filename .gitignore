@@ -172,3 +172,10 @@ game/R2PROBE.txt
 # 美术生成脚本的中间产物（AI 底图缓存 / 崩溃恢复副本）
 tools/art/_cache/
 tools/art/*.recovered
+
+# 图生 3D（TripoSR）的权重、上游源码与临时产物，只留脚本与文档
+tools/img2mesh/weights/
+tools/img2mesh/src/
+tools/img2mesh/out/
+tools/img2mesh/inputs/
+tools/img2mesh/__pycache__/

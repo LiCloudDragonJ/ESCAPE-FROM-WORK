@@ -45,6 +45,8 @@ public class CoverPropsTests
             for (int i = 0; i < plan.Props.Count; i++)
             {
                 PropPlacement p = plan.Props[i];
+                // 走廊掩体才有 CorridorIndex；房间家具由 FacilityGrammar 摆放（-1），归房间自己管。
+                if (p.CorridorIndex < 0 || p.CorridorIndex >= plan.Corridors.Count) continue;
                 RectF c = plan.Corridors[p.CorridorIndex].Rect;
                 Assert.That(p.Rect.X, Is.GreaterThanOrEqualTo(c.X - 0.01f));
                 Assert.That(p.Rect.Y, Is.GreaterThanOrEqualTo(c.Y - 0.01f));

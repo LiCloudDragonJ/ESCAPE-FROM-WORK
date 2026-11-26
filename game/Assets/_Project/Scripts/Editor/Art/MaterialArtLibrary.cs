@@ -54,6 +54,19 @@ namespace EscapeFromWork.EditorTools
                 case "CleanPanel": return 0.833f;    // 1.2 m 洁净墙板
                 case "DiamondPlate": return 1.0f;    // 40 mm 菱形花纹
                 case "IndustrialPaint": return 0.5f; // 2 m 工业涂料钢板
+                // R4 批次（见 docs/3d-rebuild/11-materials-2.md）
+                case "MetalGrate": return 1.667f;     // 0.6 m 格栅板
+                case "RubberFloor": return 1.0f;     // 1 m 橡胶地板
+                case "FabricPanel": return 2.0f;     // 0.5 m 布面吸音板
+                case "PlasterWall": return 0.667f;   // 1.5 m 抹灰墙
+                case "WoodFloor": return 0.833f;     // 1.2 m 条木地板
+                case "FrostedGlass": return 0.667f;  // 1.5 m 磨砂玻璃
+                case "CeramicWall": return 0.833f;   // 1.2 m 白瓷砖墙
+                case "CeilingGrid": return 0.833f;   // 1.2 m 矿棉板吊顶
+                case "RustSteel": return 1.0f;       // 1 m 锈蚀钢板
+                case "HazardPaint": return 1.0f;     // 1 m 警示漆
+                case "VinylFloor": return 0.5f;      // 2 m PVC 卷材
+                case "ConcreteCeiling": return 0.833f; // 1.2 m 清水混凝土顶
                 default: return 1.0f;
             }
         }

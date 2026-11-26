@@ -39,17 +39,20 @@ namespace EscapeFromWork.Tests.EditMode
                 Assert.AreEqual(4, plan.SpawnZones.Count, "seed " + seed + " spawn zones");
                 Assert.Greater(plan.Columns.Count, 20, "seed " + seed + " columns");
 
-                // 覆盖率：0.42 是 1000 种子实测的底线（最差 seed 305 = 0.4315；300 种子时最差
-                // seed 146 = 0.4474）。R2 服务廊 + R3 长条改判走廊都会从房间面积里拿走一部分，
-                // 所以另看"房间+走廊"联合覆盖率。
+                // 覆盖率：0.40 是 R4 之后 1000 种子实测的底线（最差 seed 713 = 0.4162；
+                // R2 的服务廊、R3 的长条改判走廊、R4 的分区主题都会从房间面积里拿走一部分），
+                // 所以真正的底线看下面的"房间+走廊"联合覆盖率。
                 float area = spec.Width * spec.Height;
                 float coverage = plan.RoomArea / area;
                 if (coverage < worstCoverage) { worstCoverage = coverage; }
-                Assert.Greater(coverage, 0.42f, "seed " + seed + " coverage " + coverage.ToString("P0"));
+                Assert.Greater(coverage, 0.40f, "seed " + seed + " coverage " + coverage.ToString("P0"));
                 Assert.Less(coverage, 0.96f, "seed " + seed + " coverage " + coverage.ToString("P0"));
                 float corrArea = 0f;
                 for (int c = 0; c < plan.Corridors.Count; c++) corrArea += plan.Corridors[c].Rect.Area;
-                Assert.Greater((plan.RoomArea + corrArea) / area, 0.80f,
+                // R4 之后分区主题会留下更大的房间（数据中心大厅），房间与房间之间的
+                // 结构墙垛（HallBreaks）也不算面积，联合覆盖率实测最差降到 0.79 左右，
+                // 所以底线定 0.78：再低就说明真的有面积既不是房间也不是走廊。
+                Assert.Greater((plan.RoomArea + corrArea) / area, 0.78f,
                     "seed " + seed + " 房间+走廊覆盖率过低，有面积既不是房间也不是走廊");
 
                 // 门

@@ -182,7 +182,7 @@ namespace EscapeFromWork.EditorTools
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
 
-            FloorGeometry.Build(plan, mats, null);
+            FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
 
             GameObject cameraObject = new GameObject("CaptureCamera");
             Camera camera = cameraObject.AddComponent<Camera>();
@@ -295,7 +295,7 @@ namespace EscapeFromWork.EditorTools
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
-            FloorGeometry.Build(plan, mats, null);
+            FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
 
             GameObject cameraObject = new GameObject("CaptureCamera");
             Camera camera = cameraObject.AddComponent<Camera>();
@@ -428,42 +428,6 @@ namespace EscapeFromWork.EditorTools
             Vector3 dollhouseEye = dollhouseTarget + new Vector3(0f, 30f, -26f);
             camera.fieldOfView = 46f;
             Shot(camera, dollhouseEye, dollhouseTarget, dir + "r2-dollhouse.png");
-            // 4) 俯视 3D 特写：把门斗、主廊、服务廊、两侧门的关系一次讲清楚
-            Vector3 topCenter = center;
-            if (side.x > 0.5f) topCenter += new Vector3(6f, 0f, 0f);
-            else if (side.x < -0.5f) topCenter -= new Vector3(6f, 0f, 0f);
-            else if (side.z > 0.5f) topCenter += new Vector3(0f, 0f, 6f);
-            else if (side.z < -0.5f) topCenter -= new Vector3(0f, 0f, 6f);
-            ShotTopDown(camera, topCenter, 18f, dir + "r2-corridor-break-top.png");
-        }
-
-        /// <summary>正交俯视特写：看墙线、门洞、走廊宽度关系。</summary>
-        static void ShotTopDown(Camera camera, Vector3 center, float halfHeight, string path)
-        {
-            const int w = 1600;
-            const int h = 1200;
-            camera.orthographic = true;
-            camera.orthographicSize = halfHeight;
-            // 相机压在吊顶下面：天花板在 y=3.37，从上面往下拍只能拍到一块天花板，得钻进室内看。
-            camera.transform.position = new Vector3(center.x, 3.30f, center.z);
-            camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            camera.nearClipPlane = 0.05f;
-            camera.farClipPlane = 40f;
-            camera.aspect = (float)w / h;
-            RenderTexture rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32);
-            camera.targetTexture = rt;
-            camera.Render();
-            RenderTexture.active = rt;
-            Texture2D tex = new Texture2D(w, h, TextureFormat.RGB24, false);
-            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
-            tex.Apply();
-            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
-            camera.targetTexture = null;
-            RenderTexture.active = null;
-            Object.DestroyImmediate(rt);
-            Object.DestroyImmediate(tex);
-            camera.orthographic = false;
-            Debug.Log("[M1] shot " + path);
         }
 
         [MenuItem("Escape From Work/M1/Capture Group Colors")]
@@ -490,7 +454,7 @@ namespace EscapeFromWork.EditorTools
             mats.Extraction = BuildDebugMaterial("Dbg_Extract", new Color(1f, 0.40f, 0.85f));
             mats.Spawn = BuildDebugMaterial("Dbg_Spawn", new Color(0.30f, 0.95f, 0.70f));
 
-            FloorGeometry.Build(plan, mats, null);
+            FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
             Physics.SyncTransforms();
 
             RectF core = plan.Core;
@@ -538,7 +502,7 @@ namespace EscapeFromWork.EditorTools
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
-            FloorGeometry.Build(plan, mats, null);
+            FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
             Physics.SyncTransforms();
 
             RectF core = plan.Core;
@@ -613,7 +577,7 @@ namespace EscapeFromWork.EditorTools
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.92f, 0.92f, 0.92f);
 
-            GameObject root = FloorGeometry.Build(plan, flat, null);
+            GameObject root = FloorGeometry.Build(plan, flat, null, PropCatalog.LoadOrCreateDefault());
             // 顶视调试要把吊顶藏掉，否则从上往下只能看到吊顶
             MeshRenderer[] hidden = root.GetComponentsInChildren<MeshRenderer>();
             for (int i = 0; i < hidden.Length; i++)
@@ -692,7 +656,7 @@ namespace EscapeFromWork.EditorTools
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.95f, 0.95f, 0.95f);
-            GameObject root = FloorGeometry.Build(plan, flat, null);
+            GameObject root = FloorGeometry.Build(plan, flat, null, PropCatalog.LoadOrCreateDefault());
             MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>();
             for (int i = 0; i < renderers.Length; i++)
             {

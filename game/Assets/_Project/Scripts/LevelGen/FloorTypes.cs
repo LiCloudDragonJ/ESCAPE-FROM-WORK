@@ -54,6 +54,8 @@ namespace EscapeFromWork.LevelGen
         public RectF Rect;
         public string Name;
         public FloorPrototype Prototype;
+        /// <summary>本象限的主题（数据中心/冷链/制造/医疗/仓储/办公/行政）：切分力度与设施表都按它走。</summary>
+        public FloorTheme Theme;
     }
 
     public struct Door
@@ -83,6 +85,8 @@ namespace EscapeFromWork.LevelGen
         public int ZoneIndex;
         /// <summary>用途标签：Normal 办公/会议；Storage 储藏；Toilet 卫生间；Riser 管井；Vault 保险库（暂未生成）。</summary>
         public RoomType Type;
+        /// <summary>设施细分（机房/冷库/车间/档案室…）：决定道具集与材质槽，不影响 R3 的面积分档。</summary>
+        public FacilityKind Facility;
         public Door Door;
         public bool HasDoor;
         /// <summary>门通向的走廊下标；-1 表示门通向相邻房间（套间门）。</summary>
@@ -243,6 +247,17 @@ namespace EscapeFromWork.LevelGen
         /// <summary>房间最短边；低于它房间连一张办公桌都放不下。</summary>
         public float MinRoomSide = 3.2f;
 
+        /// <summary>
+        /// R6：由 <see cref="VerticalLinkPlan"/> 统一下发竖向核时置 true。
+        /// 之后 CoreRect / StairWestRect / StairEastRect 生效，生成器不再自己算核心筒与楼梯位置——
+        /// 这样同一局的每一层核坐标完全一致（跨层对齐是结构保证，不是巧合）。
+        /// </summary>
+        public bool UseCores;
+        public RectF CoreRect;
+        public RectF StairWestRect;
+        public RectF StairEastRect;
+        public int CoreFloorIndex = -1;
+
         public static FloorSpec Default(int seed)
         {
             FloorSpec spec = new FloorSpec();
@@ -276,6 +291,13 @@ namespace EscapeFromWork.LevelGen
         /// 所以任何"走廊从这堵墙穿过去"的地方都必须在这里显式登记，否则会被墙封死。
         /// </summary>
         public List<Door> CorridorOpenings = new List<Door>();
+
+        /// <summary>
+        /// 大厅内部的挡墙垛：&gt;24m 长的大房间（机房大厅/车间/装卸区）如果没有内部结构，
+        /// "房间 30m + 走廊 28m"就能凑出 50m 直线视线。这些 0.4m 厚的墙垛交替从两侧伸出，
+        /// 打断视线的同时留出绕行通道；登记在这里供墙体生成与视线审计共用。
+        /// </summary>
+        public List<RectF> HallBreaks = new List<RectF>();
 
         /// <summary>房间真实面积（扣掉切角/贴外廓裁掉的三角区），不是包围盒面积。</summary>
         public float RoomArea

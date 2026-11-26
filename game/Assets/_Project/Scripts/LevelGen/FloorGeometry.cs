@@ -309,7 +309,8 @@ namespace EscapeFromWork.LevelGen
             for (int i = 0; i < plan.Props.Count; i++)
             {
                 PropPlacement p = plan.Props[i];
-                float h = p.Spec.Size == PropSize.Large ? 1.05f : p.Spec.Size == PropSize.Medium ? 0.75f : 0.5f;
+                float fallback = p.Spec.Size == PropSize.Large ? 1.05f : p.Spec.Size == PropSize.Medium ? 0.75f : 0.5f;
+                float h = p.Spec.Height > 0.01f ? p.Spec.Height : fallback;
                 if (p.Spec.Name == "隔断墙")
                 {
                     sightBreak.AddBox(Center(p.Rect, CeilingY * 0.5f), new Vector3(p.Rect.W, CeilingY, p.Rect.H));
@@ -591,6 +592,15 @@ namespace EscapeFromWork.LevelGen
             EmitLines(boxes, vertical, false, plan, body);
             MergeLintels(lintels);
             boxes.AddRange(lintels);
+
+            // 大厅挡墙垛：垂直于长轴的 0.4m 墙垛，交替从两侧伸出（见 FacilityGrammar.AddHallBreaks）。
+            // 它们不是房间边界，不能走 AddEdges（那会被当成墙线去挖门洞），直接作为独立盒子并进墙体。
+            for (int i = 0; i < plan.HallBreaks.Count; i++)
+            {
+                RectF b = plan.HallBreaks[i];
+                boxes.Add(new BoxSpec(new Vector3(b.Center.x, CeilingY * 0.5f, b.Center.y),
+                    new Vector3(b.W, CeilingY, b.H), 0f));
+            }
         }
 
         static void MergeLintels(List<BoxSpec> lintels)

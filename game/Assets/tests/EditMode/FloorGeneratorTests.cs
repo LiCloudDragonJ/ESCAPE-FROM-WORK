@@ -91,7 +91,7 @@ namespace EscapeFromWork.Tests.EditMode
                 float corr = 0f;
                 for (int c = 0; c < p.Corridors.Count; c++) corr += p.Corridors[c].Rect.Area;
                 float all = (p.RoomArea + corr) / (p.Spec.Width * p.Spec.Height);
-                Assert.Greater(all, 0.80f, "seed " + seed + " 房间+走廊覆盖率 " + all.ToString("P0") + " 太低，说明有面积既不是房间也不是走廊");
+                Assert.Greater(all, 0.78f, "seed " + seed + " 房间+走廊覆盖率 " + all.ToString("P0") + " 太低，说明有面积既不是房间也不是走廊");
                 Assert.Less(ratio, 0.95f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
             }
         }

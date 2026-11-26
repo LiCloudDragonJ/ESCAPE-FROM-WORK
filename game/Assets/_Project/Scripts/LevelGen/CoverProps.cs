@@ -13,6 +13,8 @@ namespace EscapeFromWork.LevelGen
         public PropSize Size;
         public bool BlocksSight; // 站着也挡视线
         public bool Vaultable;   // 可以翻越
+        /// <summary>视觉高度（米）。0 表示按 Size 兜底（大件 1.05 / 中件 0.75 / 小件 0.5）。</summary>
+        public float Height;
     }
 
     public struct PropPlacement

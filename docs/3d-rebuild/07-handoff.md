@@ -22,7 +22,10 @@
 **R1 门数规则已完成**（2026-11-26，commit `0bd87f1`）：单门房 = 0、≥100㎡ 目标 3 门、近角门位、对门错位。
 **R2 走廊断点已完成**（2026-11-26，本笔提交）：主廊每 28m 切站、门斗双错位门、并行服务廊 1.8–2.1m 净宽、`隔断墙` 道具方案整段删除；全量 EditMode **109/109 通过**（R1 的 103 项 + 新增 `SightlineTests` 6 项）。
 **R3 房间尺度已完成**（2026-11-26，本笔提交）：面积统计改按真实轮廓、房间加用途类型、`RoomScaleTests` 4 项；全量 EditMode **113/113 通过**。
-**R4 及之后的 2–3 层切片结构还没开始。**
+**R4 设施语法库已完成**（2026-11-27）：`FacilityGrammar.cs` 18 类设施 × 7 主题、主题驱动切分、按用途配家具（每房 2–14 件）、大厅墙垛 `HallBreaks`、跨房间门对挡视屏；Blender 参数化道具管线（21 个 prefab + `PropCatalog`，1068/1191 件道具用上真模型）。
+**R5 切片结构已完成**：`SlicePlanner` 随机 3–4 层 × 每层 20–32% 楼板、总量 24,000–30,000㎡、封死区带世界内原因。
+**R6 竖向核对齐已完成**：`VerticalLinkPlan` 一局只算一次核坐标、逐层下发（`FloorSpec.UseCores`），相邻层固定 3 条通路、坐标误差 <0.5m。
+**R7 及之后（图距离校验 / 环路注入 / 标识牌 / 体检器接回归）还没开始。**
 
 ---
 
@@ -88,8 +91,11 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 | `LevelGen/CorridorBreaks.cs` | 416 | **R2 走廊断点**：走廊切站 / 门斗双错位门 / 服务廊侧向开口 / 服务廊兜底 | `Apply(plan, spec)`、`LongestSegment(plan)`、`CountVestibules(plan)` |
 | `LevelGen/SightlineAudit.cs` | 210 | **真实几何视线审计**（R2 验收证据） | `Run(plan)` → `Report{CorridorMax, RoomMax, GlobalMax, From, To, Samples}` |
 | `LevelGen/FloorValidator.cs` | 271 | 校验与审计 | `FarThreshold(required, farthest)`（跨层推广的落点）、`AuditSpawns`、覆盖率/连通性断言 |
+| `LevelGen/FacilityGrammar.cs` | 560 | **R4 设施语法**：18 类设施 × 7 主题、主题驱动停止概率/最小面积、按用途配家具、大厅墙垛、跨房间门对挡视屏 | `Assign`、`AddRoomProps`、`AddHallBreaks`、`AddDoorScreens`、`ThemeOf`、`ZoneStopPBias`、`Profiles` |
+| `LevelGen/SlicePlanner.cs` | 338 | **R5 垂直切片**：3–4 层 × 每层 20–32% 楼板、封死区、通路 | `Generate(seed)` → `RaidPlan{Floors, Links, CorePlan, PlayableArea}` |
+| `LevelGen/VerticalLinkPlan.cs` | 130 | **R6 竖向核对齐**：一局只算一次核坐标，逐层下发 | `Default(spec)`、`ApplyTo(spec, floorIndex)`、`Fingerprint()` |
 | `LevelGen/CoverProps.cs` | 429 | 掩体/家具摆放（按房间类型与密度） | 摆件规则、掩体档位 |
-| `LevelGen/PropCatalog.cs` | 102 | 道具表（**目前是占位模型，M1-D 待填真模型**） | |
+| `LevelGen/PropCatalog.cs` | 102 | 道具表（**R4 起由 Blender 管线自动填**，41 个模型 / 55 条别名） | `Entry{Name,Prefab,Size,Offset,AddBoxCollider}`、`LoadOrCreateDefault` |
 | `LevelGen/FloorChunk*.cs` | 481 | 分块：网格 / 计划 / 几何 / 流式 | `FloorChunkGeometry.BuildShell`、`FloorStreamer`、`FloorStreamingRuntime` |
 | `LevelGen/FloorRuntime.cs` | 68 | 运行时装配 | |
 
@@ -111,12 +117,14 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 | `Editor/M1FloorScene.cs` | 706 | 生成 FloorTest 场景 / 截图（俯视几何调试图、走廊/核心/出生点视角、柱子特写） |
 | `Editor/FloorLabWindow.cs` | 382 | 楼层审图窗口（批量生成 + 浏览） |
 | `Editor/M0Bootstrap.cs` / `M0Capture.cs` | 251 | M0 骨架与截图 |
-| `Editor/Art/MaterialArtLibrary.cs` 等 | 223 | 程序化材质 |
+| `Editor/Art/MaterialArtLibrary.cs` 等 | 223 | 程序化材质（31 套贴图集 → 10 个槽位） |
+| `Editor/Tools/PropPipeline.cs` | 372 | **Blender 道具导入**：FBX → prefab（pivot 底心、单 BoxCollider、static batching）+ 写 `PropCatalog` |
+| `Editor/Tools/SurveyCapture.cs` | 330 | 平面图 / 小地图 mock / 走廊特写出图 |
 
 ### 4.4 测试（`game/Assets/tests/`）
 
-EditMode 16 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2 新增）、`RoomScaleTests`（R3 新增）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
-**合计 EditMode 113 项，全绿**（2026-11-26，R3 完成后实测；R2 那轮是 109，R1 是 103）。改生成器任何规则前先跑一遍全量当基线。
+EditMode 19 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5）、`VerticalLinkPlanTests`（R6）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
+**合计 EditMode 129 项，全绿**（2026-11-27，R6 完成后实测；R4 那轮 124、R3 是 113、R2 是 109、R1 是 103）。改生成器任何规则前先跑一遍全量当基线。
 
 ---
 
@@ -154,15 +162,15 @@ EditMode 16 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多
 | R2 | **走廊断点**：每 26–32m 插入合法断点，补并行服务廊 1.8–2.1m | `FloorGenerator` 走廊段 | 最长直线视线 ≤45m；`SightlineTests` |
 | R3 | **房间尺度重分布**：中位 90–130㎡，按 40/35/20/5 分档 | `FloorGenerator` 的 BSP 终止条件 + `FloorSpec` 参数 | 中位数、<56㎡ 占比、分档直方图 |
 | R4 | **设施语法库**（替换办公室）：12 类设施（机房/冷库/管廊/车间/中控/变电/储罐/医疗隔离/装卸/档案/洁净间/生活舱），每层 3–4 种主题 | 新 `FacilityGrammar.cs` + `PropCatalog` | 每层主题不同；房间尺寸方差显著上升 |
-| R5 | **SlicePlanner**：随机 2–3 层 × 30–50% 楼板、面积 24–30k㎡、封死区、连通性 | 新 `RaidPlan.cs` / `SlicePlanner.cs` | 面积/连通/竖向通路 ≥3 且不同象限 |
+| R5 | **SlicePlanner**：随机 **3–4 层** × 每层 **20–32%** 楼板、面积 24–30k㎡、封死区、连通性 | `LevelGen/SlicePlanner.cs` | 面积/连通/竖向通路 ≥3 且不同象限 |
 | R6 | **VerticalLinkPlan**：竖向核跨层对齐 | 新 `VerticalLinkPlan.cs` + `FloorSpec` | 相邻层 ≥3 通路、坐标对齐误差 <0.5m |
 | R7 | **GraphDistance 校验**：出生/撤离改图距离 | `FloorValidator`（替换 `FarThreshold` 直线版） | 出生间距 ≥35%、到撤离 ≥50% |
 | R8 | **环路注入**：外环 + 内环 + 局部环，环数 ≈ 房间数/12 | `FloorGenerator` / `SlicePlanner` | E−V+1 落在 ±30% |
 | R9 | **SignageGenerator**：疏散牌 / 楼层号 / 平面图牌 / 电梯面板 | 新 `Signage.cs` + 场景装饰 | 每层 ≥1 处"你在这里"牌；截图可读 |
 | R10 | **体检器接回归**：把 `tools/plan-proto/audit_floors.py` 的指标搬进 EditMode 测试 | 新 `LevelAuditTests.cs` | 指标表（06 §10）进 CI |
 
-> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，EditMode 109/109）。**R3 已完成**（2026-11-26，EditMode 113/113，见下方"R3 已完成"）。下一步 R4；R4 及之后的验收仍按上表原文。
-> **对比图**：改动前基线已存 `docs/3d-rebuild/screenshots/r1-r3-before-{spawn,corridor,core}.png`；R1–R3 全部完成后再跑 `M1FloorScene.Capture` 出 after 图。
+> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，109/109）。**R3 已完成**（2026-11-26，113/113）。**R4 已完成**（2026-11-27，124/124）。**R5/R6 已完成**（2026-11-27，129/129）。下一步 R7（图距离校验）；R7 及之后的验收仍按上表原文。
+> **对比图**：R2/R3 落地后已出 `r2-dollhouse.png`、`props-showcase*.png`、`plan-1/7*.png`；R7–R10 做完整层结构后重跑 `M1FloorScene.Capture` 出 after 图。
 
 R2 已完成，落地方式（改过的东西，别再重复设计）：
 - 删掉了 `CoverProps.AddSightBreaks` / `TryPlaceSightBreak` / `AlongOverlaps` / `DoorPoints`（26–32m `隔断墙` 道具方案作废）。
@@ -181,7 +189,22 @@ R3 已完成，落地方式（改过的东西，别再重复设计）：
 - `stopP` 表**没动**（.06/.30/.62/.85/.95）。试过 220–400 档 .62→.68、120–220 档 .85→.88：中位飘到 134.3（seed 5）、seed 8 的 <56㎡ 从 8.6% 涨到 12.1%，已回退（代码里留了注释）。
 - 新增 `tests/EditMode/RoomScaleTests.cs` 4 项：12 个种子合并统计（单层只有 100 多间房，逐种子卡分档参数一动就红）——中位 90–130㎡、<56㎡ 合计 ≤10% 且单层 ≤12%、分档 56–113 / 113–200 / 200–400 / 400+、Normal 必 ≥56㎡ 且服务间必 <56㎡。
 - 实测（12 种子合并 1410 间）：中位 100–123㎡、<56㎡ **7.0%**、分档 **43.0 / 34.3 / 13.8 / 1.9%**（200–400 档仍偏少、56–113 档偏多，属可接受的第二版）。
-- 覆盖率底线连带下调：房间覆盖率 300 种子最差 0.4474（seed 146）、1000 种子最差 0.4315（seed 305），测试底线定 0.42；同时新增"房间+走廊"联合覆盖率 >0.80 的真约束（300 种子最差 0.8436）。
+- 覆盖率达到实测定线：房间覆盖率 300 种子最差 0.4474（seed 146）、1000 种子最差 0.4315（seed 305），测试底线定 0.44（R4 后 0.40）；真约束是"房间+走廊"联合覆盖率 >0.78（R3 时 0.80，R4 大厅墙垛/结构墙占面积后放宽）。
+
+R4 已完成，落地方式（改过的东西，别再重复设计）：
+- `LevelGen/FacilityGrammar.cs`：18 类设施 × 7 主题（Office/Admin/DataCenter/ColdChain/Manufacturing/Medical/Storage）。`ThemeOf` 用 `seed*5147 + zoneIndex*977 + 13` 决定象限主题；`ZoneStopPBias`（DataCenter 0.42 … Medical 1.35）与 `ZoneMinAreaScale`（DataCenter 1.6、Manufacturing 1.3、Medical 1.0）喂给 `SplitNode`，所以**停止概率按象限不同**（R4 之前全层一张表）。
+- `Assign` 按设施面积区间算匹配代价（小于 MinArea 记全额差额、大于 MaxArea 记 0.35 倍），写 `Room.Facility`；`<56㎡` 时按 `RoomType` 覆盖成 Toilet/Riser/Storage，保证 R3 的"只有小房间能当服务间"仍成立。
+- `AddRoomProps`：每房 `count = clamp(round(area/24), 2, 14)`，贴墙摆放，校验不压门（1.5m）、不压核心筒/楼梯/墙垛、互不重叠；**道具尺寸来自 `PropsOf(facility)`，名字与 PropCatalog 键一致**。
+- `AddHallBreaks`：长边 >24m 且短边 ≥8m 的大厅，沿长轴每 8m 一道 0.4m 厚墙垛（交替两侧伸出，`stub = min(短边*0.55, 6.5)`），打断"30m 房间 + 28m 走廊 = 58m"的直线；登记 `FloorPlan.HallBreaks`，墙体生成与视线审计共用同一份数据。
+- `AddDoorScreens`：全层收集门（room.Door + ExtraDoors + LoopDoors），找"相对边 + 切向差 ≤0.9m"的门对，在房间中点立 0.4m 厚墙屏（跨度、留边见代码）。seed 2 原来 52.4m 的"三间房上下叠、门都在一条线上"就是这样消掉的（修后 33.8m）。
+- 道具管线：`tools/blender/gen_props.py`（纯 bpy，41 个道具，全部 ≤1500 tris）+ `Editor/Tools/PropPipeline.cs`（FBX → prefab：pivot 底心、1unit=1m、单 BoxCollider、static batching；写 `PropCatalog`）。材质走 `M_Prop_<slot>` 扁平材质（盒子 UV 上没有法线贴图，用 PBR 槽会拉成瓦楞纸）。
+- 实测：设施分布每层 10–12 种、3 个主题；办公占比 28–39%；大设施中位 216–365㎡ vs 小设施 35㎡；seed 1 的 1191 件道具里 1068 件（89.6%）命中真模型。
+
+R5 / R6 已完成，落地方式：
+- `LevelGen/SlicePlanner.cs`：`Generate(seed)` 抽 3 层（55%）或 4 层（45%），起始层 `rng.Next(3, 52-floorCount)`，逐层 `FloorSpec.Default(seed*7919 + worldFloor*131)`；`Layout` 先按目标面积铺一条横带（`h = clamp(H*fraction, 24, H*0.32)`），再并上三个竖向核与 2.6m 连接短廊，最后迭代收敛开放比例（房间中心在带内但不完整时按包围盒会虚高，实测 35.3% → 5 轮缩到 ≤32%）。
+- 封死区 = 主带南北两侧，原因从 `SealReason{Power, Construction, Collapse, Cordon, Flood}` 随机取；**结构上铺满整层**（`band + sealed` = 楼板），这是 `SlicePlannerTests` 的断言之一。
+- `LevelGen/VerticalLinkPlan.cs`：一局只算一次核坐标（西梯/核心筒电梯/东梯），`ApplyTo(spec, floorIndex)` 写进 `FloorSpec{UseCores, CoreRect, StairWestRect, StairEastRect}`，`FloorGenerator.Build` 见到 `UseCores` 就直接采用（`ClampRect` 夹回楼层内），不再自己算——**跨层对齐是结构保证，不是巧合**；相邻层固定 3 条通路，坐标逐层完全相同（测试容差 0.01m，验收要求 <0.5m）。
+- 实测：6 个种子层数 3–4、可玩面积 24,000–30,000㎡、每层 OpenFraction 0.19–0.33、相邻层 3 条通路且覆盖 3 个象限。
 
 ---
 
@@ -213,12 +236,14 @@ R3 已完成，落地方式（改过的东西，别再重复设计）：
 ## 10. 已知未完成 / 已知缺陷
 
 - **M1-B/C**：60fps 与灯池实测需要高性能机（当前机器不够）。
-- **M1-D**：`PropCatalog` 里的道具还是占位，需要真模型。
+- **M1-D**：`PropCatalog` 已填 41 个 Blender 模型 / 55 条别名，seed 1 命中率 89.6%；仍有零星灰盒（无模型的别名）。
 - **M1-E**：分块 LOD 与"每块 NavMesh"未做。
 - **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块仍按房间矩形；斜墙隔断 + L 形合并未做。
-- **R3 已完成**（2026-11-26）：面积改按轮廓、房间加用途类型、`RoomScaleTests`；实测中位 100–123㎡、<56㎡ 7.0%、分档 43/34/14/2%。R1 单门房（`0bd87f1`）、R2 走廊断点（最长视线 30–38m）均已完成。
-- **美术资源已就位但未接进场景**：`Art/Textures` 19 套 PBR、`Art/Signage` 35 张标识牌、`Art/UI` 35 个 HUD/准星/地图图标、`Art/Decals` 贴花；`MaterialArtLibrary` 只接了 10 个槽位（Wall/Floor/Ceiling/Column/Core/Stair/PropLarge/PropMedium/PropSmall/SightBreak），TileFloor/VenueCarpet/EpoxyFloor/CleanPanel/ServerPanel/DiamondPlate/IndustrialPaint/MetalDoor/GlassPanel 这 9 套还没有槽位（等 R4 设施语法库）。
-- **设计待拍板**（06 §8）：楼层总数、切片层数比例、封死楼板的表现、25 还是 30 分钟、TTK、AI 玩家上限、深度是否保留难度分层。
+- **R1–R6 已完成**（2026-11-27，EditMode 129/129）：门数规则、走廊断点（最长视线 30–38m）、房间尺度（中位 100–123㎡、<56㎡ 7.0%）、设施语法库（18 类 × 7 主题）、垂直切片（3–4 层 × 20–32%）、竖向核对齐（<0.5m）。
+- **R7–R10 未做**：图距离校验（`FloorValidator` 仍是直线阈值）、环路注入、标识牌生成、体检器接回归。
+- **美术资源**：31 套 PBR（原 7 + 两批 24）、35 张标识牌、35 个 HUD 图标、15 张贴花、41 个 Blender 道具、5 张菜单图；`MaterialArtLibrary` 只接了 10 个槽位，**per-room 材质槽还没做**（设施已有 `FloorMaterial/WallMaterial` 数据，但没有落到几何上）。
+- **视觉待打磨**（用户试玩后会提）：墙面竖向拉丝/噪点（WorldUv + 高频法线）、整体偏暗（环境光 0.42、无后处理）、道具仍是低模扁平材质、无 LOD1。
+- **设计待拍板**（06 §8）：楼层总数、封死楼板的表现、25 还是 30 分钟、TTK、AI 玩家上限、深度是否保留难度分层。
 - **Boss 规则**仍待用户定（概率曲线已定：随深度 10/15/20/25%，其余待定）。
 
 ---
@@ -240,7 +265,10 @@ R3 已完成，落地方式（改过的东西，别再重复设计）：
 | `game/Assets/_Project/Art/Textures/` | 19 套 PBR（原 7 + 新 12） | 每套 `T_<Set>_{Albedo,Normal,Mask}.png` 1024²，Mask=RGBA（R metallic / G AO / B 1 / A smoothness） | `F:\ComfyUI\efw_gen_materials.py` + `F:\ComfyUI\efw_post_materials.py`（**本机 ComfyUI 目录，不在仓库里**：AI 出颜色颗粒 + 解析图案叠加） | `docs/3d-rebuild/08-materials.md` |
 | `game/Assets/_Project/Art/Signage/` | 35 张标识牌（出口 / 楼层 40F–50F / 疏散图 / 电梯面板与厅牌 / 导向 / 门牌 5001–5012） | 512²–1024×512 RGBA，圆角透明边 | `Art/Signage/generate_signage.py` | 同目录 `README.md` + `_contact_sheet.png` |
 | `game/Assets/_Project/Art/UI/` | 35 个 UI：5 准星（512²）、20 图标（256²）、10 地图标记 + 4 罗盘（256²/128²） | 纯白 #FFFFFF + 透明底，方便着色 | `Art/UI/generate_ui_icons.py` | 同目录 `README.md` + `_contact_sheet.png` |
-| `game/Assets/_Project/Art/Decals/` | 13 张贴花（弹孔 / 渗水 / 霉斑 / 裂纹 / 漆皮 / 擦痕 / 咖啡圈 / 泥痕 / 锈水 / 油渍 / 污渍） | 512² RGBA，alpha 形状程序化 | `tools/art/gen_decals.py` | 同目录 `README.md` + `_contact_sheet.png` |
+| `game/Assets/_Project/Art/Decals/` | 15 张贴花（弹孔 / 渗水 / 霉斑 / 裂纹 / 漆皮 / 擦痕 / 咖啡圈 / 泥痕 / 锈水 / 油渍 / 污渍 / 烟熏 / 流挂） | 512² RGBA，alpha 形状程序化 | `tools/art/gen_decals.py` | 同目录 `README.md` + `_contact_sheet.png` |
+| `game/Assets/_Project/Art/Props/` | **41 个 Blender 参数化道具**（柜/桌/椅/货架/机柜/储罐/病床/泵/冷风机/隔断…） | FBX + JSON，1unit=1m、pivot 底心、≤1500 tris | `tools/blender/gen_props.py` | `docs/3d-rebuild/10-props-blender.md` |
+| `game/Assets/_Project/Art/Menu/` | 5 张菜单图（主菜单/加载/阵亡/两版 Logo） | 1920×1080 / 1600×600 | `tools/art/gen_menu.py` | 同目录 `README.md` |
+| `tools/img2mesh/` | TripoSR 本地图生 3D 管线（跑通，2.3GB 显存 / ≈8s 一件 / 减到 1500 面） | 样例 `out/chair/*.fbx`、`out/plant/*.fbx` | `tools/img2mesh/run_tsr.py` | `docs/3d-rebuild/12-img2mesh.md` |
 
 - 材质库：`Editor/Art/MaterialArtLibrary.cs` 的 `Slots` 把 `FloorMaterials` 的 10 个槽位映射到材质集（R2 后 `Column → ConcreteWall`、`Stair → RubberStair`），`TilingFor()` 已补全 19 套的每米重复；改完材质跑菜单 `Escape From Work/Art/Build Material Library From Textures` 或 `-executeMethod EscapeFromWork.EditorTools.MaterialArtLibrary.BuildAll` 重建 `Materials/Art/*.mat`。
 - **还没接进场景**：TileFloor / VenueCarpet / EpoxyFloor / CleanPanel / ServerPanel / DiamondPlate / IndustrialPaint / MetalDoor / GlassPanel 这 9 套没有槽位，等 R4 设施语法库（房间类型 → 材质集）再接。
@@ -250,7 +278,8 @@ R3 已完成，落地方式（改过的东西，别再重复设计）：
 
 ## 13. 一句话交接
 
-**单层生成器已经能跑、外廓已多边形化；R1 砍掉"单门房"（`0bd87f1`）、R2 把走廊切成 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）、R3 把面积统计改到真实轮廓并给房间分用途（中位 100–123㎡、EditMode 113/113）。接下来按顺序做 R4，再出 before/after 对比图；之后才是 06 号文档的 2–3 层切片。**
+**单层生成器、R1–R6 都已完成**：外廓多边形化；门数规则；走廊 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）；面积按真实轮廓 + 房间用途（中位 100–123㎡）；设施语法库（18 类 × 7 主题 + 41 个 Blender 道具）；垂直切片（3–4 层 × 20–32%，24–30k㎡）；竖向核跨层对齐（<0.5m）。EditMode **129/129 全绿**。
+接下来 R7（图距离校验）→ R8（环路注入）→ R9（标识牌生成）→ R10（体检器接回归）；同时按用户试玩反馈打磨视觉（墙面拉丝/偏暗/道具材质）与 `MapHud` 的楼层条/拉闸房可见性/撤离点门控。
 
 **地图/撤离可见性规则（2026-11-26 用户确认）记在 `02-level-design.md` §5.5**：小地图只画当前层；楼层条只标"哪层还有可用撤离点"；拉闸房没有迷雾、永久可见；进层只显示"本层 N 个可用撤离点"，**进入拉闸房之后**才标出被激活的具体撤离点（图标 + 位置 + 类型），拉闸全楼广播。`MapHud.cs` 目前只有 `MapFog` + 单层 `MapRaster`，楼层条 / 拉闸房可见性 / 撤离点门控都还没做。
 

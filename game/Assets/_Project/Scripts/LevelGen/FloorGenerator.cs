@@ -54,6 +54,10 @@ namespace EscapeFromWork.LevelGen
             EnsureGridConnectivity(best, spec);
             RoomDoorPolicy.Apply(best);
             AssignRoomTypes(best, spec);
+            FacilityGrammar.Assign(best, spec);
+            FacilityGrammar.AddHallBreaks(best, spec);
+            // 挡视屏要在所有门都定下来之后再加（门在 RoomDoorPolicy / AddLoopDoors 两处生成）
+            FacilityGrammar.AddDoorScreens(best, spec);
             // 室内 45° 切角已按用户要求关闭（2026-11-26）：它只是在矩形房间里塞一块斜挡板，
             // 外壳和房间包围盒都还是矩形，视觉上没有真正的形状差异。形状问题改为
             // "外廓 + 少数结构动作传播" 的方向解决（见 tools/plan-proto 原型）。
@@ -63,6 +67,8 @@ namespace EscapeFromWork.LevelGen
             System.Random propRng = new System.Random(unchecked(spec.Seed * 31 + 7));
             CoverPlacer.Place(best, spec, propRng);
             CoverPlacer.EnforceClearLane(best, spec);
+            // 房间内家具：按设施类型贴墙摆（走廊家具由 CoverPlacer 负责，两者互不重叠）。
+            FacilityGrammar.AddRoomProps(best, spec);
             CoverPlacer.DropPropsNearDoors(best);
             // 切角三角区在斜墙里面，桌子/隔断不能长在那里（走廊不会命中，房间角会）。
             best.Props.RemoveAll(p => RoomShape.BlockedInFloor(best, p.Rect.Center));
@@ -306,15 +312,26 @@ namespace EscapeFromWork.LevelGen
             plan.Spec = spec;
             plan.Bounds = new RectF(0f, 0f, spec.Width, spec.Height);
 
-            plan.Core = new RectF(
-                spec.Width * 0.5f - spec.CoreSize.x * 0.5f,
-                spec.Height - spec.CoreNorthOffset - spec.CoreSize.y,
-                spec.CoreSize.x,
-                spec.CoreSize.y);
+            // 竖向核：由 SlicePlanner/VerticalLinkPlan 统一给坐标时直接采用，保证同局各层完全对齐；
+            // 单层调试（UseCores=false）才按规格自己算。
+            if (spec.UseCores)
+            {
+                plan.Core = ClampRect(spec.CoreRect, plan.Bounds);
+                plan.Stairs.Add(ClampRect(spec.StairWestRect, plan.Bounds));
+                plan.Stairs.Add(ClampRect(spec.StairEastRect, plan.Bounds));
+            }
+            else
+            {
+                plan.Core = new RectF(
+                    spec.Width * 0.5f - spec.CoreSize.x * 0.5f,
+                    spec.Height - spec.CoreNorthOffset - spec.CoreSize.y,
+                    spec.CoreSize.x,
+                    spec.CoreSize.y);
 
-            float stairY = spec.Height * 0.5f - 10f;
-            plan.Stairs.Add(new RectF(2f, stairY, 8f, 20f));
-            plan.Stairs.Add(new RectF(spec.Width - 10f, stairY, 8f, 20f));
+                float stairY = spec.Height * 0.5f - 10f;
+                plan.Stairs.Add(new RectF(2f, stairY, 8f, 20f));
+                plan.Stairs.Add(new RectF(spec.Width - 10f, stairY, 8f, 20f));
+            }
 
             // 外廓先定：房间、墙、地板、导航栅格都要贴着它裁，不能先铺满矩形再补角。
             List<RectF> envelopeKeepOut = new List<RectF>();
@@ -328,7 +345,7 @@ namespace EscapeFromWork.LevelGen
             Node root = new Node();
             root.Rect = plan.Bounds;
             root.Depth = 0;
-            SplitNode(root, spec, rng);
+            SplitNode(root, plan, spec, rng);
 
             Emit(root, plan, spec, rng);
 
@@ -347,20 +364,38 @@ namespace EscapeFromWork.LevelGen
             return plan;
         }
 
-        static void SplitNode(Node n, FloorSpec spec, System.Random rng)
+        /// <summary>把外部下发的竖向核夹回楼层内（SlizePlanner 偏移过头时不至于生成到楼外）。</summary>
+        static RectF ClampRect(RectF r, RectF bounds)
+        {
+            float w = Mathf.Min(r.W, bounds.W);
+            float h = Mathf.Min(r.H, bounds.H);
+            float x = Mathf.Clamp(r.X, bounds.X, bounds.XMax - w);
+            float y = Mathf.Clamp(r.Y, bounds.Y, bounds.YMax - h);
+            return new RectF(x, y, w, h);
+        }
+
+        static void SplitNode(Node n, FloorPlan plan, FloorSpec spec, System.Random rng)
         {
             RectF r = n.Rect;
             if (n.Depth >= 9) return;
             if (r.W < 7f || r.H < 7f) return;
 
+            // 分区驱动：这个节点落在哪个象限，就按那个象限的主题决定"多容易停"和"最小房间多大"。
+            // R4 之前全层共用一个停止概率表，所以每层都长成一个样。
+            FloorTheme theme = FacilityGrammar.ThemeAt(plan, r.Center);
+            float minRoomArea = spec.MinRoomArea * FacilityGrammar.ZoneMinAreaScale(theme);
+
             float area = r.Area;
-            if (area < spec.MinRoomArea) return;
+            if (area < minRoomArea) return;
 
             // R3 分档目标 56–113 / 113–200 / 200–400 / 400+ ≈ 40/35/20/5。
             // 试过把 220–400 档从 .62 抬到 .68、120–220 从 .85 抬到 .88：中位会飘到 134、
             // 而且 3m 级的边角料反而变多（seed 8 的 <56㎡ 从 8.6% 涨到 12.1%），所以保留原表。
             float stopP = area > 900f ? 0.0f : area > 620f ? 0.06f : area > 400f ? 0.30f : area > 220f ? 0.62f : area > 120f ? 0.85f : 0.95f;
             stopP *= PrototypeLeafBias(spec.Prototype);
+            // 主题乘数：数据中心 .42（留大厅）、制造 .55、医疗 1.35（切小间）。
+            stopP *= FacilityGrammar.ZoneStopPBias(theme);
+            stopP = Mathf.Clamp01(stopP);
             // 硬上限：再大的房间也不许留（否则会切出篮球场）。
             // 长边也卡在 30m：R2 要求最长直线视线 ≤45m，而"走廊 + 一整间 42m 的大厅"光这两段就
             // 已经 49m 了（实测 seed 5）。30m 的房间 + 最长的一段走廊 31.8m 也还在 45m 以外有余量。
@@ -406,7 +441,7 @@ namespace EscapeFromWork.LevelGen
 
             // 小到放不下一个房间的子区域不要切出来，否则那份面积变成谁也进不去的黑洞
             float cross = verticalCut ? r.H : r.W;
-            if (aLen * cross < spec.MinRoomArea * 1.1f || bLen * cross < spec.MinRoomArea * 1.1f) return;
+            if (aLen * cross < minRoomArea * 1.1f || bLen * cross < minRoomArea * 1.1f) return;
 
             n.A = new Node();
             n.B = new Node();
@@ -430,8 +465,8 @@ namespace EscapeFromWork.LevelGen
             n.HasCorridor = band > 0f;
             n.HasService = service;
 
-            SplitNode(n.A, spec, rng);
-            SplitNode(n.B, spec, rng);
+            SplitNode(n.A, plan, spec, rng);
+            SplitNode(n.B, plan, spec, rng);
         }
 
         static float PrototypeLeafBias(FloorPrototype p)
@@ -570,6 +605,7 @@ namespace EscapeFromWork.LevelGen
             room.Rect = cell;
             room.ZoneIndex = ZoneIndexAt(plan, cell.Center);
             room.Type = RoomType.Normal;
+            room.Facility = FacilityKind.Office;
             room.Door = default(Door);
             room.Door.Corridor = -1;
             room.Door.OtherRoom = -1;
@@ -1324,6 +1360,9 @@ namespace EscapeFromWork.LevelGen
                 z.Rect = rects[i];
                 z.Prototype = order[i];
                 z.Name = NameOf(order[i]);
+                // 主题按种子在象限间错开：同一层既有办公室，也有机房/冷库/车间，
+                // 这样玩家走一圈能感到"这一翼在改造"，而不是整层同一个模板。
+                z.Theme = FacilityGrammar.ThemeOf(order[i], spec, i);
                 plan.Zones.Add(z);
             }
         }

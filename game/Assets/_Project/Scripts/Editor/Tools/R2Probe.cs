@@ -548,6 +548,237 @@ namespace EscapeFromWork.EditorTools
             return total == 0 ? 0f : 100f * part / total;
         }
 
+        /// <summary>
+        /// 追一条长视线为什么没被挡住：打印射线穿过的每面墙盒（沿路径的跨度）和附近的门登记。
+        /// 用法：-executeMethod EscapeFromWork.EditorTools.R2Probe.Ray
+        /// </summary>
+        /// <summary>沿最坏视线打印穿过的房间/走廊/门与挡视屏，用来判断缺口到底在哪一段。</summary>
+        /// <summary>道具统计：计划里有多少件、按名字分组、其中多少能查到目录预制体。</summary>
+        public static void Props()
+        {
+            FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(1));
+            PropCatalog catalog = PropCatalog.LoadOrCreateDefault();
+            var counts = new System.Collections.Generic.Dictionary<string, int>();
+            int hits = 0;
+            for (int i = 0; i < plan.Props.Count; i++)
+            {
+                string name = plan.Props[i].Spec.Name;
+                int n;
+                counts.TryGetValue(name, out n);
+                counts[name] = n + 1;
+                PropCatalog.Entry e;
+                if (catalog.TryGet(name, out e)) hits++;
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendFormat("R2PROBE PROPS total={0} catalogHits={1} entries={2}\n", plan.Props.Count, hits, catalog.Entries.Count);
+            foreach (var p in counts)
+            {
+                PropCatalog.Entry e;
+                sb.AppendFormat("  {0} x{1} {2}\n", p.Key, p.Value, catalog.TryGet(p.Key, out e) ? "prefab" : "greybox");
+            }
+            Debug.Log(sb.ToString());
+        }
+
+        /// <summary>设施分布：每层多少种设施/主题、各设施的房间数与面积中位数。</summary>
+        public static void Facilities()
+        {
+            int[] seeds = { 1, 2, 3, 7 };
+            var sb = new StringBuilder();
+            for (int s = 0; s < seeds.Length; s++)
+            {
+                FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(seeds[s]));
+                var byKind = new System.Collections.Generic.Dictionary<FacilityKind, System.Collections.Generic.List<float>>();
+                var themes = new System.Collections.Generic.HashSet<FloorTheme>();
+                for (int i = 0; i < plan.Zones.Count; i++) themes.Add(plan.Zones[i].Theme);
+
+                for (int i = 0; i < plan.Rooms.Count; i++)
+                {
+                    System.Collections.Generic.List<float> list;
+                    if (!byKind.TryGetValue(plan.Rooms[i].Facility, out list))
+                    {
+                        list = new System.Collections.Generic.List<float>();
+                        byKind[plan.Rooms[i].Facility] = list;
+                    }
+                    list.Add(RoomShape.AreaOf(plan.Rooms[i]));
+                }
+
+                sb.AppendFormat("R2PROBE FAC seed={0} rooms={1} themes={2} kinds={3}\n",
+                    seeds[s], plan.Rooms.Count, themes.Count, byKind.Count);
+                foreach (var pair in byKind)
+                {
+                    var areas = pair.Value;
+                    areas.Sort();
+                    float med = areas[areas.Count / 2];
+                    sb.AppendFormat("  {0,-14} x{1,-3} median={2:F0} min={3:F0} max={4:F0}\n",
+                        pair.Key, areas.Count, med, areas[0], areas[areas.Count - 1]);
+                }
+            }
+            Debug.Log(sb.ToString());
+        }
+
+        public static void Ray2()
+        {
+            int[] seeds = { 2 };
+            for (int s = 0; s < seeds.Length; s++)
+            {
+                FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(seeds[s]));
+                SightlineAudit.Report report = SightlineAudit.Run(plan);
+                Vector2 from = report.From, to = report.To;
+                Vector2 dir = (to - from).normalized;
+                float len = Vector2.Distance(from, to);
+
+                var sb = new StringBuilder();
+                sb.AppendFormat("R2PROBE RAY2 seed={0} len={1:F1} from=({2:F1},{3:F1}) to=({4:F1},{5:F1})\n",
+                    seeds[s], len, from.x, from.y, to.x, to.y);
+
+                for (int i = 0; i < plan.Rooms.Count; i++)
+                {
+                    RectF r = plan.Rooms[i].Rect;
+                    if (!SegmentCrossesRect(from, to, r)) continue;
+                    sb.AppendFormat("  room#{0} {1} facility={2} rect=({3:F1},{4:F1}) {5:F1}x{6:F1} door={7}\n",
+                        i, plan.Rooms[i].Type, plan.Rooms[i].Facility, r.X, r.Y, r.W, r.H,
+                        plan.Rooms[i].HasDoor ? plan.Rooms[i].Door.Side.ToString() : "-");
+                    if (plan.Rooms[i].HasDoor)
+                        sb.AppendFormat("     door c=({0:F2},{1:F2}) w={2:F2}\n",
+                            plan.Rooms[i].Door.Center.x, plan.Rooms[i].Door.Center.y, plan.Rooms[i].Door.Width);
+                    if (plan.Rooms[i].ExtraDoors != null)
+                    {
+                        for (int k = 0; k < plan.Rooms[i].ExtraDoors.Count; k++)
+                        {
+                            Door d = plan.Rooms[i].ExtraDoors[k];
+                            sb.AppendFormat("     extra c=({0:F2},{1:F2}) side={2} w={3:F2} other={4}\n",
+                                d.Center.x, d.Center.y, d.Side, d.Width, d.OtherRoom);
+                        }
+                    }
+                }
+
+                for (int i = 0; i < plan.Corridors.Count; i++)
+                {
+                    RectF r = plan.Corridors[i].Rect;
+                    if (!SegmentCrossesRect(from, to, r)) continue;
+                    sb.AppendFormat("  corr#{0} main={1} service={2} vest={3} rect=({4:F1},{5:F1}) {6:F1}x{7:F1}\n",
+                        i, plan.Corridors[i].Main, plan.Corridors[i].Service, plan.Corridors[i].Vestibule,
+                        r.X, r.Y, r.W, r.H);
+                }
+
+                for (int i = 0; i < plan.HallBreaks.Count; i++)
+                {
+                    RectF r = plan.HallBreaks[i];
+                    float d = DistanceToRay(r.Center, from, to);
+                    if (d > 2.1f) continue;
+                    sb.AppendFormat("  hallbreak#{0} c=({1:F2},{2:F2}) {3:F2}x{4:F2} dist={5:F2}\n",
+                        i, r.Center.x, r.Center.y, r.W, r.H, d);
+                }
+
+                Debug.Log(sb.ToString());
+            }
+        }
+
+        static bool SegmentCrossesRect(Vector2 a, Vector2 b, RectF r)
+        {
+            for (int i = 0; i <= 200; i++)
+            {
+                Vector2 p = Vector2.Lerp(a, b, i / 200f);
+                if (r.Contains(p)) return true;
+            }
+            return false;
+        }
+
+        public static void Ray()
+        {            int[] seeds = { 1, 2, 7 };
+            for (int s = 0; s < seeds.Length; s++)
+            {
+                FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(seeds[s]));
+                SightlineAudit.Report report = SightlineAudit.Run(plan);
+                Vector2 from = report.From, to = report.To;
+                Vector2 dir = (to - from).normalized;
+                float len = Vector2.Distance(from, to);
+
+                List<BoxSpec> boxes = new List<BoxSpec>();
+                FloorGeometry.CollectWallBoxes(plan, boxes);
+
+                StringBuilder sb = new StringBuilder();
+                sb.AppendFormat("R2PROBE RAY seed={0} len={1:F1} from=({2:F1},{3:F1}) to=({4:F1},{5:F1})\n",
+                    seeds[s], len, from.x, from.y, to.x, to.y);
+
+                // 射线与每个盒子求交，只打印真的挡在路径上的（跨越射线，且交点距离 > 0.3m）
+                for (int i = 0; i < boxes.Count; i++)
+                {
+                    BoxSpec b = boxes[i];
+                    float hw = Mathf.Abs(b.Size.x) * 0.5f, hd = Mathf.Abs(b.Size.z) * 0.5f;
+                    BoxSpec flat = new BoxSpec(new Vector3(b.Center.x, 1.6f, b.Center.z), new Vector3(hw * 2f, 1f, hd * 2f), b.Yaw);
+                    if (!OverlapsRay(flat, from, to)) continue;
+                    float t = ProjectRay(flat.Center, from, dir);
+                    sb.AppendFormat("  box#{0} c=({1:F2},{2:F2}) s=({3:F2},{4:F2}) yaw={5:F2} t={6:F1}\n",
+                        i, b.Center.x, b.Center.z, b.Size.x, b.Size.z, b.Yaw, t);
+                }
+
+                for (int i = 0; i < plan.CorridorOpenings.Count; i++)
+                {
+                    Door d = plan.CorridorOpenings[i];
+                    float dist = DistanceToRay(d.Center, from, to);
+                    if (dist > 1.6f) continue;
+                    sb.AppendFormat("  door#{0} c=({1:F2},{2:F2}) side={3} w={4:F2} t={5:F1}\n",
+                        i, d.Center.x, d.Center.y, d.Side, d.Width, ProjectRay(d.Center, from, dir));
+                }
+
+                Debug.Log(sb.ToString());
+            }
+        }
+
+        static float ProjectRay(Vector2 p, Vector2 from, Vector2 dir)
+        {
+            return Vector2.Dot(p - from, dir);
+        }
+
+        static float DistanceToRay(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(0.0001f, ab.sqrMagnitude));
+            return Vector2.Distance(p, a + ab * t);
+        }
+
+        /// <summary>旋转盒与线段是否相交：把线段端点变换到盒的局部坐标系再判 AABB。</summary>
+        static bool OverlapsRay(BoxSpec box, Vector2 a, Vector2 b)
+        {
+            float rad = -box.Yaw * Mathf.Deg2Rad;
+            Vector2 c = new Vector2(box.Center.x, box.Center.z);
+            Vector2 la = Rotate(a - c, rad), lb = Rotate(b - c, rad);
+            float hw = box.Size.x * 0.5f, hd = box.Size.z * 0.5f;
+            // Liang-Barsky
+            float t0 = 0f, t1 = 1f;
+            Vector2 d = lb - la;
+            if (!Clip(-d.x, la.x + hw, ref t0, ref t1)) return false;
+            if (!Clip(d.x, hw - la.x, ref t0, ref t1)) return false;
+            if (!Clip(-d.y, la.y + hd, ref t0, ref t1)) return false;
+            if (!Clip(d.y, hd - la.y, ref t0, ref t1)) return false;
+            return t1 - t0 > 0.001f;
+        }
+
+        static bool Clip(float p, float q, ref float t0, ref float t1)
+        {
+            if (Mathf.Abs(p) < 0.00001f) return q >= 0f;
+            float r = q / p;
+            if (p < 0f)
+            {
+                if (r > t1) return false;
+                if (r > t0) t0 = r;
+            }
+            else
+            {
+                if (r < t0) return false;
+                if (r < t1) t1 = r;
+            }
+            return true;
+        }
+
+        static Vector2 Rotate(Vector2 v, float radians)
+        {
+            float c = Mathf.Cos(radians), s = Mathf.Sin(radians);
+            return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
+        }
+
         /// <summary>房间真实面积：有 Outline 用鞋带公式，否则退回包围盒。</summary>
         static float AreaOf(Room room)
         {
