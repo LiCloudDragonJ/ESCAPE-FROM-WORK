@@ -49,7 +49,10 @@ namespace EscapeFromWork.LevelGen
 
             // 栅格连通修补只对最终选中的方案做一次（每轮 attempt 都做会把 1000 种子批测拖到十几分钟）
             EnsureGridConnectivity(best, spec);
-            AddCornerCuts(best, spec);
+            // 室内 45° 切角已按用户要求关闭（2026-11-26）：它只是在矩形房间里塞一块斜挡板，
+            // 外壳和房间包围盒都还是矩形，视觉上没有真正的形状差异。形状问题改为
+            // "外廓 + 少数结构动作传播" 的方向解决（见 tools/plan-proto 原型）。
+            // AddCornerCuts(best, spec);
             EnsureExtractionSpread(best, spec);
 
             System.Random propRng = new System.Random(unchecked(spec.Seed * 31 + 7));
