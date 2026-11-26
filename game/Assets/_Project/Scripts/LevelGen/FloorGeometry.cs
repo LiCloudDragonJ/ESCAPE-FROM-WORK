@@ -589,7 +589,41 @@ namespace EscapeFromWork.LevelGen
 
             EmitLines(boxes, horizontal, true, plan, body);
             EmitLines(boxes, vertical, false, plan, body);
+            MergeLintels(lintels);
             boxes.AddRange(lintels);
+        }
+
+        static void MergeLintels(List<BoxSpec> lintels)
+        {
+            // Two door records may describe neighbouring cuts in the same shared wall.
+            // Their headers are one architectural beam, not two overlapping solids.
+            for (int i = lintels.Count - 1; i >= 0; i--)
+            {
+                BoxSpec a = lintels[i];
+                bool horizontal = a.Size.x >= a.Size.z;
+                float line = horizontal ? a.Center.z : a.Center.x;
+                float a0 = (horizontal ? a.Center.x - a.Size.x : a.Center.z - a.Size.z) * 0.5f;
+                float a1 = (horizontal ? a.Center.x + a.Size.x : a.Center.z + a.Size.z) * 0.5f;
+                for (int j = 0; j < i; j++)
+                {
+                    BoxSpec b = lintels[j];
+                    bool otherHorizontal = b.Size.x >= b.Size.z;
+                    if (horizontal != otherHorizontal) continue;
+                    float otherLine = horizontal ? b.Center.z : b.Center.x;
+                    if (Mathf.Abs(line - otherLine) > 0.02f || Mathf.Abs(a.Center.y - b.Center.y) > 0.01f) continue;
+                    if (Mathf.Abs(horizontal ? a.Size.z - b.Size.z : a.Size.x - b.Size.x) > 0.01f) continue;
+                    float b0 = (horizontal ? b.Center.x - b.Size.x : b.Center.z - b.Size.z) * 0.5f;
+                    float b1 = (horizontal ? b.Center.x + b.Size.x : b.Center.z + b.Size.z) * 0.5f;
+                    if (b0 > a1 + 0.01f || a0 > b1 + 0.01f) continue;
+                    float lo = Mathf.Min(a0, b0), hi = Mathf.Max(a1, b1);
+                    Vector3 center = b.Center, size = b.Size;
+                    if (horizontal) { center.x = (lo + hi) * 0.5f; size.x = hi - lo; }
+                    else { center.z = (lo + hi) * 0.5f; size.z = hi - lo; }
+                    lintels[j] = new BoxSpec(center, size);
+                    lintels.RemoveAt(i);
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -826,10 +860,21 @@ namespace EscapeFromWork.LevelGen
             float bankDepth = 1.4f;
             float bankZ = coreRect.YMax - bankDepth * 0.5f;
             float bankHalf = (coreRect.W - 4f) * 0.5f;
-            boxes.Add(new BoxSpec(coreRect.X + bankHalf * 0.5f, CeilingY * 0.5f, bankZ,
-                bankHalf, CeilingY, bankDepth));
-            boxes.Add(new BoxSpec(coreRect.XMax - bankHalf * 0.5f, CeilingY * 0.5f, bankZ,
-                bankHalf, CeilingY, bankDepth));
+            RectF left = new RectF(coreRect.X, coreRect.YMax - bankDepth, bankHalf, bankDepth);
+            RectF right = new RectF(coreRect.XMax - bankHalf, coreRect.YMax - bankDepth, bankHalf, bankDepth);
+            if (!CoreBankIntersected(plan, left))
+                boxes.Add(new BoxSpec(coreRect.X + bankHalf * 0.5f, CeilingY * 0.5f, bankZ,
+                    bankHalf, CeilingY, bankDepth));
+            if (!CoreBankIntersected(plan, right))
+                boxes.Add(new BoxSpec(coreRect.XMax - bankHalf * 0.5f, CeilingY * 0.5f, bankZ,
+                    bankHalf, CeilingY, bankDepth));
+        }
+
+        static bool CoreBankIntersected(FloorPlan plan, RectF bank)
+        {
+            for (int i = 0; i < plan.Corridors.Count; i++)
+                if (plan.Corridors[i].Rect.Inflate(0.02f).Overlaps(bank)) return true;
+            return false;
         }
 
         /// <summary>
