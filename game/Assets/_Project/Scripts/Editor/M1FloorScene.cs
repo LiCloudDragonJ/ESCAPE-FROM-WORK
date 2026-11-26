@@ -281,6 +281,191 @@ namespace EscapeFromWork.EditorTools
             Debug.Log("[M1] screenshots written: spawn / corridor / core");
         }
 
+        /// <summary>
+        /// R2 走廊断点的三张实证图：门斗前看过去（横墙 + 一道错位门，视线在这里断）、
+        /// 门斗内部看侧门、并行服务廊内部（净宽 1.9m 的窄廊）。
+        /// </summary>
+        [MenuItem("Escape From Work/M1/Capture R2 Corridor Break Views")]
+        public static void CaptureCorridorBreak()
+        {
+            FloorMaterials mats = BuildMaterials();
+            FloorSpec spec = ConfigureSpec(FloorSpec.Default(DefaultSeed));
+            FloorPlan plan = FloorGenerator.Generate(spec);
+
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            FloorGeometry.Build(plan, mats, null);
+
+            GameObject cameraObject = new GameObject("CaptureCamera");
+            Camera camera = cameraObject.AddComponent<Camera>();
+            camera.fieldOfView = 78f;
+            camera.nearClipPlane = 0.05f;
+            camera.farClipPlane = 320f;
+
+            string dir = System.IO.Path.GetDirectoryName(Application.dataPath) + "/../docs/3d-rebuild/screenshots/";
+            System.IO.Directory.CreateDirectory(dir);
+            Physics.SyncTransforms();
+
+            Corridor vest = default(Corridor);
+            bool found = false;
+            for (int i = 0; i < plan.Corridors.Count && !found; i++)
+            {
+                Corridor c = plan.Corridors[i];
+                if (!c.Vestibule || c.Service) continue;
+                bool hasService = false;
+                for (int j = 0; j < plan.Corridors.Count && !hasService; j++)
+                {
+                    Corridor s = plan.Corridors[j];
+                    if (s.Service && s.Rect.Inflate(0.4f).Overlaps(c.Rect)) hasService = true;
+                }
+                if (hasService) { vest = c; found = true; }
+            }
+            if (!found)
+            {
+                Debug.LogWarning("[M1] no vestibule with a service neighbour");
+                return;
+            }
+
+            bool vertical = vest.Rect.H >= vest.Rect.W;
+            float eye = FloorGeometry.EyeHeight;
+            Vector3 center = new Vector3(vest.Rect.Center.x, eye, vest.Rect.Center.y);
+
+            // 1) 站在门斗外的主廊段里，沿走廊方向看门斗：正前方是横墙，门偏在一侧
+            Corridor approachSeg = default(Corridor);
+            bool hasApproach = false;
+            for (int j = 0; j < plan.Corridors.Count && !hasApproach; j++)
+            {
+                Corridor s = plan.Corridors[j];
+                if (s.Service || s.Vestibule || !s.Main) continue;
+                if (!s.Rect.Inflate(0.3f).Overlaps(vest.Rect)) continue;
+                if ((s.Rect.H >= s.Rect.W) != vertical) continue;
+                approachSeg = s;
+                hasApproach = true;
+            }
+            if (hasApproach)
+            {
+                float back = 3.0f;
+                Vector3 approach;
+                if (vertical)
+                {
+                    float z = approachSeg.Rect.YMax <= vest.Rect.Y + 0.01f
+                        ? Mathf.Max(approachSeg.Rect.Y + 0.9f, approachSeg.Rect.YMax - back)
+                        : Mathf.Min(approachSeg.Rect.YMax - 0.9f, approachSeg.Rect.Y + back);
+                    approach = new Vector3(approachSeg.Rect.Center.x, eye, z);
+                }
+                else
+                {
+                    float x = approachSeg.Rect.XMax <= vest.Rect.X + 0.01f
+                        ? Mathf.Max(approachSeg.Rect.X + 0.9f, approachSeg.Rect.XMax - back)
+                        : Mathf.Min(approachSeg.Rect.XMax - 0.9f, approachSeg.Rect.X + back);
+                    approach = new Vector3(x, eye, approachSeg.Rect.Center.y);
+                }
+                Shot(camera, approach, center + new Vector3(0f, -0.05f, 0f), dir + "r2-vestibule-approach.png");
+            }
+
+            // 2) 站在门斗正中，侧身看通往服务廊的那道 1.2m 侧门
+            Vector3 side = Vector3.zero;
+            for (int j = 0; j < plan.Corridors.Count && side == Vector3.zero; j++)
+            {
+                Corridor s = plan.Corridors[j];
+                if (!s.Service) continue;
+                if (!s.Rect.Inflate(0.4f).Overlaps(vest.Rect)) continue;
+                if (s.Rect.X >= vest.Rect.XMax - 0.01f) side = Vector3.right;
+                else if (s.Rect.XMax <= vest.Rect.X + 0.01f) side = Vector3.left;
+                else if (s.Rect.Y >= vest.Rect.YMax - 0.01f) side = Vector3.forward;
+                else side = Vector3.back;
+            }
+            if (side != Vector3.zero)
+                Shot(camera, center, center + side * 5f + new Vector3(0f, -0.15f, 0f), dir + "r2-vestibule-side-door.png");
+
+            // 3) 并行服务廊内部：净宽 1.9m，两侧都是墙，沿长轴看进去
+            Corridor service = default(Corridor);
+            float bestLen = 0f;
+            for (int j = 0; j < plan.Corridors.Count; j++)
+            {
+                Corridor s = plan.Corridors[j];
+                if (!s.Service) continue;
+                float len = Mathf.Max(s.Rect.W, s.Rect.H);
+                if (len > bestLen) { bestLen = len; service = s; }
+            }
+            if (bestLen > 8f)
+            {
+                bool sv = service.Rect.H >= service.Rect.W;
+                Vector3 svcEye;
+                Vector3 svcTarget;
+                if (sv)
+                {
+                    svcEye = new Vector3(service.Rect.Center.x, eye, service.Rect.Y + 1.5f);
+                    svcTarget = new Vector3(service.Rect.Center.x, eye - 0.25f, service.Rect.YMax - 1.5f);
+                }
+                else
+                {
+                    svcEye = new Vector3(service.Rect.X + 1.5f, eye, service.Rect.Center.y);
+                    svcTarget = new Vector3(service.Rect.XMax - 1.5f, eye - 0.25f, service.Rect.Center.y);
+                }
+                Shot(camera, svcEye, svcTarget, dir + "r2-service-corridor.png");
+            }
+
+            Debug.Log("[M1] R2 views written: vestibule approach / side door / service corridor");
+
+            // 4) 掀掉吊顶的 3/4 鸟瞰：墙线、门斗、并行廊一次性看清
+            GameObject ceilingObject = GameObject.Find("Ceiling");
+            if (ceilingObject != null) ceilingObject.SetActive(false);
+            GameObject lightsObject = GameObject.Find("Lights");
+            if (lightsObject != null) lightsObject.SetActive(false);
+
+            GameObject sunObject = new GameObject("CaptureSun");
+            Light sun = sunObject.AddComponent<Light>();
+            sun.type = LightType.Directional;
+            sun.intensity = 1.35f;
+            sun.color = new Color(1f, 0.97f, 0.93f);
+            sun.shadows = LightShadows.Soft;
+            sunObject.transform.rotation = Quaternion.Euler(52f, -38f, 0f);
+            RenderSettings.ambientLight = new Color(0.62f, 0.63f, 0.66f);
+
+            Vector3 dollhouseTarget = center + side * 6f;
+            Vector3 dollhouseEye = dollhouseTarget + new Vector3(0f, 30f, -26f);
+            camera.fieldOfView = 46f;
+            Shot(camera, dollhouseEye, dollhouseTarget, dir + "r2-dollhouse.png");
+            // 4) 俯视 3D 特写：把门斗、主廊、服务廊、两侧门的关系一次讲清楚
+            Vector3 topCenter = center;
+            if (side.x > 0.5f) topCenter += new Vector3(6f, 0f, 0f);
+            else if (side.x < -0.5f) topCenter -= new Vector3(6f, 0f, 0f);
+            else if (side.z > 0.5f) topCenter += new Vector3(0f, 0f, 6f);
+            else if (side.z < -0.5f) topCenter -= new Vector3(0f, 0f, 6f);
+            ShotTopDown(camera, topCenter, 18f, dir + "r2-corridor-break-top.png");
+        }
+
+        /// <summary>正交俯视特写：看墙线、门洞、走廊宽度关系。</summary>
+        static void ShotTopDown(Camera camera, Vector3 center, float halfHeight, string path)
+        {
+            const int w = 1600;
+            const int h = 1200;
+            camera.orthographic = true;
+            camera.orthographicSize = halfHeight;
+            // 相机压在吊顶下面：天花板在 y=3.37，从上面往下拍只能拍到一块天花板，得钻进室内看。
+            camera.transform.position = new Vector3(center.x, 3.30f, center.z);
+            camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            camera.nearClipPlane = 0.05f;
+            camera.farClipPlane = 40f;
+            camera.aspect = (float)w / h;
+            RenderTexture rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32);
+            camera.targetTexture = rt;
+            camera.Render();
+            RenderTexture.active = rt;
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            tex.Apply();
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            camera.targetTexture = null;
+            RenderTexture.active = null;
+            Object.DestroyImmediate(rt);
+            Object.DestroyImmediate(tex);
+            camera.orthographic = false;
+            Debug.Log("[M1] shot " + path);
+        }
+
         [MenuItem("Escape From Work/M1/Capture Group Colors")]
         public static void CaptureGroupColors()
         {
