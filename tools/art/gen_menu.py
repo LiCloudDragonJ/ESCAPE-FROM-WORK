@@ -103,8 +103,8 @@ PLATES: dict[str, dict] = {
                      color=(1.00, 0.60, 0.22), peak=0.40),
         "bloom": dict(radius=28, threshold=0.72, strength=0.30),
         "patches": None,
-        "ui": ("宸︿晶 40 %锛坸 < 768 px锛夊帇鏆楃暀缁欒彍鍗曟寜閽紱"
-               "鍙充晶鐜荤拑骞曞涓庡ぇ鍫傜旱娣变繚鎸佸畬鏁达紝鐒︾偣鍦ㄤ笂閮ㄦゼ鏉夸笌澶╄姳鐏甫"),
+        "ui": ("左侧 40 %（x < 768 px）压暗留给菜单按钮；"
+               "右侧玻璃幕墙与大堂纵深保持完整，焦点在上部楼板与天花灯带"),
     },
 
     # --------------------------------------------------------------- loading
@@ -135,8 +135,8 @@ PLATES: dict[str, dict] = {
         "glow": None,
         "bloom": dict(radius=24, threshold=0.70, strength=0.28),
         "patches": None,
-        "ui": ("涓ぎ 56 %脳56 % 鍘嬫殫锛岃繘搴︽潯涓庡姞杞芥彁绀哄帇鍦ㄤ腑杞达紱"
-               "涓や晶鏈烘煖闃靛垪涓庨《閮ㄧ伅甯︽彁渚涚旱娣?),
+        "ui": ("中央 56 %×56 % 压暗，进度条与加载提示压在中轴；"
+               "两侧机柜阵列与顶部灯带提供纵深"),
     },
 
     # ----------------------------------------------------------------- death
@@ -165,16 +165,18 @@ PLATES: dict[str, dict] = {
         "grain": 0.0060,
         "glow": None,
         "bloom": dict(radius=26, threshold=0.60, strength=0.38),
-        # Flux rendered the two wall lamps as neon letters ("TUV" / "匚LCP");
+        # Flux rendered three wall lamps as neon letters ("TUV" / "匚LCP");
         # these patches dissolve them into red emergency light spill.
         "patches": [
             dict(x=143, y=662, rx=64, ry=54, fill=0.78, peak=0.46,
                  tint=(0.88, 0.25, 0.17)),
             dict(x=402, y=663, rx=60, ry=52, fill=0.78, peak=0.40,
                  tint=(0.88, 0.25, 0.17)),
+            dict(x=582, y=634, rx=34, ry=30, fill=0.74, peak=0.30,
+                 tint=(0.88, 0.25, 0.17)),
         ],
-        "ui": ("涓ぎ 56 %脳56 % 鍘嬫殫锛岄樀浜＄粨绠楅潰鏉垮帇鍦ㄦ涓紱"
-               "鍥涜淇濈暀搴旀€ョ孩鐏笌鐑熷皹锛屾暣浣撴瘮涓昏彍鍗曚綆 1.5 妗ｄ互涓?),
+        "ui": ("中央 56 %×56 % 压暗，阵亡结算面板压在正中；"
+               "四角保留应急红灯与烟尘，整体比主菜单再暗一档"),
     },
 }
 
@@ -522,7 +524,7 @@ def build_logo(title_rgb: tuple, sub_rgb: tuple) -> Image.Image:
 # --------------------------------------------------------------------------- #
 # contact sheet
 # --------------------------------------------------------------------------- #
-SHEET_W, SHEET_H = 1920, 1560
+SHEET_W, SHEET_H = 1920, 1578
 
 
 def build_contact_sheet(plates: list[tuple[str, Image.Image, dict]],
@@ -542,7 +544,7 @@ def build_contact_sheet(plates: list[tuple[str, Image.Image, dict]],
     for i, (fname, img, st) in enumerate(plates):
         col, row = i % 2, i // 2
         x = 60 + col * (cw + gapx)
-        y = 118 + row * (chh + gapy + 34)
+        y = 136 + row * (chh + gapy + 34)
         d.text((x + 2, y - 26), fname, font=font(FONT_BOLD, 18), fill=(206, 214, 222))
         d.text((x + cw - 300, y - 26),
                f"预留区亮度 {st['ratio'] * 100:.0f} % of frame",
@@ -550,7 +552,7 @@ def build_contact_sheet(plates: list[tuple[str, Image.Image, dict]],
         sheet.paste(img.resize((cw, chh), Image.LANCZOS), (x, y))
         d.rectangle([x - 1, y - 1, x + cw, y + chh], outline=(44, 50, 56))
 
-    ly = 118 + 2 * (chh + gapy + 34) + 6
+    ly = 136 + 2 * (chh + gapy + 34) + 6
     d.text((60, ly - 26), "LOGO 1600×600 RGBA 透明底（Pillow 排版，非 AI 生成文字）",
            font=font(FONT_BOLD, 18), fill=(206, 214, 222))
 
@@ -596,7 +598,9 @@ def build_readme(stats: dict[str, dict], seeds: dict[str, int]) -> str:
 生成脚本：`tools/art/gen_menu.py`（幂等：seed 固定，缓存命中时重跑字节一致）。
 
 - 只依赖 numpy + Pillow，没有 shapely / scipy / matplotlib。
-- 本目录不提交 `.meta`，交给 Unity 首次导入生成（与 `Art/UI/` 的做法一致）。
+- 本目录不提交 `.meta`，交给 Unity 首次导入生成（与 `Art/UI/` 的做法一致）；
+  脚本本身不写 `.meta`，若目录里已出现，那是编辑器实时导入用**默认设置**生成的，
+  请按下面第 3 节手动改（默认 mipmap 是开的，会让 UI 变软）。
 - AI 底图缓存在 `tools/art/_cache/menu/`，**不进 Unity 工程**；删掉缓存并加 `--force` 才会重新采样。
 
 ## 1. 文件清单
@@ -608,15 +612,15 @@ def build_readme(stats: dict[str, dict], seeds: dict[str, int]) -> str:
 | `M_Death.png` | 1920×1080 | RGB PNG | 阵亡 / 撤离失败结算背景 |
 | `M_Logo.png` | 1600×600 | RGBA PNG | Logo 白色版（透明底） |
 | `M_Logo_Amber.png` | 1600×600 | RGBA PNG | Logo 琥珀版 `#E0A03C`（透明底） |
-| `_contact_sheet.png` | 1920×1560 | RGB PNG | 总览拼图（**只给美术/评审看，不要进构建**） |
+| `_contact_sheet.png` | 1920×1578 | RGB PNG | 总览拼图（**只给美术/评审看，不要进构建**） |
 | `README.md` | — | — | 本文件 |
 
 ## 2. 构图与 UI 安全区
 
 三张背景都按「UI 会压在哪里」构图，并做了确定性压暗；压暗后仍保留该区域的材质层次（不是纯黑块）。
 
-| 文件 | 预留区 | 预留区平均亮度 | 全图平均亮度 | 相对全图 |
-| --- | --- | --- | --- | --- |
+| 文件 | 尺寸 | 预留区 | 预留区平均亮度 | 全图平均亮度 | 相对全图 |
+| --- | --- | --- | --- | --- | --- |
 {table}
 
 - 亮度口径：Rec.709 相对亮度（0–255 的 sRGB 编码值），预留区 = 上表窗口内所有像素的均值。
@@ -709,13 +713,13 @@ F:\\ComfyUI\\venv\\Scripts\\python.exe F:\\ComfyUI\\main.py --listen 127.0.0.1 -
 - **文字与招牌**：Flux schnell 会随机在墙上生成假英文（`DAIN ET`、`TARET` 之类）。
   当前三张都挑了没有可读文字/招牌的 seed，但主菜单左墙的小门牌、加载图机柜上的
   小标签仍有 2–3 px 的模糊色块，凑近看不到字母，远景无感。
-- **阵亡图的两盏壁灯**是 Flux 自己画成霓虹字母（`TUV`、`匚LCP`）的伪文字。后处理用
+- **阵亡图的三处壁灯**是 Flux 自己画成霓虹字母（`TUV`、`匚LCP`）的伪文字。后处理用
   `retouch_patches()` 把它们换成了柔和的红色应急光斑——形状变成没有灯具的「光团」，
   凑近看会觉得光源不明，但比可读的伪文字干净，也不违反「不要霓虹」。
 - **人物**：Flux 喜欢在大空间里放一个「比例人」。当前三张逐张放大目检过，均无人物。
 - **冷白偏青**：模型默认把「冷白荧光」理解成青蓝，已用降饱和 + 白平衡压回灰蓝，
   加载图的机柜仍带一点青，是这套素材里最偏的一张。
-- **琥珀点缀是合成的**：主菜单门洞那盅琥珀应急灯由 Pillow 屏幕叠加生成，
+- **琥珀点缀是合成的**：主菜单门洞那盏琥珀应急灯由 Pillow 屏幕叠加生成，
   不是模型画出来的灯具，所以没有可见的灯罩/灯丝——只有光；20 px 内看会觉得光斑「平」。
 - **Logo 描边会被 Unity 染色**：白色版描边是深灰 `#0B0E12`，若用 `Image.color`
   染成琥珀色，描边会一起被染（变成暗琥珀）。要严格单色化请直接用两张现成 PNG。
@@ -724,7 +728,7 @@ F:\\ComfyUI\\venv\\Scripts\\python.exe F:\\ComfyUI\\main.py --listen 127.0.0.1 -
 - **分辨率**：AI 底图 1920×1088，即 1:1 出 1080p，没有做 2× 超分；4K 屏上会被
   Unity 拉伸到 2×，细节（天花灯带边缘）会变软。若要 4K 版需另跑一次 3840×2160 的
   超分管线（本脚本未包含）。
-- **加载图中央仍是最亮处之一**：压暗后中央亮度低于全图 34 %，但镜头正对的尽端
+- **加载图中央仍是最亮处之一**：压暗后中央亮度低于全图 30 % 以上，但镜头正对的尽端
   仍是全图最亮处之一；进度条用浅色字（`#E6EAEE`）没问题，用纯白粗体会略微「发光」。
 """
 
