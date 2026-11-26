@@ -83,9 +83,15 @@ namespace EscapeFromWork.Tests.EditMode
             {
                 FloorPlan p = FloorGenerator.Generate(Spec(seed));
                 float ratio = p.RoomArea / (p.Spec.Width * p.Spec.Height);
-                // 下界从 0.55 放到 0.50：R2 给每条主廊并了一条 2.3m 服务廊，走廊带宽
-                // 4.8 → 7.1m，房间本来就该让出这部分面积（b9 实测 0.536–0.564）。
-                Assert.Greater(ratio, 0.50f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
+                // 底线 0.44 来自实测分布（R2Probe.Cover，300 种子）：最差 0.4474（seed 146）、
+                // p01 0.4552、中位 0.5006。R2 给主廊并了 2.3m 服务廊（带宽 4.8 → 7.1m），R3 又把
+                // 核心筒/楼梯切出来的长条（>32m × <8m）改判成绕行廊、面积改按真实轮廓算——两次都
+                // 是从"房间面积"里拿走本来就该属于走廊的部分。所以真正的底线看"房间+走廊"。
+                Assert.Greater(ratio, 0.44f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
+                float corr = 0f;
+                for (int c = 0; c < p.Corridors.Count; c++) corr += p.Corridors[c].Rect.Area;
+                float all = (p.RoomArea + corr) / (p.Spec.Width * p.Spec.Height);
+                Assert.Greater(all, 0.80f, "seed " + seed + " 房间+走廊覆盖率 " + all.ToString("P0") + " 太低，说明有面积既不是房间也不是走廊");
                 Assert.Less(ratio, 0.95f, "seed " + seed + " room coverage " + ratio.ToString("P0"));
             }
         }

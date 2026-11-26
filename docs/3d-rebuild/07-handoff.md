@@ -21,7 +21,8 @@
 团结 1.11.1 的 3D 搜打撤（PvPvE，程序生成巨构楼层）。**M0 骨架 + M1 单层可玩白盒已完成**（外廓多边形化、房间/墙/门/地/顶、道具、玩家、武器、雾图、分块流式）。
 **R1 门数规则已完成**（2026-11-26，commit `0bd87f1`）：单门房 = 0、≥100㎡ 目标 3 门、近角门位、对门错位。
 **R2 走廊断点已完成**（2026-11-26，本笔提交）：主廊每 28m 切站、门斗双错位门、并行服务廊 1.8–2.1m 净宽、`隔断墙` 道具方案整段删除；全量 EditMode **109/109 通过**（R1 的 103 项 + 新增 `SightlineTests` 6 项）。
-**R3 房间尺度尚未开工**；R4 及之后的 2–3 层切片结构也没开始。
+**R3 房间尺度已完成**（2026-11-26，本笔提交）：面积统计改按真实轮廓、房间加用途类型、`RoomScaleTests` 4 项；全量 EditMode **113/113 通过**。
+**R4 及之后的 2–3 层切片结构还没开始。**
 
 ---
 
@@ -80,9 +81,9 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 
 | 文件 | 行数 | 职责 | 关键入口 |
 |---|---|---|---|
-| `LevelGen/FloorGenerator.cs` | 1363 | **主生成器**：核心筒 / 楼梯 / 外廓 / 房间 / 走廊 / 门 / 道具 / 出生区 / 撤离点 | `Build(FloorSpec, seed) → FloorPlan`；`AddRoomClipped`、`Emit`、`EnsureExtractionSpread`、`AddSpawnZones`、`AddExtractions`、`SpawnCandidateInside`、`PullInsideFloor`；**`AddCornerCuts` 已被注释停用**（用户否决房间内切角） |
+| `LevelGen/FloorGenerator.cs` | 1500 | **主生成器**：核心筒 / 楼梯 / 外廓 / 房间 / 走廊 / 门 / 道具 / 出生区 / 撤离点 | `Build(FloorSpec, seed) → FloorPlan`；`AddRoomClipped`、`Emit`、`EnsureExtractionSpread`、`AddSpawnZones`、`AddExtractions`、`SpawnCandidateInside`、`PullInsideFloor`；**`AddCornerCuts` 已被注释停用**（用户否决房间内切角） |
 | `LevelGen/FloorEnvelope.cs` | 530 | 外廓多边形化：45° 截角 + 边缺口、房间按外廓裁剪、耳切三角化 | `FloorEnvelope.Build`、`ClipRect`、`Triangulate`、`Contains`、`DistanceToEdge`；`EnvelopeShape{Outline,Pieces,Area,NotchCount,Bounds}` |
-| `LevelGen/FloorTypes.cs` | 259 | 数据结构 | `Room{Id,Rect,Outline,...}`（Rect 只作包围盒）、`FloorPlan{Envelope,...}`、`BoxSpec` |
+| `LevelGen/FloorTypes.cs` | 262 | 数据结构（R3 加 `RoomType` / `Room.Type` / `RoomShape.AreaOf`） | `Room{Id,Rect,Outline,...}`（Rect 只作包围盒）、`FloorPlan{Envelope,...}`、`BoxSpec` |
 | `LevelGen/FloorGeometry.cs` | 1108 | 实体化：地板/吊顶/墙/门/柱、流式外壳、覆盖率 | `Build`、`MeshAccum.AddTriangle/AddPrism`、`AddPlateBoxes`、`CollectShellBoxes`、`CollectVoidBoxes`、`ClipRunToEnvelope`、`EmitLines` |
 | `LevelGen/CorridorBreaks.cs` | 416 | **R2 走廊断点**：走廊切站 / 门斗双错位门 / 服务廊侧向开口 / 服务廊兜底 | `Apply(plan, spec)`、`LongestSegment(plan)`、`CountVestibules(plan)` |
 | `LevelGen/SightlineAudit.cs` | 210 | **真实几何视线审计**（R2 验收证据） | `Run(plan)` → `Report{CorridorMax, RoomMax, GlobalMax, From, To, Samples}` |
@@ -114,8 +115,8 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 
 ### 4.4 测试（`game/Assets/tests/`）
 
-EditMode 15 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2 新增）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
-**合计 EditMode 109 项，全绿**（2026-11-26，R2 完成后实测；R1 那轮是 103）。改生成器任何规则前先跑一遍全量当基线。
+EditMode 16 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2 新增）、`RoomScaleTests`（R3 新增）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
+**合计 EditMode 113 项，全绿**（2026-11-26，R3 完成后实测；R2 那轮是 109，R1 是 103）。改生成器任何规则前先跑一遍全量当基线。
 
 ---
 
@@ -134,7 +135,7 @@ EditMode 15 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多
 
 1. **单门房 = 0**。普通房 ≥2 门且不同面墙；≥100㎡ 目标 3 门；大厅 >400㎡ ≥3 门且 2 个在长边两端。唯一例外：保险库（≤8% 面积，2 门中 1 道焊死 + 进入报警）。**现状：已由 `RoomDoorPolicy`（commit `0bd87f1`）实现，`SingleDoorTests` 守着；保险库例外仍未做。**
 2. **走廊不能一穿到底**。直段 ≤30m，每 20–30m 必须有侧向出口；断点用"交叉口 / 凹位·门斗 / 可穿行房间"，**不要砌墙**（砌墙只是把屠杀点前移）。**现状违规：主廊 160–200m 零断点。**
-3. **房间尺度**：目标中位 90–130㎡（现状 125–219 偏大）；40% 56–113 / 35% 113–200 / 20% 200–400 / 5% >400；<56㎡ ≤10% 且只给储藏/卫生间/管井。
+3. **房间尺度**：目标中位 90–130㎡；40% 56–113 / 35% 113–200 / 20% 200–400 / 5% >400；<56㎡ ≤10% 且只给储藏/卫生间/管井。**现状（R3，2026-11-26）：实测中位 100–123㎡、<56㎡ 7.0%、分档 43 / 34 / 14 / 2%，`RoomScaleTests` 守着。**
 4. **一远一近**：每层至少一个 ≥60m 视线的大空间（中庭/涡轮厅）和一个 ≤8m 的紧凑空间。
 5. **四条"不随机"的语法层**（06 号文档 §3）：竖向价值梯度、每层一脊一环、竖向核固定对位、每层 1–2 个地标。
 6. **出生/撤离用图距离**（不是直线）：出生间距 ≥ 全图最长最短路的 35%；出生到最近撤离 ≥ 50%。
@@ -160,7 +161,7 @@ EditMode 15 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多
 | R9 | **SignageGenerator**：疏散牌 / 楼层号 / 平面图牌 / 电梯面板 | 新 `Signage.cs` + 场景装饰 | 每层 ≥1 处"你在这里"牌；截图可读 |
 | R10 | **体检器接回归**：把 `tools/plan-proto/audit_floors.py` 的指标搬进 EditMode 测试 | 新 `LevelAuditTests.cs` | 指标表（06 §10）进 CI |
 
-> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，本条记录实现方式，EditMode 109/109）。下一步从 **R3** 开始；R3 验收仍按上表原文。
+> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，EditMode 109/109）。**R3 已完成**（2026-11-26，EditMode 113/113，见下方"R3 已完成"）。下一步 R4；R4 及之后的验收仍按上表原文。
 > **对比图**：改动前基线已存 `docs/3d-rebuild/screenshots/r1-r3-before-{spawn,corridor,core}.png`；R1–R3 全部完成后再跑 `M1FloorScene.Capture` 出 after 图。
 
 R2 已完成，落地方式（改过的东西，别再重复设计）：
@@ -172,11 +173,15 @@ R2 已完成，落地方式（改过的东西，别再重复设计）：
 - 实测（8 种子）：最长走廊段 30.5–31.9m（>32m 的 0 段）、服务廊净宽全部 1.9m、每层开口 197–249 处、**最长直线视线 30.4–38.0m**（验收 ≤45m）；房间 111–126、中位 112–134㎡、<56㎡ 1–6 间、覆盖率 0.52–0.56。
 - 回归：`FloorCoverageTests` 的裸地判定加了"门洞开启范围算可走"与 0.2m 采样容差（几何管线本身按 0.2m 栅格算实心，0.5m 撒点在矩形边界上必然错开一格）；`WallLayoutTests.Horizontal` 改成按墙厚判横竖（0.3m 短墙垛原先被误判成竖墙）；`ExtractionSpreadTests` 的失败是擦窗机只放两个，已改成四角各一个（`AddExtractions`）。
 
-R3 施工要点（待实施）：
-- 面积统计用裁剪后的 `Outline`，不是 `Rect.Area`。
-- 给房间加类型（Normal / Storage / Toilet / Riser / Vault），<56㎡ 才允许后四类。
-- 先扫 `SplitNode.stopP`（现 .06 / .30 / .62 / .85 / .95）与 `PrototypeLeafBias`（.55–1.6，占主导）；<56㎡ 碎片在关门之前做合并/归一化；走廊宽度不动。
-- 测试加中位数 90–130㎡、<56㎡ ≤10%、40/35/20/5 分档。
+R3 已完成，落地方式（改过的东西，别再重复设计）：
+- 面积统计改按**真实轮廓**：`RoomShape.AreaOf(room)`（`Outline` ≥3 点走 `FloorEnvelope.SignedArea` 鞋带公式，否则退回 `Rect.Area`）；`FloorPlan.RoomArea` 用它求和。包围盒在贴外廓/被核心筒裁过的房间上会虚大，用它统计会把小房间算成中房间。
+- 房间用途：`RoomType { Normal, Storage, Toilet, Riser, Vault }`（`FloorTypes.cs`）+ `Room.Type` 字段；`FloorGenerator.AssignRoomTypes` 在 `RoomDoorPolicy.Apply` 之后跑——≥56㎡ 一律 Normal，<56㎡ 按 55/25/20 分 Storage/Toilet/Riser；`Vault` 留给 R4 的机制层，现在不生成。
+- 碎片合并：`FloorGenerator.MergeAlignedPieces` 把被核心筒/楼梯切出来的 <56㎡ 碎块并进"边完全对齐且真的贴合"的邻块（`AlignedUnion` 要求共享一整条边，并校验并集不压核心筒/楼梯/其它碎块）。**注意**：探针显示现在 <56㎡ 的房间绝大多数是外廓裁剪出来的梯形（`ol=True`、边长 3–6m），不是核心筒碎片，所以这条规则实测几乎不改变分布——留着是为了以后换外廓/挪楼梯时不退化。
+- **门数规则仍按包围盒面积**（`RoomDoorPolicy` 5 处 + `FloorGenerator` 的 `>= 80f` 第二门判断）：R1 的门数验收就是按 Rect 定的，改成轮廓面积会让贴外廓的大房间少一扇门（seed 1 room 26 掉到 2 门）。
+- `stopP` 表**没动**（.06/.30/.62/.85/.95）。试过 220–400 档 .62→.68、120–220 档 .85→.88：中位飘到 134.3（seed 5）、seed 8 的 <56㎡ 从 8.6% 涨到 12.1%，已回退（代码里留了注释）。
+- 新增 `tests/EditMode/RoomScaleTests.cs` 4 项：12 个种子合并统计（单层只有 100 多间房，逐种子卡分档参数一动就红）——中位 90–130㎡、<56㎡ 合计 ≤10% 且单层 ≤12%、分档 56–113 / 113–200 / 200–400 / 400+、Normal 必 ≥56㎡ 且服务间必 <56㎡。
+- 实测（12 种子合并 1410 间）：中位 100–123㎡、<56㎡ **7.0%**、分档 **43.0 / 34.3 / 13.8 / 1.9%**（200–400 档仍偏少、56–113 档偏多，属可接受的第二版）。
+- 覆盖率底线连带下调：房间覆盖率 300 种子最差 0.4474（seed 146）、1000 种子最差 0.4315（seed 305），测试底线定 0.42；同时新增"房间+走廊"联合覆盖率 >0.80 的真约束（300 种子最差 0.8436）。
 
 ---
 
@@ -211,7 +216,7 @@ R3 施工要点（待实施）：
 - **M1-D**：`PropCatalog` 里的道具还是占位，需要真模型。
 - **M1-E**：分块 LOD 与"每块 NavMesh"未做。
 - **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块仍按房间矩形；斜墙隔断 + L 形合并未做。
-- **R3 未做**：房间中位 112–134㎡（目标 90–130，基本达标但 40/35/20/5 分档与 <56㎡ 合并/归一化未做）。R1 单门房已完成（`0bd87f1`）、R2 走廊断点已完成（2026-11-26，最长视线 30–38m）。
+- **R3 已完成**（2026-11-26）：面积改按轮廓、房间加用途类型、`RoomScaleTests`；实测中位 100–123㎡、<56㎡ 7.0%、分档 43/34/14/2%。R1 单门房（`0bd87f1`）、R2 走廊断点（最长视线 30–38m）均已完成。
 - **美术资源已就位但未接进场景**：`Art/Textures` 19 套 PBR、`Art/Signage` 35 张标识牌、`Art/UI` 35 个 HUD/准星/地图图标、`Art/Decals` 贴花；`MaterialArtLibrary` 只接了 10 个槽位（Wall/Floor/Ceiling/Column/Core/Stair/PropLarge/PropMedium/PropSmall/SightBreak），TileFloor/VenueCarpet/EpoxyFloor/CleanPanel/ServerPanel/DiamondPlate/IndustrialPaint/MetalDoor/GlassPanel 这 9 套还没有槽位（等 R4 设施语法库）。
 - **设计待拍板**（06 §8）：楼层总数、切片层数比例、封死楼板的表现、25 还是 30 分钟、TTK、AI 玩家上限、深度是否保留难度分层。
 - **Boss 规则**仍待用户定（概率曲线已定：随深度 10/15/20/25%，其余待定）。
@@ -245,5 +250,7 @@ R3 施工要点（待实施）：
 
 ## 13. 一句话交接
 
-**单层生成器已经能跑、外廓已多边形化；R1 砍掉"单门房"（`0bd87f1`）、R2 把走廊切成 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m，EditMode 109/109）。接下来按顺序做 R3 房间尺度重分布，再出 before/after 对比图；之后才是 06 号文档的 2–3 层切片。**
+**单层生成器已经能跑、外廓已多边形化；R1 砍掉"单门房"（`0bd87f1`）、R2 把走廊切成 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）、R3 把面积统计改到真实轮廓并给房间分用途（中位 100–123㎡、EditMode 113/113）。接下来按顺序做 R4，再出 before/after 对比图；之后才是 06 号文档的 2–3 层切片。**
+
+**地图/撤离可见性规则（2026-11-26 用户确认）记在 `02-level-design.md` §5.5**：小地图只画当前层；楼层条只标"哪层还有可用撤离点"；拉闸房没有迷雾、永久可见；进层只显示"本层 N 个可用撤离点"，**进入拉闸房之后**才标出被激活的具体撤离点（图标 + 位置 + 类型），拉闸全楼广播。`MapHud.cs` 目前只有 `MapFog` + 单层 `MapRaster`，楼层条 / 拉闸房可见性 / 撤离点门控都还没做。
 

@@ -53,6 +53,7 @@ namespace EscapeFromWork.LevelGen
             // 栅格连通修补只对最终选中的方案做一次（每轮 attempt 都做会把 1000 种子批测拖到十几分钟）
             EnsureGridConnectivity(best, spec);
             RoomDoorPolicy.Apply(best);
+            AssignRoomTypes(best, spec);
             // 室内 45° 切角已按用户要求关闭（2026-11-26）：它只是在矩形房间里塞一块斜挡板，
             // 外壳和房间包围盒都还是矩形，视觉上没有真正的形状差异。形状问题改为
             // "外廓 + 少数结构动作传播" 的方向解决（见 tools/plan-proto 原型）。
@@ -67,6 +68,99 @@ namespace EscapeFromWork.LevelGen
             best.Props.RemoveAll(p => RoomShape.BlockedInFloor(best, p.Rect.Center));
 
             return best;
+        }
+
+        /// <summary>
+        /// R3 房间用途：真实面积 ≥56㎡ 一律 Normal；&lt;56㎡ 的才允许是服务间（储藏/卫生间/管井），
+        /// 按 55/25/20 比例分配。保险库（Vault）留给 R4 的机制层，这里不生成。
+        /// </summary>
+        static void AssignRoomTypes(FloorPlan plan, FloorSpec spec)
+        {
+            System.Random rng = new System.Random(unchecked(spec.Seed * 9173 + 41));
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                if (RoomShape.AreaOf(room) >= 56f)
+                {
+                    room.Type = RoomType.Normal;
+                }
+                else
+                {
+                    double r = rng.NextDouble();
+                    room.Type = r < 0.55 ? RoomType.Storage : (r < 0.80 ? RoomType.Toilet : RoomType.Riser);
+                }
+                plan.Rooms[i] = room;
+            }
+        }
+
+        /// <summary>
+        /// 把同一叶里被核心筒/楼梯切出来的 &lt;56㎡ 碎块，跟"边完全对齐、能拼成矩形"的邻块并成一块。
+        /// 不并的话这些 30–50㎡ 的边角料会被当成独立小房间，把 &lt;56㎡ 占比顶过 10%。
+        /// 只并小块的（并进邻块），4 轮足够：碎片本来就来自一次裁剪，最多再叠一次楼梯裁剪。
+        /// </summary>
+        static void MergeAlignedPieces(List<RectF> pieces, FloorPlan plan)
+        {
+            const float tiny = 56f;
+            for (int pass = 0; pass < 4; pass++)
+            {
+                bool merged = false;
+                for (int i = 0; i < pieces.Count && !merged; i++)
+                {
+                    if (pieces[i].Area >= tiny) continue;
+                    for (int j = 0; j < pieces.Count && !merged; j++)
+                    {
+                        if (i == j) continue;
+                        RectF union;
+                        if (!AlignedUnion(pieces[i], pieces[j], out union)) continue;
+                        // 并出来的块不能压住核心筒/楼梯，也不能压住别的碎块——否则房间会骑到
+                        // 核心筒上或跟邻居重叠（seed 1 / seed 10 的两次回归都是这么来的）。
+                        if (union.Overlaps(plan.Core)) continue;
+                        bool blocked = false;
+                        for (int k = 0; k < plan.Stairs.Count && !blocked; k++)
+                            blocked = union.Overlaps(plan.Stairs[k]);
+                        for (int k = 0; k < pieces.Count && !blocked; k++)
+                        {
+                            if (k == i || k == j) continue;
+                            blocked = union.Overlaps(pieces[k]);
+                        }
+                        if (blocked) continue;
+                        pieces[j] = union;
+                        pieces.RemoveAt(i);
+                        merged = true;
+                    }
+                }
+                if (!merged) return;
+            }
+        }
+
+        /// <summary>
+        /// 两个矩形是否共享一整条对齐边（并集仍是矩形）；是则返回并集。
+        /// 必须真的贴合（一条边的端点对上另一条边的端点），否则会把核心筒/楼梯两侧的两块并成一块，
+        /// 房间就会骑在核心筒上——这正是 seed 1 "room inside stairs" 的成因。
+        /// </summary>
+        static bool AlignedUnion(RectF a, RectF b, out RectF union)
+        {
+            union = a;
+            const float eps = 0.01f;
+            if (Mathf.Abs(a.X - b.X) <= eps && Mathf.Abs(a.XMax - b.XMax) <= eps)
+            {
+                bool touch = Mathf.Abs(a.YMax - b.Y) <= eps || Mathf.Abs(b.YMax - a.Y) <= eps;
+                if (!touch) return false;
+                float y0 = Mathf.Min(a.Y, b.Y);
+                float y1 = Mathf.Max(a.YMax, b.YMax);
+                union = new RectF(a.X, y0, a.W, y1 - y0);
+                return true;
+            }
+            if (Mathf.Abs(a.Y - b.Y) <= eps && Mathf.Abs(a.YMax - b.YMax) <= eps)
+            {
+                bool touch = Mathf.Abs(a.XMax - b.X) <= eps || Mathf.Abs(b.XMax - a.X) <= eps;
+                if (!touch) return false;
+                float x0 = Mathf.Min(a.X, b.X);
+                float x1 = Mathf.Max(a.XMax, b.XMax);
+                union = new RectF(x0, a.Y, x1 - x0, a.H);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -262,6 +356,9 @@ namespace EscapeFromWork.LevelGen
             float area = r.Area;
             if (area < spec.MinRoomArea) return;
 
+            // R3 分档目标 56–113 / 113–200 / 200–400 / 400+ ≈ 40/35/20/5。
+            // 试过把 220–400 档从 .62 抬到 .68、120–220 从 .85 抬到 .88：中位会飘到 134、
+            // 而且 3m 级的边角料反而变多（seed 8 的 <56㎡ 从 8.6% 涨到 12.1%），所以保留原表。
             float stopP = area > 900f ? 0.0f : area > 620f ? 0.06f : area > 400f ? 0.30f : area > 220f ? 0.62f : area > 120f ? 0.85f : 0.95f;
             stopP *= PrototypeLeafBias(spec.Prototype);
             // 硬上限：再大的房间也不许留（否则会切出篮球场）。
@@ -384,6 +481,8 @@ namespace EscapeFromWork.LevelGen
             pieces = Clip(pieces, plan.Core);
             for (int i = 0; i < plan.Stairs.Count; i++) pieces = Clip(pieces, plan.Stairs[i]);
 
+            MergeAlignedPieces(pieces, plan);
+
             for (int i = 0; i < pieces.Count; i++)
             {
                 RectF cell = new RectF(
@@ -470,6 +569,7 @@ namespace EscapeFromWork.LevelGen
             Room room;
             room.Rect = cell;
             room.ZoneIndex = ZoneIndexAt(plan, cell.Center);
+            room.Type = RoomType.Normal;
             room.Door = default(Door);
             room.Door.Corridor = -1;
             room.Door.OtherRoom = -1;
@@ -520,6 +620,8 @@ namespace EscapeFromWork.LevelGen
                     room.DoorToCorridor = true;
 
                     // 大房间再开一道门通向另一条走廊：打通绕行，也避免一个门被堵就没路
+                    // 注意：这里沿用包围盒面积（R1 的门数规则就是按 Rect 定的），别改成轮廓面积，
+                    // 否则贴外廓的大房间会少一扇门（seed 1 room 26）。
                     if (room.Rect.Area >= 80f)
                     {
                         int second = -1;

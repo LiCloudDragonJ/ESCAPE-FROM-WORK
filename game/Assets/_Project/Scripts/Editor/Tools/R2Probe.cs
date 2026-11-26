@@ -461,6 +461,100 @@ namespace EscapeFromWork.EditorTools
             return sb.ToString();
         }
 
+        /// <summary>
+        /// R3 房间尺度体检：按真实轮廓（Outline 鞋带面积）算房间面积，打印分档直方图与中位数。
+        /// 目标是中位 90–130㎡、&lt;56㎡ 占比 ≤10%、56–113 / 113–200 / 200–400 / 400+ 约 40/35/20/5。
+        /// </summary>
+        public static void Scale()
+        {
+            int[] seeds = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            List<float> allMedians = new List<float>();
+            for (int i = 0; i < seeds.Length; i++)
+            {
+                FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(seeds[i]));
+                List<float> areas = new List<float>();
+                for (int r = 0; r < plan.Rooms.Count; r++) areas.Add(AreaOf(plan.Rooms[r]));
+                areas.Sort();
+                int n = areas.Count;
+                float median = n == 0 ? 0f : (n % 2 == 1 ? areas[n / 2] : (areas[n / 2 - 1] + areas[n / 2]) * 0.5f);
+                allMedians.Add(median);
+                int tiny = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    float a = areas[k];
+                    if (a < 56f) tiny++;
+                    else if (a < 113f) b1++;
+                    else if (a < 200f) b2++;
+                    else if (a < 400f) b3++;
+                    else b4++;
+                }
+                System.Text.StringBuilder tinyInfo = new System.Text.StringBuilder();
+                int shown = 0;
+                for (int r = 0; r < plan.Rooms.Count && shown < 3; r++)
+                {
+                    float a = AreaOf(plan.Rooms[r]);
+                    if (a >= 56f) continue;
+                    int doors = (plan.Rooms[r].HasDoor ? 1 : 0) + (plan.Rooms[r].ExtraDoors == null ? 0 : plan.Rooms[r].ExtraDoors.Count);
+                    tinyInfo.AppendFormat(" [t#{0} {1:F1}m2 {2:F1}x{3:F1} d={4} ol={5}]", r, a,
+                        plan.Rooms[r].Rect.W, plan.Rooms[r].Rect.H, doors, plan.Rooms[r].Outline != null);
+                    shown++;
+                }
+                float total = 0f;
+                for (int k = 0; k < n; k++) total += areas[k];
+                sb.AppendFormat(
+                    "R2PROBE SCALE seed={0} rooms={1} mean={2:F1} median={3:F1} min={4:F1} max={5:F1} " +
+                    "tiny<56={6} ({7:F1}%) 56-113={8} ({9:F1}%) 113-200={10} ({11:F1}%) 200-400={12} ({13:F1}%) 400+={14} ({15:F1}%){16}\n",
+                    seeds[i], n, n == 0 ? 0f : total / n, median, n == 0 ? 0f : areas[0], n == 0 ? 0f : areas[n - 1],
+                    tiny, Pct(tiny, n), b1, Pct(b1, n), b2, Pct(b2, n), b3, Pct(b3, n), b4, Pct(b4, n), tinyInfo);
+            }
+            Debug.Log(sb.ToString());
+        }
+
+        /// <summary>
+        /// 房间覆盖率分布：1..300 种子，打印最差 10 个、分位值与"房间+走廊"的联合覆盖率。
+        /// R3 把长条 cell 改判成绕行廊、碎片合并后又会在大外廓缺口处丢面积，
+        /// 所以覆盖率的底线要按实测分布来定，不能拍脑袋。
+        /// </summary>
+        public static void Cover()
+        {
+            int count = 300;
+            List<float> roomRatios = new List<float>();
+            List<float> allRatios = new List<float>();
+            float worst = 1f;
+            int worstSeed = 0;
+            for (int seed = 1; seed <= count; seed++)
+            {
+                FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(seed));
+                float area = plan.Spec.Width * plan.Spec.Height;
+                float roomRatio = plan.RoomArea / area;
+                float corr = 0f;
+                for (int c = 0; c < plan.Corridors.Count; c++) corr += plan.Corridors[c].Rect.Area;
+                roomRatios.Add(roomRatio);
+                allRatios.Add((plan.RoomArea + corr) / area);
+                if (roomRatio < worst) { worst = roomRatio; worstSeed = seed; }
+            }
+            roomRatios.Sort();
+            allRatios.Sort();
+            Debug.LogFormat("R2PROBE COVER n={0} worst={1:F4} (seed {2}) p01={3:F4} p05={4:F4} median={5:F4} " +
+                "all(worst)={6:F4} all(p01)={7:F4} all(median)={8:F4}",
+                count, worst, worstSeed,
+                roomRatios[count / 100], roomRatios[count / 20], roomRatios[count / 2],
+                allRatios[0], allRatios[count / 100], allRatios[count / 2]);
+        }
+
+        static float Pct(int part, int total)
+        {
+            return total == 0 ? 0f : 100f * part / total;
+        }
+
+        /// <summary>房间真实面积：有 Outline 用鞋带公式，否则退回包围盒。</summary>
+        static float AreaOf(Room room)
+        {
+            if (room.Outline == null || room.Outline.Length < 3) return room.Rect.Area;
+            return Mathf.Abs(FloorEnvelope.SignedArea(room.Outline));
+        }
+
         static float SumLength(FloorPlan plan)
         {
             float total = 0f;

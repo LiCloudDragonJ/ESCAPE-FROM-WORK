@@ -39,12 +39,18 @@ namespace EscapeFromWork.Tests.EditMode
                 Assert.AreEqual(4, plan.SpawnZones.Count, "seed " + seed + " spawn zones");
                 Assert.Greater(plan.Columns.Count, 20, "seed " + seed + " columns");
 
-                // 覆盖率
+                // 覆盖率：0.42 是 1000 种子实测的底线（最差 seed 305 = 0.4315；300 种子时最差
+                // seed 146 = 0.4474）。R2 服务廊 + R3 长条改判走廊都会从房间面积里拿走一部分，
+                // 所以另看"房间+走廊"联合覆盖率。
                 float area = spec.Width * spec.Height;
                 float coverage = plan.RoomArea / area;
                 if (coverage < worstCoverage) { worstCoverage = coverage; }
-                Assert.Greater(coverage, 0.5f, "seed " + seed + " coverage " + coverage.ToString("P0"));
+                Assert.Greater(coverage, 0.42f, "seed " + seed + " coverage " + coverage.ToString("P0"));
                 Assert.Less(coverage, 0.96f, "seed " + seed + " coverage " + coverage.ToString("P0"));
+                float corrArea = 0f;
+                for (int c = 0; c < plan.Corridors.Count; c++) corrArea += plan.Corridors[c].Rect.Area;
+                Assert.Greater((plan.RoomArea + corrArea) / area, 0.80f,
+                    "seed " + seed + " 房间+走廊覆盖率过低，有面积既不是房间也不是走廊");
 
                 // 门
                 int withDoor = 0;

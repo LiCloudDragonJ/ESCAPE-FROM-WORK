@@ -67,10 +67,22 @@ namespace EscapeFromWork.LevelGen
         public int OtherRoom;
     }
 
+    /// <summary>房间用途。只用来决定摆放/标识/灯光；&lt;56㎡ 的小间才允许是后四种服务间。</summary>
+    public enum RoomType
+    {
+        Normal = 0,
+        Storage = 1,
+        Toilet = 2,
+        Riser = 3,
+        Vault = 4,
+    }
+
     public struct Room
     {
         public RectF Rect;
         public int ZoneIndex;
+        /// <summary>用途标签：Normal 办公/会议；Storage 储藏；Toilet 卫生间；Riser 管井；Vault 保险库（暂未生成）。</summary>
+        public RoomType Type;
         public Door Door;
         public bool HasDoor;
         /// <summary>门通向的走廊下标；-1 表示门通向相邻房间（套间门）。</summary>
@@ -151,6 +163,20 @@ namespace EscapeFromWork.LevelGen
                 if (Blocked(room.Rect, room.Cuts, p)) return true;
             }
             return false;
+        }
+
+        /// <summary>房间真实面积：有 Outline（贴外廓裁出来的多边形）就用鞋带公式，否则退回包围盒。</summary>
+        public static float AreaOf(Room room)
+        {
+            if (room.Outline == null || room.Outline.Length < 3) return room.Rect.Area;
+            return Mathf.Abs(FloorEnvelope.SignedArea(room.Outline));
+        }
+
+        /// <summary>多边形面积（鞋带公式，取绝对值）。</summary>
+        public static float OutlineArea(Vector2[] outline)
+        {
+            if (outline == null || outline.Length < 3) return 0f;
+            return Mathf.Abs(FloorEnvelope.SignedArea(outline));
         }
 
         /// <summary>斜墙盒：沿切角对角线放一段厚墙，把角落三角区封死。</summary>
@@ -251,12 +277,13 @@ namespace EscapeFromWork.LevelGen
         /// </summary>
         public List<Door> CorridorOpenings = new List<Door>();
 
+        /// <summary>房间真实面积（扣掉切角/贴外廓裁掉的三角区），不是包围盒面积。</summary>
         public float RoomArea
         {
             get
             {
                 float a = 0f;
-                for (int i = 0; i < Rooms.Count; i++) a += Rooms[i].Rect.Area;
+                for (int i = 0; i < Rooms.Count; i++) a += RoomShape.AreaOf(Rooms[i]);
                 return a;
             }
         }
