@@ -168,3 +168,7 @@ $RECYCLE.BIN/
 # === Probe / batchmode artifacts ===
 game/*.log
 game/R2PROBE.txt
+
+# 美术生成脚本的中间产物（AI 底图缓存 / 崩溃恢复副本）
+tools/art/_cache/
+tools/art/*.recovered
