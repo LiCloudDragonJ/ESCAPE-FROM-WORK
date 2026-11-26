@@ -1,0 +1,17 @@
+{
+  "id": "meeting_table",
+  "name": "会议桌",
+  "width": 2.18,
+  "depth": 0.98,
+  "height": 0.74,
+  "footprint": [
+    2.2,
+    1.0
+  ],
+  "size_class": "large",
+  "triangles": 432,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ]
+}

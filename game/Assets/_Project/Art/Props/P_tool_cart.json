@@ -1,0 +1,17 @@
+{
+  "id": "tool_cart",
+  "name": "工具车",
+  "width": 0.92,
+  "depth": 0.615,
+  "height": 1.02,
+  "footprint": [
+    0.92,
+    0.62
+  ],
+  "size_class": "medium",
+  "triangles": 332,
+  "material_slots": [
+    "IndustrialPaint",
+    "BrushedMetal"
+  ]
+}

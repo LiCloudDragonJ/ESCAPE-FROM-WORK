@@ -1,0 +1,17 @@
+{
+  "id": "pallet_stack",
+  "name": "托盘堆",
+  "width": 1.224,
+  "depth": 1.039,
+  "height": 0.665,
+  "footprint": [
+    1.2,
+    1.0
+  ],
+  "size_class": "large",
+  "triangles": 216,
+  "material_slots": [
+    "WoodPanel",
+    "IndustrialPaint"
+  ]
+}

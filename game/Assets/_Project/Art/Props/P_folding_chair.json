@@ -1,0 +1,17 @@
+{
+  "id": "folding_chair",
+  "name": "折叠椅",
+  "width": 0.44,
+  "depth": 0.43,
+  "height": 0.82,
+  "footprint": [
+    0.46,
+    0.45
+  ],
+  "size_class": "small",
+  "triangles": 160,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ]
+}

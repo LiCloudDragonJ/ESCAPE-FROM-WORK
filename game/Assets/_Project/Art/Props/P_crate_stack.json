@@ -1,0 +1,17 @@
+{
+  "id": "crate_stack",
+  "name": "纸箱堆",
+  "width": 1.26,
+  "depth": 0.785,
+  "height": 2.08,
+  "footprint": [
+    1.4,
+    0.9
+  ],
+  "size_class": "large",
+  "triangles": 600,
+  "material_slots": [
+    "WoodPanel",
+    "IndustrialPaint"
+  ]
+}

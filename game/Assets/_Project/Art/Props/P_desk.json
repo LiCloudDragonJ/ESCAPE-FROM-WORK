@@ -1,0 +1,17 @@
+{
+  "id": "desk",
+  "name": "办公桌",
+  "width": 1.38,
+  "depth": 0.7,
+  "height": 0.75,
+  "footprint": [
+    1.4,
+    0.7
+  ],
+  "size_class": "medium",
+  "triangles": 540,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ]
+}

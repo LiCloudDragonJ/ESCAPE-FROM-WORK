@@ -1,0 +1,17 @@
+{
+  "id": "glass_partition",
+  "name": "玻璃隔断",
+  "width": 2.02,
+  "depth": 0.22,
+  "height": 2.17,
+  "footprint": [
+    2.02,
+    0.22
+  ],
+  "size_class": "large",
+  "triangles": 216,
+  "material_slots": [
+    "GlassPanel",
+    "BrushedMetal"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "pump",
+  "name": "泵组",
+  "width": 0.96,
+  "depth": 0.68,
+  "height": 0.69,
+  "footprint": [
+    0.96,
+    0.68
+  ],
+  "size_class": "medium",
+  "triangles": 284,
+  "material_slots": [
+    "IndustrialPaint",
+    "BrushedMetal"
+  ]
+}

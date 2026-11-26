@@ -1,0 +1,17 @@
+{
+  "id": "shelf_unit",
+  "name": "仓储货架",
+  "width": 1.78,
+  "depth": 0.58,
+  "height": 1.97,
+  "footprint": [
+    1.8,
+    0.6
+  ],
+  "size_class": "large",
+  "triangles": 864,
+  "material_slots": [
+    "IndustrialPaint",
+    "WoodPanel"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "office_chair",
+  "name": "办公椅",
+  "width": 0.59,
+  "depth": 0.564,
+  "height": 1.02,
+  "footprint": [
+    0.6,
+    0.57
+  ],
+  "size_class": "small",
+  "triangles": 292,
+  "material_slots": [
+    "VenueCarpet",
+    "BrushedMetal"
+  ]
+}

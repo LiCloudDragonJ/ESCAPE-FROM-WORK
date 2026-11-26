@@ -1,0 +1,17 @@
+{
+  "id": "cold_shelf",
+  "name": "冷库货架",
+  "width": 1.2,
+  "depth": 0.74,
+  "height": 1.96,
+  "footprint": [
+    1.2,
+    0.8
+  ],
+  "size_class": "large",
+  "triangles": 1188,
+  "material_slots": [
+    "ColdMetal",
+    "CleanPanel"
+  ]
+}

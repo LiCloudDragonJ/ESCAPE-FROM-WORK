@@ -1,0 +1,17 @@
+{
+  "id": "pallet",
+  "name": "装卸托盘",
+  "width": 1.18,
+  "depth": 0.96,
+  "height": 0.745,
+  "footprint": [
+    1.2,
+    1.0
+  ],
+  "size_class": "large",
+  "triangles": 660,
+  "material_slots": [
+    "WoodPanel",
+    "IndustrialPaint"
+  ]
+}

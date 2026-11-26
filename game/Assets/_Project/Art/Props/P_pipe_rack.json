@@ -1,0 +1,17 @@
+{
+  "id": "pipe_rack",
+  "name": "管道支架",
+  "width": 1.0,
+  "depth": 0.225,
+  "height": 1.175,
+  "footprint": [
+    1.0,
+    0.4
+  ],
+  "size_class": "medium",
+  "triangles": 508,
+  "material_slots": [
+    "IndustrialPaint",
+    "ColdMetal"
+  ]
+}

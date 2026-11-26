@@ -1,0 +1,17 @@
+{
+  "id": "server_rack",
+  "name": "服务器机柜",
+  "width": 0.6,
+  "depth": 0.96,
+  "height": 2.05,
+  "footprint": [
+    0.6,
+    0.9
+  ],
+  "size_class": "large",
+  "triangles": 1044,
+  "material_slots": [
+    "ServerPanel",
+    "DarkMetal"
+  ]
+}

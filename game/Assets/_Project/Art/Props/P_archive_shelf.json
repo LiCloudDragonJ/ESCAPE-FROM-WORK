@@ -1,0 +1,17 @@
+{
+  "id": "archive_shelf",
+  "name": "档案架",
+  "width": 1.38,
+  "depth": 0.56,
+  "height": 2.3,
+  "footprint": [
+    1.4,
+    0.6
+  ],
+  "size_class": "large",
+  "triangles": 3024,
+  "material_slots": [
+    "PaintedWall",
+    "WoodPanel"
+  ]
+}

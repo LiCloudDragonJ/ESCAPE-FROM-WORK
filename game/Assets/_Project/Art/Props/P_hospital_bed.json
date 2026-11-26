@@ -1,0 +1,17 @@
+{
+  "id": "hospital_bed",
+  "name": "病床",
+  "width": 0.98,
+  "depth": 2.02,
+  "height": 1.52,
+  "footprint": [
+    1.0,
+    2.05
+  ],
+  "size_class": "large",
+  "triangles": 396,
+  "material_slots": [
+    "CleanPanel",
+    "BrushedMetal"
+  ]
+}

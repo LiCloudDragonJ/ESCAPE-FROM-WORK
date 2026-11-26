@@ -1,0 +1,17 @@
+{
+  "id": "partition",
+  "name": "隔断屏",
+  "width": 1.63,
+  "depth": 0.12,
+  "height": 1.7,
+  "footprint": [
+    1.6,
+    0.12
+  ],
+  "size_class": "medium",
+  "triangles": 540,
+  "material_slots": [
+    "VenueCarpet",
+    "BrushedMetal"
+  ]
+}

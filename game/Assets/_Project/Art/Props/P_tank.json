@@ -1,0 +1,17 @@
+{
+  "id": "tank",
+  "name": "储罐",
+  "width": 1.52,
+  "depth": 1.52,
+  "height": 2.4,
+  "footprint": [
+    1.6,
+    1.6
+  ],
+  "size_class": "large",
+  "triangles": 980,
+  "material_slots": [
+    "ColdMetal",
+    "IndustrialPaint"
+  ]
+}

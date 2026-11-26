@@ -1,0 +1,17 @@
+{
+  "id": "workbench_v2",
+  "name": "加固工作台",
+  "width": 1.96,
+  "depth": 0.93,
+  "height": 1.44,
+  "footprint": [
+    1.96,
+    0.93
+  ],
+  "size_class": "large",
+  "triangles": 344,
+  "material_slots": [
+    "DiamondPlate",
+    "IndustrialPaint"
+  ]
+}

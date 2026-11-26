@@ -1,0 +1,17 @@
+{
+  "id": "fire_cabinet",
+  "name": "消防柜",
+  "width": 0.7,
+  "depth": 0.295,
+  "height": 1.06,
+  "footprint": [
+    0.72,
+    0.28
+  ],
+  "size_class": "small",
+  "triangles": 116,
+  "material_slots": [
+    "IndustrialPaint",
+    "GlassPanel"
+  ]
+}

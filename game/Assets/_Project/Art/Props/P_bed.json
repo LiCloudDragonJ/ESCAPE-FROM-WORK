@@ -1,0 +1,17 @@
+{
+  "id": "bed",
+  "name": "床铺",
+  "width": 1.0,
+  "depth": 1.98,
+  "height": 0.7,
+  "footprint": [
+    1.0,
+    2.0
+  ],
+  "size_class": "large",
+  "triangles": 432,
+  "material_slots": [
+    "VenueCarpet",
+    "BrushedMetal"
+  ]
+}

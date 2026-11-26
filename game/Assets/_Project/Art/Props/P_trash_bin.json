@@ -1,0 +1,17 @@
+{
+  "id": "trash_bin",
+  "name": "垃圾桶",
+  "width": 0.4,
+  "depth": 0.405,
+  "height": 0.54,
+  "footprint": [
+    0.4,
+    0.4
+  ],
+  "size_class": "small",
+  "triangles": 356,
+  "material_slots": [
+    "BrushedMetal",
+    "DarkMetal"
+  ]
+}

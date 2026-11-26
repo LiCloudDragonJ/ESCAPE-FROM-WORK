@@ -1,0 +1,17 @@
+{
+  "id": "printer",
+  "name": "打印台",
+  "width": 1.16,
+  "depth": 0.65,
+  "height": 1.035,
+  "footprint": [
+    1.2,
+    0.6
+  ],
+  "size_class": "medium",
+  "triangles": 432,
+  "material_slots": [
+    "DarkMetal",
+    "CleanPanel"
+  ]
+}

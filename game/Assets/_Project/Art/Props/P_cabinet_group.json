@@ -1,0 +1,17 @@
+{
+  "id": "cabinet_group",
+  "name": "双柜组",
+  "width": 1.78,
+  "depth": 0.942,
+  "height": 1.93,
+  "footprint": [
+    1.8,
+    0.9
+  ],
+  "size_class": "large",
+  "triangles": 1956,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ]
+}

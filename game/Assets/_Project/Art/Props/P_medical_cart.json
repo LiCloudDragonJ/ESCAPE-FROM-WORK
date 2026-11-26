@@ -1,0 +1,17 @@
+{
+  "id": "medical_cart",
+  "name": "医疗推车",
+  "width": 0.58,
+  "depth": 0.46,
+  "height": 0.96,
+  "footprint": [
+    0.62,
+    0.48
+  ],
+  "size_class": "small",
+  "triangles": 244,
+  "material_slots": [
+    "CleanPanel",
+    "BrushedMetal"
+  ]
+}

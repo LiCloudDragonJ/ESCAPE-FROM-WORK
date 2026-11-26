@@ -1,0 +1,17 @@
+{
+  "id": "water_cooler_v2",
+  "name": "直饮水机",
+  "width": 0.46,
+  "depth": 0.495,
+  "height": 1.24,
+  "footprint": [
+    0.46,
+    0.5
+  ],
+  "size_class": "small",
+  "triangles": 176,
+  "material_slots": [
+    "CleanPanel",
+    "Steel"
+  ]
+}

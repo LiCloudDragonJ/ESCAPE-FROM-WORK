@@ -1,0 +1,17 @@
+{
+  "id": "cable_spool",
+  "name": "电缆盘",
+  "width": 1.14,
+  "depth": 0.92,
+  "height": 1.08,
+  "footprint": [
+    1.14,
+    0.92
+  ],
+  "size_class": "medium",
+  "triangles": 332,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ]
+}

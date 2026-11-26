@@ -1,0 +1,17 @@
+{
+  "id": "extinguisher",
+  "name": "灭火器",
+  "width": 0.283,
+  "depth": 0.256,
+  "height": 0.62,
+  "footprint": [
+    0.28,
+    0.28
+  ],
+  "size_class": "small",
+  "triangles": 196,
+  "material_slots": [
+    "IndustrialPaint",
+    "DarkMetal"
+  ]
+}

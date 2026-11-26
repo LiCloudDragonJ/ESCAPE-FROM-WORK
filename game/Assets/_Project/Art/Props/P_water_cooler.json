@@ -1,0 +1,17 @@
+{
+  "id": "water_cooler",
+  "name": "饮水机",
+  "width": 0.44,
+  "depth": 0.46,
+  "height": 1.41,
+  "footprint": [
+    0.5,
+    0.45
+  ],
+  "size_class": "small",
+  "triangles": 324,
+  "material_slots": [
+    "CleanPanel",
+    "Steel"
+  ]
+}

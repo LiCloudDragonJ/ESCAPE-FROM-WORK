@@ -1,0 +1,17 @@
+{
+  "id": "med_cabinet",
+  "name": "医疗柜",
+  "width": 0.78,
+  "depth": 0.455,
+  "height": 1.76,
+  "footprint": [
+    0.8,
+    0.45
+  ],
+  "size_class": "medium",
+  "triangles": 864,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ]
+}

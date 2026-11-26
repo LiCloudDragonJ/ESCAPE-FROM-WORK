@@ -1,0 +1,17 @@
+{
+  "id": "vending_machine",
+  "name": "售货机",
+  "width": 0.94,
+  "depth": 0.77,
+  "height": 1.94,
+  "footprint": [
+    1.0,
+    0.8
+  ],
+  "size_class": "medium",
+  "triangles": 356,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ]
+}

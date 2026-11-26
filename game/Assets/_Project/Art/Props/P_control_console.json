@@ -1,0 +1,17 @@
+{
+  "id": "control_console",
+  "name": "控制台",
+  "width": 1.98,
+  "depth": 0.78,
+  "height": 1.29,
+  "footprint": [
+    2.0,
+    0.8
+  ],
+  "size_class": "large",
+  "triangles": 864,
+  "material_slots": [
+    "CleanPanel",
+    "DarkMetal"
+  ]
+}

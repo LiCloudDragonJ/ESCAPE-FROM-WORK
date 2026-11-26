@@ -1,0 +1,17 @@
+{
+  "id": "sofa",
+  "name": "沙发",
+  "width": 1.78,
+  "depth": 0.78,
+  "height": 0.88,
+  "footprint": [
+    1.8,
+    0.8
+  ],
+  "size_class": "medium",
+  "triangles": 1004,
+  "material_slots": [
+    "VenueCarpet",
+    "WoodPanel"
+  ]
+}

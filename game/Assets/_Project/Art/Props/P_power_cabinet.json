@@ -1,0 +1,17 @@
+{
+  "id": "power_cabinet",
+  "name": "配电柜",
+  "width": 1.18,
+  "depth": 0.625,
+  "height": 2.18,
+  "footprint": [
+    1.2,
+    0.6
+  ],
+  "size_class": "large",
+  "triangles": 972,
+  "material_slots": [
+    "IndustrialPaint",
+    "DarkMetal"
+  ]
+}
