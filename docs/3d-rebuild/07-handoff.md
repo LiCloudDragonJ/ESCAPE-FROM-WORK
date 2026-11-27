@@ -29,6 +29,7 @@
 **R7 出生区图距离校验已完成**（2026-11-27）：`FloorValidator` 支持任意格宽（`BuildGrid(plan, cell)` + `Grid.Unit`），出生区按 2m 粗栅格做"最远点贪心"重排，出生区间步行距离 ≥ 本层锚点直径 35%；全量 EditMode **148/148 通过**（R7 那轮 132）。
 **R8 环路校验已完成**（2026-11-27）：`LoopInjector` 量化了环数（实测 49–69，是"房间数/12"下限的 5–6 倍），`Apply` 在达标时零改动，只保留"低于下限时补门"的保险。
 **R9（标识牌）/ R10（体检器接回归）/ R11（竖向连接系统 + 两端撤离）已完成**（2026-11-27）：新增 `Signage.cs`/`SignageRenderer.cs`/`LevelAudit.cs`/`StairGraphPlan.cs`/`ExtractionPlan.cs` 与 4 个新测试文件；EditMode **207/207 全绿**（`game/TestResults/t1-t13-r9-full-fix4-20261127.xml`）。**但运行时仍是单层沙盒**，多楼层装载属 T3。
+**M1 美术/分区这批已完成**（2026-11-27 晚，commit `1c8e5a9`）：家具躺平修复（13 个 Z-up FBX 的导入 −90° X 校正被 `BuildPrefab` 清零；改成空根 + `Visual` 子节点保留旋转）、贴墙朝向按真实墙面给 yaw（`PropPlacement.Yaw` + `PropCatalog.Entry.YawOffset`，`PropFacingTests`）、房间按 `FacilityProfile` 铺设施面层（21 套 + 每房地板/1.02m 墙裙，`RoomFinishTests`）、Blender 道具 41 → 82 件（`PropCatalog` 82 prefab / 96 条含别名）；EditMode **220/220 全绿**（`game/TestResults/editmode-20261127-props.xml`）。
 
 ---
 
@@ -99,7 +100,7 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 | `LevelGen/VerticalLinkPlan.cs` | 130 | **R6 电梯对齐（部分废弃）**：`ApplyTo` 已标 `[Obsolete]`，仅供单层 Lab 兜底；Raid 走 `StairGraphPlan` | `Default(spec)`、`ApplyTo(spec, floorIndex)`、`Fingerprint()` |
 | `LevelGen/LoopInjector.cs` | 200 | **R8 环路**：E−V+C 环数统计 + 低于下限时才补门 | `TargetCycles(plan)`、`CycleRank(plan)`、`Apply(plan, spec)` |
 | `LevelGen/CoverProps.cs` | 429 | 掩体/家具摆放（按房间类型与密度） | 摆件规则、掩体档位 |
-| `LevelGen/PropCatalog.cs` | 102 | 道具表（**R4 起由 Blender 管线自动填**，41 个模型 / 55 条别名） | `Entry{Name,Prefab,Size,Offset,AddBoxCollider}`、`LoadOrCreateDefault` |
+| `LevelGen/PropCatalog.cs` | 106 | 道具表（**R4 起由 Blender 管线自动填**，82 个模型 / 96 条含别名） | `Entry{Name,Prefab,Size,Offset,YawOffset,AddBoxCollider}`、`LoadOrCreateDefault` |
 | `LevelGen/FloorChunk*.cs` | 481 | 分块：网格 / 计划 / 几何 / 流式 | `FloorChunkGeometry.BuildShell`、`FloorStreamer`、`FloorStreamingRuntime` |
 | `LevelGen/FloorRuntime.cs` | 68 | 运行时装配 | |
 
@@ -131,14 +132,15 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 | `Editor/M1FloorScene.cs` | 706 | 生成 FloorTest 场景 / 截图（俯视几何调试图、走廊/核心/出生点视角、柱子特写） |
 | `Editor/FloorLabWindow.cs` | 382 | 楼层审图窗口（批量生成 + 浏览） |
 | `Editor/M0Bootstrap.cs` / `M0Capture.cs` | 251 | M0 骨架与截图 |
-| `Editor/Art/MaterialArtLibrary.cs` 等 | 223 | 程序化材质（31 套贴图集 → 10 个槽位） |
-| `Editor/Tools/PropPipeline.cs` | 372 | **Blender 道具导入**：FBX → prefab（pivot 底心、单 BoxCollider、static batching）+ 写 `PropCatalog` |
+| `Editor/Art/MaterialArtLibrary.cs` 等 | 470 | 程序化材质（31 套贴图集 → 10 个槽位 + 21 套设施面层 `FacilitySets`/`TryLoadSet`） |
+| `Editor/Tools/PropPipeline.cs` | 466 | **Blender 道具导入**：FBX → prefab（空根 + `Visual` 子节点保留导入旋转、pivot 底心、单 BoxCollider、static batching）+ 写 `PropCatalog` |
+| `Editor/PropAuditProbe.cs` | 200 | 道具方向审计 / 3/4 网格出图 / 走廊道具 dump（调试用，输出 `docs/3d-rebuild/prop-audit.tsv`） |
 | `Editor/Tools/SurveyCapture.cs` | 330 | 平面图 / 小地图 mock / 走廊特写出图 |
 
 ### 4.4 测试（`game/Assets/tests/`）
 
-EditMode **25 个文件**：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5/R11）、`VerticalLinkPlanTests`（R6/R11）、`SpawnSpacingTests`（R7）、`LoopInjectorTests`（R8）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`、`LevelAuditTests`（R10）、`SignageTests`（R9）、`StairGraphPlanTests`、`ExtractionPlanTests`（R11）；PlayMode：`WhiteboxSmokeTests`。
-**合计 EditMode 208 项，全绿**（2026-11-27 R9 出图修复后实测：`game/TestResults/editmode-20261127-signage.xml`，纯测试约 9 分 56 秒；上一基线 207 见 `t1-t13-r9-full-fix4-20261127.xml`；历史上：148（R8 后）→ 132 → 129 → 124 → 113 → 109 → 103）。改生成器任何规则前先跑一遍全量当基线。
+EditMode **27 个文件**：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5/R11）、`VerticalLinkPlanTests`（R6/R11）、`SpawnSpacingTests`（R7）、`LoopInjectorTests`（R8）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`、`LevelAuditTests`（R10）、`SignageTests`（R9）、`StairGraphPlanTests`、`ExtractionPlanTests`（R11）、`PropFacingTests`、`RoomFinishTests`；PlayMode：`WhiteboxSmokeTests`。
+**合计 EditMode 220 项，全绿**（2026-11-27 晚道具/面层后实测：`game/TestResults/editmode-20261127-props.xml`，纯测试约 9 分 57 秒；上一基线 208 见 `editmode-20261127-signage.xml`，207 见 `t1-t13-r9-full-fix4-20261127.xml`；历史上：148（R8 后）→ 132 → 129 → 124 → 113 → 109 → 103）。改生成器任何规则前先跑一遍全量当基线。
 
 ---
 
@@ -184,7 +186,7 @@ EditMode **25 个文件**：`FloorGeneratorTests`、`FloorGeneratorBatchTests`�
 | R10 | **体检器接回归**：把 `tools/plan-proto/audit_floors.py` 的指标搬进 EditMode 测试 | 新 `LevelAuditTests.cs` | 指标表（06 §10）进 CI |
 | R11 | **竖向连接系统 + 两端撤离**（第三轮）：StairGraphPlan（每对相邻层 2 条独立单层楼梯 + 中心电梯、每层 4 楼梯口）/ ExtractionPlan（每端 4 点、2 闸点房、电梯卡） | 新 `StairGraphPlan.cs`、`ExtractionPlan.cs`；废弃 `StairWestRect`/`StairEastRect`/`UseCores` | 相邻层 3 通路、错开 ≥30m、跨层不对位；每端 4 撤离点两端不通用 |
 
-> **R1–R11 全部已完成**：R1 103/103（commit `0bd87f1`）、R2 109、R3 113、R4 124、R5/R6 129、R7 132、R8 148、**R9/R10/R11 → 207/207**（2026-11-27，commit `a9d20d5`）。下一步是运行时侧：**T3（多楼层装载）→ T4（MapHud 规则）→ T5（材质槽）**，见 [11-todo-handover.md](11-todo-handover.md)。
+> **R1–R11 全部已完成**：R1 103/103（commit `0bd87f1`）、R2 109、R3 113、R4 124、R5/R6 129、R7 132、R8 148、**R9/R10/R11 → 207/207**（2026-11-27，commit `a9d20d5`）。**M1 美术/分区 → 220/220**（2026-11-27 晚，commit `1c8e5a9`：家具躺平/朝向、设施面层、82 件道具）。下一步是运行时侧：**T3（多楼层装载）→ T4（MapHud 规则）→ T5（材质槽剩余的槽位覆盖核对）**，见 [11-todo-handover.md](11-todo-handover.md)。
 > **对比图**：R2/R3 落地后已出 `r2-dollhouse.png`、`props-showcase*.png`、`plan-1/7*.png`；R7–R10 做完整层结构后重跑 `M1FloorScene.Capture` 出 after 图。
 
 R2 已完成，落地方式（改过的东西，别再重复设计）：

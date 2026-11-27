@@ -2,7 +2,7 @@
 
 > 用途：给下一个接手的人/模型一份**待办总表**。仓库现状、已完成项、血泪教训、资源清单见 [07-handoff.md](07-handoff.md)；本文件只回答：**接下来做什么、卡在哪、怎么验收**。
 >
-> 状态快照：`main` 含 `149af02`（2026-11-27 R9 场景出图修复，见 §10.1）；EditMode **208/208 已本机复跑验证**（`game/TestResults/editmode-20261127-signage.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
+> 状态快照：`main` 含 `1c8e5a9`（2026-11-27 晚：修家具躺平/贴墙朝向、房间按设施铺面层、补 41 件道具）；EditMode **220/220 已本机复跑验证**（`game/TestResults/editmode-20261127-props.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
 
 ---
 
@@ -25,10 +25,10 @@
 | T2 | **R9 标识牌**：`SignageGenerator` + 场景渲染 | 无（素材已就绪） | 否 | 新 `LevelGen/Signage.cs`（或 `SignageGenerator.cs`）+ `FloorPlan.Signs` + 渲染层 | ✅ **2026-11-27 已完成**：`Signage.cs` + `SignageRenderer.cs` + `Resources/Signage/`；每层 ≥1 处 YOU ARE HERE，测试出图 `game/TestResults/r9-signage.png` 可读；**同日晚 `M1FloorScene.Capture` 出场景内图 `docs/3d-rebuild/screenshots/m1-floor3d-signage.png` 可读**（修掉了"牌按 rect 边偏移、被 0.4m 墙心线覆盖"的埋牌 bug） | 已完 |
 | T3 | **运行时多楼层**：`RaidPlan` 进运行时，竖向核与切层 | T1（护栏） | 否 | `FloorRuntime`/`FloorStreamingRuntime` + 新的楼层管理 | 固定 4 层同场景按真实标高叠放；2 条单层楼梯 + 中心电梯可跨层；切层后小地图换图 | 3–5 天 |
 | T4 | **MapHud 按 02 §5.5 改**：楼层条 / 拉闸房 / 撤离点门控 | T3（楼层数据） | 否 | `UI/MapHud.cs` + `FloorPlan` 数据补齐 | 进层只给本端可用数量；远层免费点到层自动标出、近层拉闸后标出并全楼广播；对端免费点不显示、对端拉闸点显示不可用；楼梯/电梯无迷雾 | 1–2 天 |
-| T5 | **材质槽接渲染**：主题材质 + 9 套未接材质 + per-room | T1 | 否 | `FloorMaterials` 扩槽 + `FloorChunkGeometry`/`FloorChunkManifest` 分槽 | 09 §5 MaterialSlotCoverage ≥14/19；机房/冷库/医疗一眼可辨 | 2–3 天 |
+| T5 | **材质槽接渲染**：主题材质 + 9 套未接材质 + per-room | T1 | 否 | `FloorMaterials` 扩槽 + `FloorChunkGeometry`/`FloorChunkManifest` 分槽 | 09 §5 MaterialSlotCoverage ≥14/19；机房/冷库/医疗一眼可辨 | 2–3 天（🟡 2026-11-27 部分完成：21 套设施面层 + 每房间地板/墙裙已接，见 §10.4；剩 19 槽覆盖清单核对与机房/冷库/医疗出图验收） |
 | T6 | **文档冲突修正**（只改文档） | 无 | 否 | 见 §7 | ✅ 2026-11-27 已完成（两轮 7 处 + 第三轮 06/02/00 再统一） | 已完 |
 | T7 | **M1-B/C 60fps + 灯池实测** | 高性能机 | 否 | `M1FloorScene.Capture` + Profiler | 1080p 60fps（32,000㎡ 满 AI）；灯池不重复照亮 | 1 天（换机） |
-| T8 | **M1-D 灰盒补齐**：道具命中率 89.6% → 更高 | 无 | 否 | `PropCatalog` / `tools/blender/gen_props.py` | 道具命中 ≥95%；无模型别名清零 | 1 天 |
+| T8 | **M1-D 灰盒补齐**：道具命中率 89.6% → 更高 | 无 | 否 | `PropCatalog` / `tools/blender/gen_props.py` | 道具命中 ≥95%；无模型别名清零 | 1 天（🟢 2026-11-27 晚：道具从 41 → 82 件、prefab 82/82 建好、catalog 96 条含别名；命中率待重测、别名重复条目待清理） |
 | T9 | **M1-E 分块 LOD + 每块 NavMesh** | T3 | 否 | `FloorStreamer` / `FloorChunkPlan` | 60fps 下 LOD 生效；AI 可在已加载块寻路 | 2–3 天 |
 | T10 | **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块改用真实轮廓 | T1 | 否 | `FloorValidator` / `MapRaster` / `FloorChunkGrid` | 斜墙、L 形合并后仍全连通；地图与几何一致 | 3–5 天 |
 | T11 | **06 §8 拍板落地**：三轮共 29 项已写回 06/00/02/03/07/09/11（2026-11-27） | — | 否 | 文档 + 相关实现 | ✅ 文档已完成；实现按拍板值（剩余待定见 06 §8.3） | 已完 |
@@ -227,7 +227,7 @@
   -executeMethod EscapeFromWork.EditorTools.MaterialArtLibrary.BuildAll -quit
 ```
 
-- EditMode 基线：**208/208 通过**（2026-11-27 R9 场景出图修复后，结果 `game/TestResults/editmode-20261127-signage.xml`；纯测试约 9 分 56 秒，本机 9800X3D/4070TiS）。上一基线 207/207 见 `game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，更早 148/148 见 `game/TestResults/editmode-t1-baseline-20261127.xml`。
+- EditMode 基线：**220/220 通过**（2026-11-27 晚道具/面层后，结果 `game/TestResults/editmode-20261127-props.xml`；纯测试约 9 分 57 秒，本机 9800X3D/4070TiS）。上一基线 208/208 见 `game/TestResults/editmode-20261127-signage.xml`，更早 207/207 见 `game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，148/148 见 `game/TestResults/editmode-t1-baseline-20261127.xml`。
 - **结果判定**：XML 的 `testcasecount/result` 才是结论；Unity batch 在编辑器退出前就已写好 XML，可轮询文件出现。`-testResults` 尽量传绝对路径（相对路径会落到 `game/game/...`）。
 - 测试结果 XML 里 `testcasecount` 才是用例数（`[Test]` 特性只有 95 个，参数化 `[TestCase]` 才会到 148）。
 
@@ -248,13 +248,21 @@
 - **`-batchmode` 起的是分离进程**：`& Tuanjie.exe ...` 立刻返回、`$LASTEXITCODE` 是空的、日志还没写完；要 `Start-Sleep 6` 后轮询 `Get-Process Tuanjie` 直到没有进程，再读 `-logFile`。用 `Start-Process` 只等几秒会误判成 exit=1 且没有日志（tpm.log 里能看到 "parent process is no longer running"）。出图同理：`M1FloorScene.Capture` 跑完要等进程退出再看 `docs/3d-rebuild/screenshots/`。
 - **中文 Markdown 不要用 PowerShell 改写**：`Get-Content -Raw` + `Set-Content`/`WriteAllText` 会把 UTF-8 当 ANSI 再存一次，整篇变乱码（2026-11-27 踩过，靠 `git checkout --` 恢复）。改文档一律用 edit 工具按行替换。
 
+### 10.4 2026-11-27 晚这批（家具躺平 / 设施面层 / 新道具）
+
+- **家具躺平根因**：13 个 FBX 以 Z-up 存盘，Unity 导入时把 −90° X 校正烘在模型根节点（`localEulerAngles=(270,0,0)`）；`PropPipeline.BuildPrefab` 原来 `go.transform.rotation = identity` 把这层校正清零，于是整件倒在 XZ 平面上（审计脚本量到 bounds 的 Y/Z 互换）。现在包一层空根：根恒为 identity（摆放只吃 yaw），模型作为 `Visual` 子节点保留导入旋转。`ImportAll` 重建 82 个 prefab，审计 17 条躺平 → 0。**以后新增 FBX 若"看着像躺平"，先查 `PropAuditProbe`，不要再只看 json 的 width/height/depth。**
+- **贴墙朝向**：`PropPlacement.Yaw` 由生成器按真实墙面给（南 0 / 北 180 / 西 90 / 东 270），`PropSpawner` 只做 `p.Yaw + entry.YawOffset`；家具 inset 从 1.0m 改成 0.15m。`PropFacingTests` 4 条守住。
+- **设施面层**：`MaterialArtLibrary.FacilitySets`（21 套）+ `TryLoadSet`；`FloorMaterials.SurfaceSlots/SurfaceMaterials`；`FloorGeometry.EmitRoomSurfaces` 按 `FacilityProfile.FloorMaterial/WallMaterial` 给每个房间铺地板薄层（`RoomFloor_*`）和 1.02m 高墙裙（`RoomBand_*`），不参与碰撞；`FloorChunkGeometry.BuildShell` 同步。M1 日志 `[M1] facility surfaces: 21 / 21`。`RoomFinishTests` 8 条守住。
+- **新道具**：`tools/blender/gen_props.py` 扩到 1985 行、新增 `render_props.py` 3/4 视角抽查；道具 82 件 / 10,802 tris；`PropCatalog` 96 条（82 真件 + 别名）。**遗留**：别名与真件同名重复（如 配线架 / 管井架 / 阀门组），命中靠"别名追加在后面、真件优先"；T8 清理时把重复条目合并。
+- **本批审计工具**：`game/Assets/_Project/Scripts/Editor/PropAuditProbe.cs`（菜单 `Escape From Work/Debug/Prop Orientation Audit`、`Prop Grid Render`、`Dump Corridor Props`），输出 `docs/3d-rebuild/prop-audit.tsv` 与 `screenshots/props-grid-34.png`。
+
 ---
 
 ## 11. 下次会话开场
 
 1. 先读 [07-handoff.md](07-handoff.md)（现状 / 教训 / 禁区 / 资源）→ 本文件（待办）。
-2. `git log --oneline -8` 对齐 HEAD（R9 出图修复 = `149af02`「标识: 牌按墙心线挂，修 R9 场景出图整块埋进墙里」）；`git status` 应干净。R9/R10/R11 在 `a9d20d5` 一次性提交（53 文件 / +4625 / −332），出图修复在其后。
-3. 先跑 §10.1 的 EditMode 确认 **208/208** 基线，再动手。
+2. `git log --oneline -8` 对齐 HEAD（本机最新 = `1c8e5a9`「道具/分区: 修家具躺平与朝向、房间按设施铺面层、补 41 件道具」；其前 `149af02` R9 出图修复、`b020cd5` 交接表同步、`a9d20d5` R9/R10/R11）；`git status` 应干净。
+3. 先跑 §10.1 的 EditMode 确认 **220/220** 基线，再动手。
 4. 下一步按 **T3（运行时多楼层）→ T4（MapHud）→ T5（材质槽）**；T7（60fps 实测）/T9（LOD+NavMesh）需要高性能机，T10（多边形化）与 T12（战斗原型）按需穿插。每完成一项在 §1 表里改状态并提交（commit message 沿用 `生成器(Rx): ...` / `文档: ...` 风格）。
 5. 06 已定稿（§8.1/§8.2/§8.4 共 29 项）；剩余待定见 06 §8.3，未定前不要改「经济数值 / 首发武器 / AI 难度分档 / Boss 战斗形式」相关实现。
 6. 本轮踩过的坑：改完 `.cs` 必须 touch（`ops_edit_file` 保留旧 mtime，Unity 会跑旧 DLL）；测试前先 `Stop-Process` 残留的 Tuanjie 进程，否则报 “Multiple Tuanjie instances cannot open the same project” 直接崩；日志常是无效 UTF8，用 PowerShell `Select-String` 取行。
