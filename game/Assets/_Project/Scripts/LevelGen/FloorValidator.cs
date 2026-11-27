@@ -12,32 +12,43 @@ namespace EscapeFromWork.LevelGen
     {
         public const float Cell = 1f;
 
+        /// <summary>出生区散布检查用的粗栅格（2 m）：1000 种子批测里 1 m 栅格 flood 太贵。</summary>
+        public const float CoarseCell = 2f;
+
         public struct Grid
         {
             public int W, H;
             public bool[] Walkable;
             public float[] Distance;
+            public float Unit;
 
             public bool Inside(int x, int y) { return x >= 0 && y >= 0 && x < W && y < H; }
             public int Index(int x, int y) { return y * W + x; }
             public bool IsWalkable(int x, int y) { return Inside(x, y) && Walkable[y * W + x]; }
-            public Vector2 Center(int x, int y) { return new Vector2((x + 0.5f) * Cell, (y + 0.5f) * Cell); }
-            public int X(float wx) { return Mathf.FloorToInt(wx / Cell); }
-            public int Y(float wz) { return Mathf.FloorToInt(wz / Cell); }
+            public Vector2 Center(int x, int y) { return new Vector2((x + 0.5f) * Unit, (y + 0.5f) * Unit); }
+            public int X(float wx) { return Mathf.FloorToInt(wx / Unit); }
+            public int Y(float wz) { return Mathf.FloorToInt(wz / Unit); }
         }
 
-        public static Grid BuildGrid(FloorPlan plan)
+        public static Grid BuildGrid(FloorPlan plan) { return BuildGrid(plan, Cell); }
+
+        public static Grid BuildGrid(FloorPlan plan, float cell)
         {
             Grid g = new Grid();
-            g.W = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.W / Cell));
-            g.H = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.H / Cell));
+            g.Unit = cell;
+            g.W = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.W / cell));
+            g.H = Mathf.Max(1, Mathf.CeilToInt(plan.Bounds.H / cell));
             g.Walkable = new bool[g.W * g.H];
             g.Distance = new float[g.W * g.H];
             for (int i = 0; i < g.Distance.Length; i++) g.Distance[i] = -1f;
 
-            for (int i = 0; i < plan.Corridors.Count; i++) Stamp(g, plan.Corridors[i].Rect);
-            for (int i = 0; i < plan.Rooms.Count; i++) Stamp(g, plan.Rooms[i].Rect);
-            for (int i = 0; i < plan.Stairs.Count; i++) Stamp(g, plan.Stairs[i]);
+            // 粗栅格会把 1.9 m 的服务廊整格漏掉，按格宽 30% 外扩补回来；细栅格保持原样。
+            float inflate = cell * 0.3f - (Cell * 0.3f);
+            if (inflate < 0f) inflate = 0f;
+
+            for (int i = 0; i < plan.Corridors.Count; i++) Stamp(g, plan.Corridors[i].Rect, inflate);
+            for (int i = 0; i < plan.Rooms.Count; i++) Stamp(g, plan.Rooms[i].Rect, inflate);
+            for (int i = 0; i < plan.Stairs.Count; i++) Stamp(g, plan.Stairs[i], inflate);
 
             // 45° 切角三角区在斜墙里面：从可走栅格挖掉，否则寻路会穿墙走进实心角里。
             for (int i = 0; i < plan.Rooms.Count; i++)
@@ -77,8 +88,9 @@ namespace EscapeFromWork.LevelGen
             }
         }
 
-        static void Stamp(Grid g, RectF r)
+        static void Stamp(Grid g, RectF r, float inflate = 0f)
         {
+            if (inflate > 0f) r = r.Inflate(inflate);
             int x0 = Mathf.Max(0, g.X(r.X));
             int x1 = Mathf.Min(g.W - 1, g.X(r.XMax - 0.01f));
             int y0 = Mathf.Max(0, g.Y(r.Y));
@@ -138,7 +150,7 @@ namespace EscapeFromWork.LevelGen
                 int cur = queue.Dequeue();
                 int cx = cur % g.W;
                 int cy = cur / g.W;
-                float d = g.Distance[cur] + Cell;
+                float d = g.Distance[cur] + g.Unit;
                 for (int k = 0; k < 4; k++)
                 {
                     int nx = cx + dx[k];
@@ -172,7 +184,7 @@ namespace EscapeFromWork.LevelGen
             int cy = g.Y(center.y);
             if (g.Inside(cx, cy) && dist[cy * g.W + cx] >= 0f) return dist[cy * g.W + cx];
 
-            int radius = Mathf.CeilToInt(3f / Cell);
+            int radius = Mathf.CeilToInt(3f / g.Unit);
             float best = -1f;
             for (int dy = -radius; dy <= radius; dy++)
             {
@@ -193,7 +205,7 @@ namespace EscapeFromWork.LevelGen
         public static bool HasLineOfSight(Grid g, Vector2 a, Vector2 b)
         {
             float len = Vector2.Distance(a, b);
-            int steps = Mathf.Max(1, Mathf.CeilToInt(len / (Cell * 0.5f)));
+            int steps = Mathf.Max(1, Mathf.CeilToInt(len / (g.Unit * 0.5f)));
             for (int i = 1; i < steps; i++)
             {
                 Vector2 p = Vector2.Lerp(a, b, i / (float)steps);
@@ -265,6 +277,70 @@ namespace EscapeFromWork.LevelGen
                 list.Add(audit);
             }
             return list;
+        }
+
+        // ---- R7：出生区之间的图距离散布 -------------------------------------------------
+        //
+        // 验收口径：任意两个出生区之间的**步行**距离 ≥ 本层锚点直径的 35%。
+        // 锚点 = 出生区 + 撤离候选（≤10）+ 走廊中点（总数 ≤26）；直径 = 锚点两两最短路径的最大值。
+        // 一律用 2 m 粗栅格：1 m 栅格上每对锚点都 flood 会让 1000 种子批测从 2 分钟涨到 10 分钟（实测 596s）。
+
+        public struct SpawnSpacingAudit
+        {
+            public float MinDistance;
+            public float Required;
+            public float Diameter;
+            public bool Ok;
+            /// <summary>最近的一对出生区下标（-1 = 没有可测的对）。</summary>
+            public int A, B;
+        }
+
+        public static float CoarseDiameter(FloorPlan plan, Grid g)
+        {
+            // 锚点控制在 ≤16 个：每个锚点要 flood 一整张粗栅格，1000 种子批测里这是主导成本。
+            List<Vector2> anchors = new List<Vector2>();
+            for (int i = 0; i < plan.SpawnZones.Count; i++) anchors.Add(plan.SpawnZones[i].Center);
+            int eMax = Mathf.Min(6, plan.ExtractionCandidates.Count);
+            for (int i = 0; i < eMax; i++) anchors.Add(plan.ExtractionCandidates[i].Center);
+            for (int i = 0; i < plan.Corridors.Count && anchors.Count < 16; i += 5)
+                anchors.Add(plan.Corridors[i].Rect.Center);
+
+            float diameter = 0f;
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                float[] dist = Flood(g, anchors[i]);
+                for (int j = i + 1; j < anchors.Count; j++)
+                {
+                    float d = WalkDistanceAt(g, dist, anchors[j]);
+                    if (d > diameter) diameter = d;
+                }
+            }
+            return diameter;
+        }
+
+        public static SpawnSpacingAudit AuditSpawnSpacing(FloorPlan plan, Grid g, float diameter)
+        {
+            SpawnSpacingAudit audit = new SpawnSpacingAudit();
+            audit.Diameter = diameter;
+            audit.Required = diameter * 0.35f;
+            audit.MinDistance = float.MaxValue;
+            audit.A = -1;
+            audit.B = -1;
+            for (int i = 0; i < plan.SpawnZones.Count; i++)
+            {
+                float[] dist = Flood(g, plan.SpawnZones[i].Center);
+                for (int j = i + 1; j < plan.SpawnZones.Count; j++)
+                {
+                    float d = WalkDistanceAt(g, dist, plan.SpawnZones[j].Center);
+                    if (d < 0f || d >= audit.MinDistance) continue;
+                    audit.MinDistance = d;
+                    audit.A = i;
+                    audit.B = j;
+                }
+            }
+            if (audit.MinDistance == float.MaxValue) audit.MinDistance = -1f;
+            audit.Ok = audit.MinDistance >= audit.Required;
+            return audit;
         }
     }
 }

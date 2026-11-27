@@ -6,10 +6,8 @@ using UnityEngine;
 namespace EscapeFromWork.EditorTools
 {
     /// <summary>
-    /// R2/R3 手工体检工具（不进游戏）：一次打印若干种子的走廊/房间/视线统计。
-    /// 用 `Tuanjie.exe -batchmode -quit -projectPath game -executeMethod EscapeFromWork.EditorTools.R2Probe.Dump -logFile probe.log`
-    /// 跑完在日志里 grep "R2PROBE"。
-    /// </summary>
+    /// R2/R3 鎵嬪伐浣撴宸ュ叿锛堜笉杩涙父鎴忥級锛氫竴娆℃墦鍗拌嫢骞茬瀛愮殑璧板粖/鎴块棿/瑙嗙嚎缁熻銆?    /// 鐢?`Tuanjie.exe -batchmode -quit -projectPath game -executeMethod EscapeFromWork.EditorTools.R2Probe.Dump -logFile probe.log`
+    /// 璺戝畬鍦ㄦ棩蹇楅噷 grep "R2PROBE"銆?    /// </summary>
     public static class R2Probe
     {
         public static void Dump()
@@ -100,7 +98,7 @@ namespace EscapeFromWork.EditorTools
             System.IO.File.WriteAllText("R2PROBE.txt", sb.ToString());
         }
 
-        /// <summary>服务廊长墙上是否登记了开口（与 SightlineTests 同一判定口径）。</summary>
+        /// <summary>鏈嶅姟寤婇暱澧欎笂鏄惁鐧昏浜嗗紑鍙ｏ紙涓?SightlineTests 鍚屼竴鍒ゅ畾鍙ｅ緞锛夈€?/summary>
         static bool HasSideOpening(FloorPlan plan, Corridor c)
         {
             RectF r = c.Rect;
@@ -125,7 +123,7 @@ namespace EscapeFromWork.EditorTools
             return false;
         }
 
-        /// <summary>把一条视线经过的走廊/房间按顺序列出来，定位"哪一段漏了断点"。</summary>
+        /// <summary>鎶婁竴鏉¤绾跨粡杩囩殑璧板粖/鎴块棿鎸夐『搴忓垪鍑烘潵锛屽畾浣?鍝竴娈垫紡浜嗘柇鐐?銆?/summary>
         static string Describe(FloorPlan plan, Vector2 a, Vector2 b)
         {
             Vector2 dir = (b - a);
@@ -166,9 +164,7 @@ namespace EscapeFromWork.EditorTools
         }
 
         /// <summary>
-        /// R3 房间尺度体检：按真实轮廓（Outline 鞋带面积）算房间面积，打印分档直方图与中位数。
-        /// 目标是中位 90–130㎡、&lt;56㎡ 占比 ≤10%、56–113 / 113–200 / 200–400 / 400+ 约 40/35/20/5。
-        /// </summary>
+        /// R3 鎴块棿灏哄害浣撴锛氭寜鐪熷疄杞粨锛圤utline 闉嬪甫闈㈢Н锛夌畻鎴块棿闈㈢Н锛屾墦鍗板垎妗ｇ洿鏂瑰浘涓庝腑浣嶆暟銆?        /// 鐩爣鏄腑浣?90鈥?30銕°€?lt;56銕?鍗犳瘮 鈮?0%銆?6鈥?13 / 113鈥?00 / 200鈥?00 / 400+ 绾?40/35/20/5銆?        /// </summary>
         public static void Scale()
         {
             int[] seeds = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 };
@@ -221,11 +217,10 @@ namespace EscapeFromWork.EditorTools
         }
 
         /// <summary>
-        /// 追一条长视线为什么没被挡住：打印射线穿过的每面墙盒（沿路径的跨度）和附近的门登记。
-        /// 用法：-executeMethod EscapeFromWork.EditorTools.R2Probe.Ray
+        /// 杩戒竴鏉￠暱瑙嗙嚎涓轰粈涔堟病琚尅浣忥細鎵撳嵃灏勭嚎绌胯繃鐨勬瘡闈㈠鐩掞紙娌胯矾寰勭殑璺ㄥ害锛夊拰闄勮繎鐨勯棬鐧昏銆?        /// 鐢ㄦ硶锛?executeMethod EscapeFromWork.EditorTools.R2Probe.Ray
         /// </summary>
-        /// <summary>沿最坏视线打印穿过的房间/走廊/门与挡视屏，用来判断缺口到底在哪一段。</summary>
-        /// <summary>道具统计：计划里有多少件、按名字分组、其中多少能查到目录预制体。</summary>
+        /// <summary>娌挎渶鍧忚绾挎墦鍗扮┛杩囩殑鎴块棿/璧板粖/闂ㄤ笌鎸¤灞忥紝鐢ㄦ潵鍒ゆ柇缂哄彛鍒板簳鍦ㄥ摢涓€娈点€?/summary>
+        /// <summary>閬撳叿缁熻锛氳鍒掗噷鏈夊灏戜欢銆佹寜鍚嶅瓧鍒嗙粍銆佸叾涓灏戣兘鏌ュ埌鐩綍棰勫埗浣撱€?/summary>
         public static void Props()
         {
             FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(1));
@@ -252,7 +247,7 @@ namespace EscapeFromWork.EditorTools
             Debug.Log(sb.ToString());
         }
 
-        /// <summary>设施分布：每层多少种设施/主题、各设施的房间数与面积中位数。</summary>
+        /// <summary>璁炬柦鍒嗗竷锛氭瘡灞傚灏戠璁炬柦/涓婚銆佸悇璁炬柦鐨勬埧闂存暟涓庨潰绉腑浣嶆暟銆?/summary>
         public static void Facilities()
         {
             int[] seeds = { 1, 2, 3, 7 };
@@ -289,11 +284,53 @@ namespace EscapeFromWork.EditorTools
             Debug.Log(sb.ToString());
         }
 
-        /// <summary>房间真实面积：有 Outline 用鞋带公式，否则退回包围盒。</summary>
+        /// <summary>鎴块棿鐪熷疄闈㈢Н锛氭湁 Outline 鐢ㄩ瀷甯﹀叕寮忥紝鍚﹀垯閫€鍥炲寘鍥寸洅銆?/summary>
         static float AreaOf(Room room)
         {
             if (room.Outline == null || room.Outline.Length < 3) return room.Rect.Area;
             return Mathf.Abs(FloorEnvelope.SignedArea(room.Outline));
+        }
+
+        /// <summary>
+        /// 鐢熸垚鑰楁椂鍩虹嚎锛歊7 鐨勫嚭鐢熷尯鏁ｅ竷淇浼氶澶栬窇绮楁爡鏍?flood锛?000 绉嶅瓙鎵规祴瀵规垚鏈緢鏁忔劅锛?        /// 鐢ㄨ繖涓帰閽堢‘璁ゃ€屾瘡灞傚鑺卞灏戞绉掋€嶈€屼笉鏄瓑鎵规祴璺戝崄鍒嗛挓銆?        /// </summary>
+        public static void SpawnBench()
+        {
+            const int n = 120;
+            System.Diagnostics.Stopwatch gen = System.Diagnostics.Stopwatch.StartNew();
+            List<FloorPlan> plans = new List<FloorPlan>();
+            for (int seed = 1; seed <= n; seed++) plans.Add(FloorGenerator.Generate(FloorSpec.Default(seed)));
+            gen.Stop();
+
+            System.Diagnostics.Stopwatch audit = System.Diagnostics.Stopwatch.StartNew();
+            int failed = 0;
+            float worstRatio = float.MaxValue;
+            float minDiameter = float.MaxValue;
+            for (int i = 0; i < plans.Count; i++)
+            {
+                FloorPlan plan = plans[i];
+                FloorValidator.Grid g = FloorValidator.BuildGrid(plan, FloorValidator.CoarseCell);
+                float diameter = FloorValidator.CoarseDiameter(plan, g);
+                if (diameter < minDiameter) minDiameter = diameter;
+                FloorValidator.SpawnSpacingAudit a = FloorValidator.AuditSpawnSpacing(plan, g, diameter);
+                if (!a.Ok)
+                {
+                    failed++;
+                    Debug.Log(string.Format(
+                        "R2PROBE BENCH FAIL seed={0} spawns={1} min={2:F1} req={3:F1} diameter={4:F1} ratio={5:F2}",
+                        i + 1, plan.SpawnZones.Count, a.MinDistance, a.Required, diameter,
+                        a.Required > 0f ? a.MinDistance / a.Required : 0f));
+                }
+                if (a.Required > 0f)
+                {
+                    float ratio = a.MinDistance / a.Required;
+                    if (ratio < worstRatio) worstRatio = ratio;
+                }
+            }
+            audit.Stop();
+            Debug.Log(string.Format(
+                "R2PROBE BENCH seeds={0} gen_ms={1} gen_per_seed={2:F1} audit_ms={3} audit_per_seed={4:F1} spacing_fail={5} worst_ratio={6:F2} min_diameter={7:F1}",
+                n, gen.ElapsedMilliseconds, gen.ElapsedMilliseconds / (double)n,
+                audit.ElapsedMilliseconds, audit.ElapsedMilliseconds / (double)n, failed, worstRatio, minDiameter));
         }
 
         static float SumLength(FloorPlan plan)

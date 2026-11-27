@@ -1486,6 +1486,9 @@ namespace EscapeFromWork.LevelGen
         }
 
         /// <summary>出生区必须落在真实可走的地面上：四个角各取最近的房间/走廊，而不是写死角落坐标。</summary>
+        /// <summary>出生区散布修复开关（R7）。关掉只用于测生成耗时基线，不要在提交里改成 false。</summary>
+        const bool EnableSpawnRepair = true;
+
         static void AddSpawnZones(FloorPlan plan, FloorSpec spec)
         {
             Vector2[] corners =
@@ -1530,18 +1533,93 @@ namespace EscapeFromWork.LevelGen
                 if (best < 0)
                 {
                     // 没有可用房间时不写死角落：角落可能正好在外廓截角/缺口外面。
+                    // used 必须和 SpawnZones 等长（-1 = 兜底出生区，没有对应候选），否则后面修复会错位换人。
                     Vector2 p = PullInsideFloor(plan, corners[c]);
                     plan.SpawnZones.Add(new RectF(p.x - 6f, p.y - 6f, 12f, 12f));
+                    used.Add(-1);
                     continue;
                 }
 
                 used.Add(best);
-                RectF pick = candidates[best];
-                float size = Mathf.Min(10f, Mathf.Min(pick.W - 0.4f, pick.H - 0.4f));
-                if (size < 2f) size = 2f;
-                Vector2 center = pick.Center;
-                plan.SpawnZones.Add(new RectF(center.x - size * 0.5f, center.y - size * 0.5f, size, size));
+                plan.SpawnZones.Add(MakeSpawnRect(candidates[best]));
             }
+
+            if (EnableSpawnRepair && candidates.Count > plan.SpawnZones.Count) RepairSpawnSpread(plan, candidates, used);
+        }
+
+        static RectF MakeSpawnRect(RectF pick)
+        {
+            float size = Mathf.Min(10f, Mathf.Min(pick.W - 0.4f, pick.H - 0.4f));
+            if (size < 2f) size = 2f;
+            Vector2 center = pick.Center;
+            return new RectF(center.x - size * 0.5f, center.y - size * 0.5f, size, size);
+        }
+
+        /// <summary>
+        /// R7：出生区之间的**步行**距离必须 ≥ 本层锚点直径的 35%（锚点 = 出生区 + 撤离候选 + 走廊中点）。
+        ///
+        /// 做法是"最远点贪心"：先建 2 m 粗栅格的候选两两距离矩阵，再从第一个出生区附近的候选起步，
+        /// 每次取"离已选集合最远"的候选，直到选满。比"逐个替换最近的一对"稳（后者在候选都挤在
+        /// 西侧时会卡住，seed 79 实测只能到 16 m），而且只花每个候选一次 flood 的钱 ——
+        /// 1 m 栅格逐候选 flood 会把 1000 种子批测从约 2 分钟拖到 10 分钟（实测 596s）。
+        /// </summary>
+        static void RepairSpawnSpread(FloorPlan plan, List<RectF> candidates, List<int> used)
+        {
+            int want = plan.SpawnZones.Count;
+            if (want < 2 || candidates.Count <= want) return;
+
+            FloorValidator.Grid g = FloorValidator.BuildGrid(plan, FloorValidator.CoarseCell);
+            float diameter = FloorValidator.CoarseDiameter(plan, g);
+            if (diameter <= 1f) return;
+
+            // 候选太多时（外廓把四角切掉会退回全部房间/走廊）按步长抽样到 ≤24 个，先保留初始选中的。
+            List<int> pool = new List<int>();
+            for (int i = 0; i < used.Count && i < want; i++)
+                if (used[i] >= 0 && !pool.Contains(used[i])) pool.Add(used[i]);
+            int step = Mathf.Max(1, Mathf.CeilToInt(candidates.Count / 16f));
+            for (int i = 0; i < candidates.Count && pool.Count < 16; i += step)
+                if (!pool.Contains(i)) pool.Add(i);
+            if (pool.Count < want) return;
+
+            int m = pool.Count;
+            float[,] dist = new float[m, m];
+            for (int i = 0; i < m; i++)
+            {
+                float[] fl = FloorValidator.Flood(g, candidates[pool[i]].Center);
+                for (int j = 0; j < m; j++)
+                    dist[i, j] = i == j ? 0f : FloorValidator.WalkDistanceAt(g, fl, candidates[pool[j]].Center);
+            }
+
+            // 起点：离第一个出生区最近的候选（保住"四个角各有出生区"的语义），再贪心取最远点。
+            int first = 0;
+            float bestSeed = float.MaxValue;
+            Vector2 anchor = plan.SpawnZones[0].Center;
+            for (int i = 0; i < m; i++)
+            {
+                float d = (candidates[pool[i]].Center - anchor).sqrMagnitude;
+                if (d < bestSeed) { bestSeed = d; first = i; }
+            }
+
+            List<int> picked = new List<int>(want) { first };
+            float[] nearest = new float[m];
+            for (int i = 0; i < m; i++) nearest[i] = dist[first, i];
+            while (picked.Count < want)
+            {
+                int next = -1;
+                float best = -1f;
+                for (int i = 0; i < m; i++)
+                {
+                    if (picked.Contains(i) || nearest[i] < 0f) continue;
+                    if (nearest[i] > best) { best = nearest[i]; next = i; }
+                }
+                if (next < 0) break;
+                picked.Add(next);
+                for (int i = 0; i < m; i++)
+                    if (dist[next, i] >= 0f && (nearest[i] < 0f || dist[next, i] < nearest[i])) nearest[i] = dist[next, i];
+            }
+            if (picked.Count < want) return;
+
+            for (int i = 0; i < want; i++) plan.SpawnZones[i] = MakeSpawnRect(candidates[pool[picked[i]]]);
         }
     }
 }
