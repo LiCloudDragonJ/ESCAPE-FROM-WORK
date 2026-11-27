@@ -1,4 +1,7 @@
-# 3D 重构 · 里程碑（企业巨构版）
+# 3D 重构 · 里程碑
+
+> **状态只看 [07-handoff.md](07-handoff.md)**（现状 / 已完成 / 下一步 / 教训 / 资源清单都在那里）。
+> 本文只保留：里程碑定义、验收门槛、风险、不做清单，以及 M0–M1 期定下就不要再改回去的实现口径。
 
 ## 0. Vertical slice 定义
 
@@ -12,21 +15,21 @@
 | 阶段 | 内容 | 验收标准 |
 |---|---|---|
 | M0 地基 | 新建 game/ 工程；asmdef 分层；Input System；FPS 控制器（走/跑/蹲/跳/台阶/斜坡）；白盒测试房 | 1080p 60fps；输入可重绑定；手柄可用 |
-| M1 生成器 | Floor Lab 编辑器工具；骨架/分区/走廊/房间/门/家具；8 块分块生成；运行时 NavMesh；灯池；地图（区域级迷雾 + 本队撤离点标记）；按队伍分配出生区与撤离点；校验器 | 1000 种子批量生成：零穿模、全连通、约束全过；出生→本队撤离点寻路 ≥150m 且不在视线内；32,000㎡ 单层 <3s；Floor Lab 可出俯视图人工审 |
-| M2 战斗 | 3 把办公武器；ADS；后坐力；弹道下坠；护甲与命中区；敌人 AI（视锥、听觉、掩体、巡逻） | 手感可调参；AI 会压制与绕后；命中反馈清晰；40 AI 同屏不掉帧 |
-| M3 搜打撤 | 容器搜刮；10×6 网格背包与负重；撤离读条；每 5 层存档点解锁；存档、仓库、死亡结算 | 完整跑通 50→45→40；死亡正确回最近存档点；重启游戏进度不丢 |
-| M4 AI 对手 | 会搜刮、交战、抢撤离点的 AI 干员；遭遇导演；组队规则桩 | 玩家能感到有人在抢资源，而不是打木桩 |
+| M1 生成器 | Floor Lab；骨架/分区/走廊/房间/门/家具；分块生成；运行时 NavMesh；灯池；地图迷雾；出生区与撤离点；校验器 | 1000 种子零穿模、全连通、约束全过；出生→本队撤离点寻路达标；32,000㎡ 单层 <3s |
+| M2 战斗 | 3 把办公武器；ADS；后坐力；弹道下坠；护甲与命中区；敌人 AI（视锥、听觉、掩体、巡逻） | 手感可调参；AI 会压制与绕后；40 AI 同屏不掉帧 |
+| M3 搜打撤 | 容器搜刮；10×6 网格背包与负重；撤离读条；每 5 层存档点；存档、仓库、死亡结算 | 完整跑通 50→45→40；死亡回正确存档点 |
+| M4 AI 对手 | 会搜刮、交战、抢撤离点的 AI 干员；遭遇导演；组队规则桩 | 玩家能感到有人在抢资源 |
 | M5 内容 | 50–40 段模块美术；Boss 层；音频；UI 打磨；性能优化 | 60fps（GTX 1060）；可录 demo |
-| M6 联机 | FishNet 专用服务器；按层匹配（下坠换局，60s 集结 + AI 补位）；服务器权威；基础反作弊 | 双人组队跑通完整循环（含下坠进新局） |
+| M6 联机 | FishNet 专用服务器；按层匹配；服务器权威；基础反作弊 | 双人组队跑通完整循环 |
 
-## 2. 验收清单（每个里程碑结束跑一遍）
+## 2. 每个里程碑结束跑一遍
 
-- 编译零警告（至少零错误）。
-- EditMode 测试全绿。
+- 编译零错误（警告尽量清零）。
+- EditMode 全绿（当前基线见 07 §4.4）。
 - 1000 种子生成批测通过。
 - 60fps 目标机器实测（32,000㎡ 满 AI）。
-- 无内存泄漏（连续进出 10 层）。
-- 存档写入原子性（断电模拟）。
+- 连续进出 10 层无内存泄漏。
+- 存档原子性（断电模拟）。
 - 电梯 5s 内完成下一层生成。
 
 ## 3. 风险
@@ -37,377 +40,39 @@
 | 程序化大平层不好看/不好玩 | 高 | Floor Lab 先审布局；每层 2–4 个功能区；灰盒先跑通 |
 | 运行时生成慢 | 中 | 电梯 5s 覆盖 3s；NavMesh 异步；失败种子落盘 |
 | Boss 层程序化不公平 | 中 | 约束注入 + 1000 种子抽检 + 人工试玩 |
-| 全部程序化导致重复感 | 高 | 10 种原型 × 每层多分区 × 事件 × 尺寸差异 |
+| 全部程序化导致重复感 | 高 | 设施语法库（18 类 × 7 主题）+ 尺寸差异 + 事件 |
 | 联机返工 | 高 | Rules 层纯 C#；seed 确定性；命令化输入 |
 | 单人体量 | 高 | 先做 10 层 VS，验证后再铺 50 层 |
 
 ## 4. 明确不做
 
-- 不做线性战役。
-- 不做手工关卡。
+- 不做线性战役、不做手工关卡。
 - 不做载具、干员技能、藏身处。
 - 不做抽卡、内购。
 - M0–M5 不做联机。
 
-## 5. M0 状态（2026-11-24，已完成）
+## 5. M0–M1 期定下的实现口径（别改回去）
 
-**交付物**
-
-| 项 | 状态 | 位置 |
+| 项 | 口径 | 代码 |
 |---|---|---|
-| 新工程（团结 1.11.1 / 2022.3.62t18，URP 14.2.0-t1） | ✅ | `game/` |
-| asmdef 分层 Core / Data / LevelGen / Gameplay / AI / UI / Editor / Tests | ✅ | `game/Assets/_Project/Scripts/**` |
-| Input System 映射 + 运行时改键 + PlayerPrefs 存档 | ✅ | `Gameplay/Player/PlayerInputActions.cs` |
-| 第一人称控制器（走/跑/蹲/跳/台阶/斜坡/空中控制/鼠标+手柄） | ✅ | `Gameplay/Player/FirstPersonController.cs` |
-| 白盒测试场景（50×50 封闭楼层：结构板 + 3.37m 吊顶 + 灯盘、双房间、台阶、斜坡、蹲行横梁、柱/箱） | ✅ | `Assets/_Project/Scenes/Whitebox.unity` |
-| 吊顶/层高构造（4.2m 层高、3.4m 净高、楼梯间不吊顶） | ✅ | `docs/3d-rebuild/02-level-design.md` §2.1 |
-| 性能 HUD（F3：FPS / ms） | ✅ | `Gameplay/Player/PerfHud.cs` |
-| 自动化测试 | ✅ 6 EditMode + 2 PlayMode | `Assets/tests/` |
-| 白盒截图 | ✅ 1920×1080 | `docs/3d-rebuild/screenshots/m0-whitebox.png` |
-
-**验收**
-
-- EditMode 6/6、PlayMode 2/2 通过（`Tuanjie.exe -batchmode -runTests`）。
-- 60fps 验收需人工：打开 `game/` 工程 → 载入 `Whitebox` → Play → F3 看帧率。batchmode 下 dt 失真，不能作为帧率依据。
-- 已知：batchmode 中 `CharacterController.isGrounded` 在极小 dt 下会漏判，已加向下 Raycast 兜底；真实帧率下无影响。
-
-**M0 遗留（不阻塞 M1）**
-
-- 没有动画、音效、UI 框架、存档、武器——按里程碑本就属于后续阶段。
-- 工程未提交 git（等用户确认）。
-
-## 6. M1 状态（2026-11-24，生成器部分完成）
-
-**交付物**
-
-| 项 | 状态 | 位置 |
-|---|---|---|
-| BSP 随机切分生成器 v2（随机切、按切分预留走廊带、叶子里填房间） | ✅ | `game/Assets/_Project/Scripts/LevelGen/FloorGenerator.cs` |
-| 走廊三级（主 4.8m / 次 3.6m / 三级 2.7m）+ 净宽规则 | ✅ | `FloorTypes.cs` `FloorSpec` |
-| 走廊掩体：大/中/小三档、每组两侧各一件、同段至少两种尺寸、门口 1.2m 净空、中间留 ≥2.4m | ✅ | `LevelGen/CoverProps.cs` `CoverPlacer` |
-| 长走廊隔断墙（26–32m 一道、只留 2.4m 通过、两侧交替、不堵门） | ✅ | `CoverProps.AddSightBreaks` |
-| 多门（≥80㎡ 房间至少两道门；环路门；套间门） | ✅ | `AssignCorridorDoors` / `AddLoopDoors` |
-| 几何连通兜底（1m 栅格泛洪 + 补门，防止只是"图连通"） | ✅ | `EnsureGridConnectivity` |
-| 出生区吸附真实地面（四角取最近房间/走廊切 10×10） | ✅ | `AddSpawnZones` |
-| Floor Lab 编辑器窗口（调参、单张出图、批量出图） | ✅ | `game/Assets/_Project/Scripts/Editor/FloorLabWindow.cs` |
-| 3D 实体化：整块地板/吊顶 + 13 个合并 Mesh + 门洞 + 48 盏灯池 | ✅ | `LevelGen/FloorGeometry.cs`、`LevelGen/FloorRuntime.cs`、`Assets/_Project/Scenes/FloorTest.unity` |
-| 运行时 NavMesh 烘焙（NavMeshBuilder，agent 0.35/1.8/45°/0.4） | ✅ 代码 | `FloorGeometry.BuildNavMesh` |
-| 地图迷雾 HUD（区域级揭示、未探索只给区域名、撤离点常显、不暂停） | ✅ | `UI/MapHud.cs`（MapFog / MapRaster / MapHud） |
-| 撤离点选点（固定设施候选 → 按出生区散布启用 4–6 个） | ✅ | `FloorGenerator.AddExtractions` / `EnsureExtractionSpread`、`FloorPlan.ExtractionCandidates` |
-| 撤离点散布自检（行走距离 ≥60% 对角线、视线遮挡） | ✅ | `LevelGen/FloorValidator.cs`、`FloorGenerator.EnsureExtractionSpread` |
-| 运行时 8 块分块流式几何（2×4=8 块、每块 4000㎡、外壳常驻、按观众距离加载/卸载） | ✅ | `LevelGen/FloorChunkGrid.cs`、`FloorChunkPlan.cs`、`FloorChunkGeometry.cs`、`FloorStreamer.cs`、`FloorStreamingRuntime.cs`、`Scenes/FloorStreamingTest.unity` |
-| EditMode 测试（含 1000 种子批测、分块流式、分块几何成本） | ✅ 42/42 | `game/Assets/tests/EditMode/` |
-
-**验收数据（2026-11-24）**
-
-- EditMode 42/42 通过，整轮 191.7s（含 1000 种子批测、120 种子出生区散布检查、分块流式 10 项与 8 块几何成本测试；修正撤离点选点后重跑）。
-- 1000 种子：房间 >8、撤离点 4–6、出生区 4、柱子 >20、覆盖率 0.5–0.96、房间门率 ≥90%、1m 栅格连通率 >98%。
-- 生成速度（编辑器单线程）：平均 186ms/层；塔身 200×160 约 20–60ms，裙房 280×280 约 400ms，最慢种子 789ms。仍在 3s 预算内。
-- 单层布局指标（seed 1，200×160）：268 房 / 覆盖 59% / 走廊 30% / 空腔 11% / 53 条走廊 2146m / 掩体 724 件。
-
-**3D 与 HUD 验收数据（2026-11-24，本机 batchmode）**
-
-- FloorTest（seed 1，200×160）：237 房 / 102 走廊 / 825 掩体 / 5 撤离点（旧选点逻辑生成的场景；重建后按新选点取 4–6 个），出生点 (12.02, 0.20, 13.88)。
-- 几何合计 83,448 顶点、13 个渲染器（Walls 30,408 顶点 / Floor、Ceiling 各 8,208 / Columns 10,704 / Props 22,984 / LightPanels 5,688 / SightBreaks 816），bounds 全在楼体范围内。
-- 截图：`screenshots/m1-floor3d-spawn.png`、`m1-floor3d-corridor.png`、`m1-floor3d-core.png`。
-- 地图迷雾：`MapFog` 2m 格 + 30m/视锥揭示；`MapRaster` 800×640（4px/m）。
-
-**分块流式验收数据（2026-11-24，本机 batchmode）**
-
-- `FloorStreamingTest.unity`（seed 1，200×160，237 房）：FloorStreamingRuntime 加载半径 1 / 卸载半径 2 / 每帧 2 块，外壳常驻、8 块按观众所在块流式进出；出生点 (12.02, 0.20, 13.88) 与 FloorTest 一致。
-- 几何成本：单块 0.9–2.2ms（311–368 个构件）、外壳 3.8ms、8 块合计 13.4ms（编辑器实测，不含渲染与碰撞体烘焙）。
-- 裁剪正确性：分块后墙体体积之和与整层原值一致（误差 <0.1%）；掩体/出生台/灯板按块裁剪后无缺失；撤离点与灯光按中心唯一归属。
-- 流式策略：最近块优先、每帧预算 1–2 块、卸载带 2 块滞回；EditMode 10 项测试覆盖网格铺满/不重叠、裁剪守恒、归属唯一、预算、优先序、卸载滞回、确定性、外壳+块构建。
-
-**AI 材质管线（2026-11-24，本机 ComfyUI）**
-
-- 生成端：`F:\ComfyUI`（SDXL base 1.0）+ `efw_gen_materials.py`（SeamlessTile 用于可平铺）+ `efw_post_materials.py`（接缝检测/offset-blend、Sobel 法线、AO/金属/光滑度打包）。
-- 7 种 1024² 可平铺贴图：CarpetTile、ConcreteFloor、WoodPanel、BrushedMetal、CeilingTile、PaintedWall、DarkMetal；后处理输出 Albedo / Normal / Mask 到 `game/Assets/_Project/Art/Textures/`。
-- Unity 端：`MaterialArtTextureImporter`（sRGB/法线/线性 alpha 自动设置）、`MaterialArtLibrary`（10 个槽位映射 + tiling，菜单 Escape From Work/Art/Build Material Library From Textures，`RebuildAll` 依次重建材质、两个场景与截图）。
-- 几何补平铺 UV：`FloorGeometry.WorldUv`（1 uv = 1 米，按法线主轴投影），否则灰盒无 UV 贴图无法映射。
-- 截图已用 AI 材质重出（`m1-floor3d-spawn/corridor/core.png`）；灯光/曝光仍偏亮偏平，手感与光照调优留给 Play 模式。
-
-**M1 剩余（详见 §12 收尾计划，2026-11-25 定稿）**
-
-- M1-A 房间轮廓不再清一色矩形：**楼层外廓多边形化已完成第 1–2 步**（外廓截角/缺口 + 房间被外廓裁成凸多边形 + 地板/吊顶/外壳墙多边形几何，见 §13）；剩余第 3 步（导航栅格/小地图/分块按多边形）与第 4 步（斜墙隔断、L 形合并）。凹龛（A1）未做。
-- M1-B 真实帧率下的 60fps 与灯池验收（batchmode 测不出帧率，需高性能机 Play 模式实测）。
-- M1-C 灯光/曝光调优：当前 batchmode 截图偏亮、材质对比弱（灯池 48 盏与 ambient 需要实机调）。
-- M1-D PropCatalog（名字→prefab + 尺寸档 + 碰撞盒），打通灰盒与真实 3D 资产。
-- M1-E 分块 LOD / 剔除组与每块独立 NavMesh（设计文档口径，代码仍是整层 NavMesh）。
-
-## 7. 手感迭代（2026-11-25，供 Play 模式实测）
-
-**目标**：先让人能"跑起来"感受移动/镜头，再谈战斗。改动集中在控制器与跑测工具，生成器参数未动。
-
-**FirstPersonController 手感改动**（`game/Assets/_Project/Scripts/Gameplay/Player/FirstPersonController.cs`）
-
-| 项 | 旧 | 新 | 理由 |
-|---|---|---|---|
-| 走 / 冲刺 / 蹲 | 4.2 / 7.0 / 1.8 | **4.4 / 7.6 / 1.9** | 12 人 / 3,200㎡ 的层，走速 4.2 略拖 |
-| 地面加速 | 30 单一值 | **加速 40 / 减速 48** 分开 | 旧值松手后滑行过长，像冰面 |
-| 空中控制 | 6 | **8 加速 / 2 阻力** | 跳上掩体时能微调落点 |
-| 跳跃 | 1.05m，无缓冲 | **1.0m + 0.12s 跳跃缓冲** | 落地前一帧按跳不再吞输入 |
-| 重力 | -24 | **-26** | 下落更利落，配合 1m 跳高 |
-| 冲刺 FOV | 无 | **+7° 缓动（7/s）** | 速度感 |
-| 头部晃动 | 无 | **走 2.6cm / 冲刺 4cm，步幅 1.7m，含横向 35%** | 移动有重量；F1 可关 |
-| 落地缓冲 | 无 | **按落地速度下沉，上限 14cm，9/s 恢复** | 从掩体跳下不再"贴地滑走" |
-
-**跑测工具**
-
-- `UI/PlayTestControls.cs`（十字准星也在这里画）：**R 换一层（种子 +17）**，会重建分块几何、NavMesh、地图迷雾并把玩家传送到新出生区、朝向核心筒；**H 收起/展开控制说明**。
-- `FirstPersonController.Teleport(pos, yaw)`：换层时清速度/晃动相位，避免带着旧速度摔进新层。
-- `FloorStreamingRuntime.Regenerate(seed)`：销毁旧块/外壳/NavMesh，重置统计后重新 Initialize。
-- `MapHud.Rebuild(plan)`：换层后地图、迷雾、撤离点标记一起重建。
-- 场景入口：`Assets/_Project/Scenes/FloorStreamingTest.unity`（Build Settings 第一项）。
-
-**操作**：WASD 移动 / Shift 冲刺 / Ctrl 蹲 / Space 跳 / M 地图 / F1 视角晃动 / F3 帧率 / R 换层 / `[` `]` 实时调鼠标灵敏度 / Esc 解锁鼠标 / 左键锁回。锁定时屏幕中央有十字准星。
-
-**射击手感（同轮追加）**
-
-- `Gameplay/Weapons/HitscanWeapon.cs`：600 发/分全自动 hitscan，射程 120m，散布 1.4° 圆锥（`Random.insideUnitCircle`），后坐力 1.05° 上抬 + ±0.45° 水平抖动，每次射击调 `FirstPersonController.AddRecoil(pitch, yaw)`。
-- 后坐力走独立通道：控制器里 `recoilPitch/recoilYaw` 与鼠标视角 `pitch` 分开累加，`ApplyCameraRotation()` 统一写 `cameraRig.localRotation = Euler(pitch + recoilPitch, recoilYaw, 0)`，然后以 `recoilRecover = 16` 的速率 Damp 回零（20 发/秒也能回中，不会锁死在抬头）。
-- `Gameplay/Weapons/ImpactFx.cs`：不依赖任何美术资源，命中点贴一个压扁的暗色小球（6s 自动销毁），枪口闪 0.09m 亮球（0.05s）。材质用 URP/Unlit 运行时创建，`HideFlags.DontSave`。
-- 无弹药/换弹/伤害结算：本轮只验证"开枪的反馈是否跟手"，命中判定就打在墙壁/掩体上。
-
-**本轮未做**（下一步）：伤害与敌人、体力条、脚步/环境音、灯光曝光调优、PropCatalog、武器模型与动画。
-
-## 8. 视觉与空间修正（2026-11-25）
-
-针对实测反馈"墙体侧面镂空、悬空纸片墙、地图像迷宫、死胡同房间太多、房间数过多"。
-
-**墙体：从"每房间四边"改为"按矩形轮廓合并"**（`game/Assets/_Project/Scripts/LevelGen/FloorGeometry.cs`）
-
-- 旧实现给每个房间的四条边各砌墙，而房间相对 BSP 叶子内缩 `WallInset = 0.2`，相邻房间之间留下 0.2–0.4m 空腔，从缝隙能看穿到没有几何的虚空 → 视觉上"墙体侧面镂空"；门楣落在两片墙之间像悬空纸片。
-- 新实现：房间先 `Rect.Inflate(WallInset)` 恢复到叶子边界，再和走廊/楼梯/核心筒/出生区一起把四条边丢进 `Dictionary<int, List<Vector2>>`（水平/垂直两组），按 `LineGrid = 0.05m` 量化行坐标后合并重叠区间，最后同一行只出一段墙。
-- 门：`CutDoor` 在门中心 0.6m 内找最近墙线，`CutSpan` 扣出门洞（半宽 `max(0.45, width/2+0.04)`），并在门洞上方补门楣（`y=(DoorHeight+CeilingY)/2`，厚 0.2）。
-- 门去重键从"中心 + 朝向"改为"仅中心"：同一处两个朝向不同的门曾各切一次，导致两道门楣叠在一起（`m1-tests35` 报 `overlap=1.88`）。
-- 行坐标必须量化：未量化时 40.000 与 40.005 是两条线，各出一段墙、肉眼重叠（`seed 7 overlap=10.48`）。
-
-**房间合并（降低迷宫感）**（`game/Assets/_Project/Scripts/LevelGen/FloorGenerator.cs`、`FloorTypes.cs`）
-
-- BSP 最大深度 11 → 9；停止概率整体下调（`>900㎡ 0`、`>620 0.06`、`>400 0.30`、`>220 0.62`、`>120 0.85`、其余 0.95）；硬上限 620/42/34 → 900/48/40。
-- 最小房间面积 40 → 60㎡，切分时两侧子块都必须 ≥ `MinRoomArea × 1.1`，否则这块谁也进不去。
-- 效果（seed 1 塔身）：房间 200 → **119**，走廊 100 → 88，掩体 897；平均房间面积约 269㎡。
-
-**吊顶灯盘**（`FloorGeometry.CollectPanelBoxes`）
-
-- 房间内按 3.6 × 3.0m 网格铺 600 × 1200 灯盘（相邻盘旋转 90° 交替），走廊沿长轴每 6m 一盏；自发光 `(5.0, 4.8, 4.2)`。
-- 实时灯池 48 → 72 盏，range 18，intensity 8，无阴影；ambient `(0.42, 0.43, 0.47)`。
-- 出生区地贴从薄荷绿 `(0.35,0.65,0.45)` 压到深绿 `(0.20,0.28,0.23)`，不再抢画面。
-
-**截图取景修复**（`game/Assets/_Project/Scripts/Editor/M1FloorScene.cs`）
-
-- 新增 `BestViewDirection(eye, out distance)`：水平 24 方向射线探测，取最开阔方向，出生点不再对着墙角。
-- 核心筒镜头改为站在离核心筒最近、面积 ≥150㎡ 的大开间里朝核心筒看，能同时拍到房间、柱网与吊顶。
-
-**测试**：新增 `game/Assets/tests/EditMode/WallLayoutTests.cs`（同线不叠两层墙、每扇门都有门楣）；全部 EditMode 55 项通过。
-## 9. 柱子贴墙 / 美术接口（2026-11-25 下午）
-
-**"悬空竖条"的真因是柱子，不是墙**（`FloorGeometry.CollectColumnBoxes`）
-
-- 诊断：临时菜单 `M1FloorScene.CaptureGroupColors` 给 13 组材质上平涂调试色（墙红、柱绿、吊顶深蓝灰…），输出 `docs/3d-rebuild/screenshots/m1-group-colors.png`。结果 4 根竖条全是**绿色 = 结构柱**。
-- 真因：8m 柱网直接出 0.6×0.6 柱，没排除落在墙线上的柱；0.6 的柱被 0.2 的墙切掉一半，只剩 0.2–0.3 的薄片贴在墙边，读起来就是"贴在墙上的薄板 / L 型纸片墙"。
-- 修复：出柱前先收集墙盒（外壳 + 内墙），柱中心距任一墙盒 < 墙半宽 + 0.3 + 0.05 就丢弃。
-- 回归测试：`WallLayoutTests.Columns_NeverStandInsideAWall`（seed 1/3/7，柱盒与墙盒 XZ 相交即失败）。
-
-**PropCatalog：灰盒与真模型的同一接口**
-
-- `game/Assets/_Project/Scripts/LevelGen/PropCatalog.cs`：ScriptableObject，`Entry{ Name, Prefab, Size, Offset, AddBoxCollider }`；`PropSpawner.TrySpawn` 负责实例化、按走廊方向转 90°、必要时补 BoxCollider。
-- 生成器完全不知道 prefab 的存在：名字命中就出模型，没命中就继续用合并灰盒（`FloorChunkGeometry.BuildChunk` / `FloorGeometry.Build` 都加了 catalog 重载）。
-- 资产默认落在 `game/Assets/_Project/Data/PropCatalog.asset`，M1 构建时自动创建并挂到运行时。
-- 建模规范写在 `docs/3d-rebuild/04-3d-assets.md`：1 unit = 1m、pivot 底面中心、正面 +Z、单碰撞体（禁止 MeshCollider）、面数 1500/900/300 各带一级 LOD、共享图集。
-
-**灯光**：点光从贴顶（CeilingY-0.3）下挂到 CeilingY-1.0，range 18→16，intensity 8→5.5，吊顶正上方的硬热点明显减轻。
-
-**测试**：全部 EditMode **59/59 通过**（`game/m1-tests63.xml`）。
-
-## 10. 盒子侧面绕序反了（2026-11-25 傍晚，重大视觉 bug）
-
-**现象**：结构柱"只有左和后两个面"，墙面看起来像贴纸、侧面发虚，门洞边缘像薄板。
-
-**真因**：`FloorGeometry.MeshAccum.AddBox` 的四个侧面顶点顺序按"法线朝外"的直觉写，但 Unity 以顺时针为正面——四个侧面实际是逆时针，几何法线朝盒内。近侧的面被背面剔除，人只看到**远侧内壁**，也就是"只剩两个面"。顶面与底面恰好是对的。
-
-**判定方法**：三角形几何法线 `Vector3.Cross(b - a, c - a)` 必须与顶点法线同向。已在 `MeshAccum.AddBox` 改正四个侧面的绕序（注释保留原因）。
-
-**回归测试**：`game/Assets/tests/EditMode/MeshWindingTests.cs`
-- `AccumulatedBoxes_FaceOutward`：单盒 12 个三角形逐个校验 `dot(cross, normal) > 0`。
-- `FloorGeometry_MeshesFaceOutward`：seed 1/3 整层几何遍历所有 MeshFilter 逐三角形校验。
-
-**顺带调高 SSAO**：`Assets/Settings/URP-HighFidelity-Renderer.asset` 强度 0.5→**1.35**、半径 0.25→**0.65**、采样 Low→Medium。墙-地、墙-顶、柱-地出现接触阴影，柱子的两个可见面明暗分离，不再读成平板。
-
-**新增截图**：`docs/3d-rebuild/screenshots/m1-column-closeup.png`（45° 角拍独立柱，确认柱体是完整六面体）。
-
-## 11. 地板缝 / 进去是死胡同（2026-11-25 傍晚）
-
-**现象**：玩家能走进一块没有出口的窄腔体（"进去之后是死胡同"），近看是墙之间的地板缝，远看像墙上有洞。
-
-**真因（不是门不够）**：
-1. 房间矩形按 BSP 叶子内缩 `FloorSpec.WallInset = 0.2`，而墙中心线画在叶子边界上，墙厚只有 `WallThickness = 0.2` → 每道隔墙两侧各留 0.1m 无墙、无实心体的裸地板。
-2. 更宽的缝被 `FloorGeometry.CollectVoidBoxes` 的掩膜漏判：原实现把"房间/走廊矩形内缩 0.32m 后仍在内"当作实心区，缝里的采样点正好落在内缩带上，于是被判成"内部"，一个实心体都不生成，缝隙对外敞开。
-
-**量化（0.25m 采样、每层 512000 点，逐点判定"可走区 或 壳墙/内墙/实心体盒"）**
-
-| 层（seed） | 修复前空洞占比 | 修复后 |
-|---|---|---|
-| 1 | 2.74% | 0.34% |
-| 2 | 3.00% | 0.46% |
-| 3 | 2.71% | 0.34% |
-
-门数直方图（seed 1/2/3，每个房间的出口数）：none=0/0/0、one=1/3/0、two=118/101/108、many=28/36/32 —— 绝大多数房间本来就有 2 个以上出口，"死胡同"的体感主要来自上述地板缝。
-
-**修复**
-- `FloorGeometry.WallBodyThickness(plan) = Mathf.Max(WallThickness, plan.Spec.WallInset * 2f)`（= 0.4m）。`EmitLines` 与 `CutDoor`（含门楣）都改用这个厚度；外墙以层边界为中心、厚 0.4m。
-- `CollectVoidBoxes` 的格子从 0.5m 收到 0.2m，掩膜改成栅格化 `Rasterise(grid, cols, rows, cell, rect, inflate)`，房间/走廊/楼梯/核心筒/出生区一律 inflate=0；非可走格 → 0.2m 高实心体，读作管井/实心墙芯。
-- 柱子：`CollectColumnBoxes` 增加 `StandingInBigVolume` 过滤，8m 柱网的 0.6×0.6 柱只保留在 ≥120㎡ 的大开间或走廊里（原先 370 根散落在小房间里，既无结构意义又挡视线）。
-
-**回归测试** `game/Assets/tests/EditMode/FloorCoverageTests.cs`：`SlabIsEitherWalkableOrFilled([Values(1,2,3,7)])` 断言"未覆盖采样点 < 1%"，修复前会以 2.7% 失败（4/4 通过）。
-
-**重出图**（同日 16:49）：`m1-floor3d-spawn.png`、`m1-floor3d-corridor.png`、`m1-floor3d-core.png` —— 墙面连续、门洞两侧是厚墙墩，走廊里不再有能钻进去的斜缝。
-
-**仍待办**：房间全是轴对齐矩形（BSP 二分所致），需要 45° 切角 / L 形合并 / 凹龛这类非矩形轮廓才有建筑感，属生成器的大改，已排进 §12 的 M1-A（凹龛 → 45° 切角 → L 形套间）。
-
-## 12. M1 收尾计划（2026-11-25 定稿，换机交接用）
-
-M1 的目标是"能跑起来的灰盒楼层"：程序化生成 + 3D 实体化 + 迷雾 HUD + 8 块流式加载已经能出图，剩下的五项按下面的顺序做。**B、C 只需要 Play 模式看，建议换到高性能机先做这两项**（最快出结论），再回生成器做 A，最后 D、E。
-
-### 12.1 M1-A 房间轮廓不再是清一色矩形
-
-现在的房间全部来自 BSP 二叉切分，所以必然是轴对齐矩形，调参数变不出来。分三步，每步独立可交付、独立可回滚。
-
-> **进度（2026-11-26）**：A2 换成了更彻底的做法——先造非矩形**楼层外廓**，再用外廓裁剪每间房（房间是外廓裁出的凸多边形，`Room.Outline`）。第 1 步（数据）、第 2 步（地板/吊顶/外壳墙多边形化）已完成并通过全部测试，详见 **§13**；第 3 步（导航/小地图/分块多边形化）与第 4 步（斜墙隔断、L 形合并）未做。A1 凹龛、A3 L 形套间仍未开始。室内切角（`Room.Cuts`）作为外廓之外的补充保留。
-
-**A1 凹龛/壁柱（0.5–1 天，纯装饰，风险最低）**
-
-- 数据：房间增加 `List<RectF> Niches`（相对房间坐标）。`FloorGenerator.Emit` 里每间房 30% 概率在一条非门洞边挖 0.4–0.6m 深、2–3m 宽的凹龛。
-- 几何：`FloorGeometry.AddEdgeBoxes` 遇到凹龛边时改画"凹龛三面 + 两侧墙墩"，地板遮罩多一块凹龛矩形。
-- 验收：覆盖率测试仍 <1%；截图能看到墙上的浅凹（茶水间/打印位观感）。
-- 风险：凹龛挖到房间边界外时会与邻房墙重叠 —— 先只允许朝本层空白/走廊一侧挖。
-
-**A2 45° 切角（2–3 天，主力，最能破方格感）**
-
-- 数据模型升级（本项主要成本）：房间从 `RectF` 升级为**矩形 + 切角列表**，最多 8 顶点。新增结构 `RoomShape { RectF Bounds; Vector2[] Outline; }`，走廊/核心筒/楼梯保持矩形（Outline 即 4 点）。`FloorPlan.Rooms` 的 Rect 字段保留作包围盒，凡"点是否在房内"的判断一律走 `RoomShape.Contains`。
-- 生成：每间房随机切 0–2 个角，边长 1.5–3m；约束：切后最短边 ≥2.5m、门所在边不切、切角不越过门洞。
-- 几何：房间墙从"四条边"改成"逐边（含斜边）"生成，新增 `AddWallSegment(Vector2 a, Vector2 b, float thickness)`；斜边用旋转盒或沿边分段小盒（0.4m 一节），**每段绕序必须顺时针** —— 参考 §10 的教训与 `MeshWindingTests`。地板/吊顶遮罩、`CollectVoidBoxes` 的栅格化掩膜同步改成多边形填充。
-- 门：斜边暂不放门，`AffinityDoor` 仍只挑轴对齐边。
-- 迷雾/小地图：`MapRaster.Build` 的房间填充从矩形改多边形（逐像素奇偶判定即可，800×640 一次性成本可接受）。
-- 验收：新增测试 `Chamfer_CutsOnlyOutsideWalkableArea`（切角三角形区域不可走、房间其余部分仍可走）；`FloorCoverageTests` <1%；`MeshWindingTests` 全绿；出 spawn/corridor/core 三张对比图。
-- 风险：斜边接缝（切角处的地板缝）—— 复用 `Rasterise` 的实心体兜底，先跑覆盖率再调视觉。
-
-**A3 L 形套间（3–4 天，空间感提升最大但牵动断言）**
-
-- 生成：在 BSP 树上把两个相邻同 zone 叶子合并成一个 L 形大间（矩形 + 一条腿），或在 `Emit` 后把一间"扩展"进邻居短边；中间那道墙开 2.4m 宽洞（复用 `LoopDoors` 机制）。
-- 影响面：房间数量下降 → `ExtractionSpreadTests`（每个出生区 ≥2 个远端撤离点）、`FloorGeneratorBatchTests` 的 4–6 撤离点上限、`ChunkStreamingTests` 的构件数分布。
-- 验收：1000 种子批测全绿、覆盖率 <1%、出图能看到"开放办公区 + 里间"的层次。
-- 风险：合并后房间过大会让"每 40㎡ 一盏点光、共 48 盏"的预算不够 —— 大房间改为只给两盏。
-
-### 12.2 M1-B 真实帧率 60fps 与灯池验收（0.5 天，必须 Play 模式）
-
-batchmode 测不出帧率，只能在高性能机 Play 模式实测。步骤：
-
-1. 打开 `game/Assets/_Project/Scenes/FloorTest.unity`，Play，看 PerfHud 读数（帧率/帧时间/draw call）。
-2. Window > Analysis > Profiler：SetPass calls 目标 <3500；Batches 看 static batching 是否生效；Lights 看 48 盏灯的开销。
-3. 再打开 `FloorStreamingTest.unity` Play 走一圈，观察分块切换是否有 >16ms 尖峰。
-4. 数据填到 §12.7 的表里。
-
-验收：1080p 平均 ≥90fps、1% low ≥60fps；开关迷雾 HUD 掉帧 ≤2fps；切块单帧 <16ms。
-
-### 12.3 M1-C 灯光与曝光调优（0.5 天，实机）
-
-现状：batchmode 截图偏亮偏平，材质对比弱。当前 ambient 0.70/0.71/0.75、点光 intensity 9 / range 18 / 48 盏、URP SSAO Intensity 1.35 / Radius 0.65。
-
-建议调法（在 Play 模式里边看边调，不要靠 batchmode 截图判断）：
-
-- ambient 先降到 0.25–0.35，让灯光成为主光源；再加一盏极弱方向光（0.05）避免纯死黑。
-- 点光 intensity 6–8、range 14；天花板灯板保持自发光。
-- Volume：Tonemapping 用 ACES，Bloom threshold 1.1，Exposure 保持 0（别开自动曝光，灰盒会闪）。
-- 验收：Play 模式截图与真实观感一致，暗部不糊成黑块、亮部不过曝。
-
-### 12.4 M1-D PropCatalog 打通灰盒与真模型（1–2 天）
-
-- 数据：`PropCatalog`（ScriptableObject）：`id / prefab / footprint(W×D) / height / collider(Box|Convex|None) / minArea / placement`。
-- 生成器：掩体生成改成按区域权重从 catalog 抽 id，`FloorPlan` 里写 `PropInstance { id, pos, yaw }`；catalog 未填时回落现有灰盒（视觉不变，便于逐件替换）。
-- 资产规范见 [04-3d-assets.md](04-3d-assets.md)：1 unit = 1m、pivot 底面中心、正面 +Z、URP Lit、图集 ≤8、贴图 1K/512、三级 LOD 1.5k/900/300 面。
-- 性能硬要求：825 件掩体必须 static batching + GPU instancing，否则直接爆 3500 draw call 预算。同 id 相邻件用 instancing，室内大件走 static。
-- 验收：新增测试 `PropCatalog_EveryGeneratedIdResolves`（1000 种子，所有 id 都能解析）；灰盒与真模型 footprint 误差 <10%。
-
-### 12.5 M1-E 分块 LOD 与每块独立 NavMesh（2–3 天）
-
-- 现状：整层一块 NavMesh、无 LOD、8 块几何合计 13.4ms（编辑器实测）。
-- NavMesh：按块 bounds 外扩 2m 烘焙 `NavMeshData`，切块时 `NavMesh.AddNavMeshData` / `RemoveNavMeshData`；边缘 2m 重叠保证跨块寻路连得上。
-- LOD：距离 >2 块的块不生成 Props_Small / SightBreaks，或换低模；远景块 `Renderer.enabled = false` + 层剔除。
-- 验收：Play 模式切块单帧 <8ms；跨块寻路测试（脚本从块 0 走到块 7）成功；draw call 不随加载块数线性增长。
-
-### 12.6 换机交接清单
-
-1. `git pull origin main`（本计划即为该提交）。
-2. 确认编辑器仍是 **1.11.1（2022.3.62t18）**，Tuanjie Hub 不要自动升级 —— 升级会静默重写 ProjectVersion 与 URP 资产。
-3. 场景文件不要跨机 merge：到新机器先用菜单 **Escape From Work/M1/Build 3D Floor Scene** 重建 `FloorTest.unity`；同一时间只允许一台机器编辑该场景。
-4. 测试（**不要加 -quit**，加了拿不到结果）：
-   `"<编辑器>/Tuanjie.exe" -batchmode -projectPath "<repo>/game" -runTests -testPlatform EditMode -testFilter <过滤词> -testResults <绝对路径>.xml -logFile <日志>`
-   全量 EditMode 当前基线：**99/99 通过**（约 3.7 分钟；`InteriorWallsCoverTheInsetRing` 因断言过严已删除，不在仓库）。
-5. 出图：`-executeMethod EscapeFromWork.EditorTools.M1FloorScene.Build`，再 `.Capture`（三张 1080p）。
-6. 单次 Unity 调用常 >120 秒，脚本里必须起后台任务再收结果。
-
-### 12.7 实测记录（换机后填）
-
-| 项目 | 机器 | 日期 | 结果 |
-|---|---|---|---|
-| 60fps / 1% low | | | |
-| draw call / SetPass | | | |
-| 灯池 48 盏实机观感 | | | |
-| 切块峰值帧时间 | | | |
-
-## 13. 楼层外廓与房间多边形化（2026-11-26，第 1–2 步完成）
-
-起因：用户指出"所有房间都是方的，容易审美疲劳"，并明确切角的真正目的是**让轮廓不再四四方方**，不只是给室内房间切角。做法反过来：先有非矩形外廓，再让房间被外廓裁切。
-
-### 13.1 数据层（第 1 步）
-
-- 新文件 `game/Assets/_Project/Scripts/LevelGen/FloorEnvelope.cs`：
-  - `EnvelopeShape { Vector2[] Outline; List<Vector2[]> Pieces; float Area; int NotchCount; RectF Bounds; }`，`FloorEnvelope.Build(width, height, rng, keepOut)`。
-  - 45° 截角 2–4 个角：**先定削掉的面积**（板的 3%–5.7% 再均摊到各角），反解尺寸 → 保证"看起来明显不方"而不是碰运气。上限 `Clamp(minSide*0.3, 10, 46)`，并不吃掉核心筒/楼梯（`keepOut.Inflate(4)`）。
-  - 边上缺口 1–2 个：宽 9–24m、深 6–20m，每条边最多一个；与 `keepOut` 冲突时同边重试 5 次。
-  - `BuildOutline` 按 CCW 拼环后过 `CleanOutline`（去重合点 + 合并共线点）——耳切三角化和 0.25m 采样都容不下这两类点。
-  - 查询/工具：`Contains`、`DistanceToEdge`、`ClipRect`（Sutherland–Hodgman，返回凸块按面积降序）、`Triangulate`（耳切，n−2 三角形）。
-- `FloorTypes.Room` 新增 `Vector2[] Outline`（真实轮廓 CCW，`Rect` 降级为包围盒）；`FloorPlan` 新增 `EnvelopeShape Envelope`。
-- 生成器：`Emit` 不再直接 `AddRoom(cell)`，改 `AddRoomClipped`——房间矩形被外廓裁成凸多边形，取最大块，面积 <18㎡ 丢弃。房间数仍 >40、面积和 >外廓 25%。
-
-### 13.2 几何层（第 2 步）
-
-- `MeshAccum.AddTriangle`（按几何法线与顶点法线同向自动校正绕序）与 `AddPrism`（顶 +Y / 底 −Y / 侧面外法线）。
-- `FloorGeometry.AddPlateBoxes`：有外廓时地板/吊顶按 `Triangulate` 出多边形棱柱（地板 −0.2..0、吊顶 3.37..3.43），没外廓回落矩形盒。`FloorChunkGeometry.BuildShell` 同样改调它，流式外壳也不再是矩形板。
-- 外壳墙：沿每条外廓边放一个**旋转盒**（`BoxSpec.Yaw`），长度 = 边长 + 墙厚，保证斜墙转角闭合。
-- 内墙：`EmitLines` 用 `ClipRunToEnvelope`（0.25m 采样 `Contains` 切区间）只保留外廓内的墙段。
-- 空腔填充：`CollectVoidBoxes` 增加 `inside` 蒙版（按 `Envelope.Pieces` 逐块栅格化），`solid = inside && !walkable`——缺口/斜角外是天空，不算洞。
-
-### 13.3 测试
-
-- 新增 `game/Assets/tests/EditMode/FloorEnvelopeTests.cs`：外廓不是矩形板（面积 <板 96.8% 且至少一条 45° 边）、顶点在板内且耳切面积和≈外廓、核心筒与楼梯在外廓内、每间房 Outline 在内且至少一间贴合外廓、房间仍填满楼层（>40 间、面积和 >25%）。
-- `FloorCoverageTests`：`InAny` 支持 `BoxSpec.Yaw`（局部坐标反投影）；新增 `InsideEnvelope` 掩膜，外廓外的采样点不计入分母；断言空洞率 <1%。
-
-### 13.4 出生区与撤离设施必须落在外廓内
-
-外廓一改，两个"写死靠边"的东西就会跑到楼外：
-
-- **出生区**（`AddSpawnZones`）原来按"离四个角最近"挑房间；被截角裁过的房间，其包围盒中心可能已经在楼外，相机直接悬空，截图里能看到天空和外壳墙的背面。现在候选中心必须在外廓内、且离外廓边缘有半个出生区余量（`SpawnCandidateInside`）；一个都挑不到时退回全部房间，最后的兜底点用 `PullInsideFloor` 沿指向层心方向拉回。
-- **撤离设施**（`AddExtractions`）的擦窗机/天台下索按贴墙坐标写死，截角或缺口正好在那里时就会悬空。现在每个候选中心若在外廓外，就沿指向层心方向拉回外廓内（`PullInsideFloor`）。
-
-### 13.5 撤离点阈值自适应
-
-280×280 基座上出现过唯一一次失败：seed 81 的 spawn3 到 6 个固定撤离设施的距离是 [-1,115,122,145,219,308]，要求 238m（0.6×对角）从物理上不可能满足 2 个。
-
-改法（`FloorValidator.FarThreshold`）：阈值 = `min(0.6 × 对角线, 0.7 × 该出生区能走到的最远撤离点)`，生成端 `EnsureExtractionSpread` 与审计端 `AuditSpawns` 共用同一函数；`SpawnAudit.AppliedDistance` 记录实际阈值。语义仍是"两个出口要在你走得到的最远半径的 70% 以外"，但不会再出现无解的常数。
-
-### 13.6 截图
-
-- `docs/3d-rebuild/screenshots/m1-geo-top.png`：正交俯视全层几何，能直接看出外廓的 45° 截角与北侧缺口（这是"不再方"最直观的一张）。
-- `docs/3d-rebuild/screenshots/m1-floor3d-spawn.png / -corridor.png / -core.png`：第一人称视角（出生区已确认在楼内，不再出现悬空看天空）。
-
-### 13.7 还没做的（第 3、4 步）
-
-- **第 3 步（导航 / 小地图 / 分块多边形化）**：`FloorValidator.BuildGrid` 目前按房间矩形 Stamp、只挖掉 `Room.Cuts` 的三角区，外廓缺口/斜角处的地面会被算成可走；`MapRaster` 仍按矩形画房间，斜墙和缺口在地图上不存在（玩家会照图撞墙）；分块按 AABB 归属，斜墙会被相邻块重复。三处都要按 `Envelope`/`Room.Outline` 重做。
-- **第 4 步（斜墙隔断 + L 形合并）**：内部隔墙目前仍是正交的，房间虽被外廓裁边但内部还是矩形；L 形套间需要合并叶子并重算门与撤离点散布。
-
-
-
-
+| 墙 | 先按房间/走廊/楼梯/核心筒的矩形轮廓把四条边收进墙线（`LineGrid = 0.05m` 量化），合并共线区间后每行只出一段墙；门再按中心 0.6m 找最近线挖洞 | `FloorGeometry.CollectWallBoxes` / `CutDoor` |
+| 墙芯厚度 | `WallBodyThickness = max(0.2, WallInset*2) = 0.4m`；内墙与门楣都用它，否则墙两侧各留 0.1m 裸地板缝 | `FloorGeometry.WallBodyThickness` |
+| 地板缝 | 非可走格按 **0.2m** 栅格填 0.2m 高实心体（掩膜含外廓 `Pieces`）；0.5m 太粗，缝会被判成"内部"而不填 | `CollectVoidBoxes` |
+| 柱 | 8m 柱网，只保留在 ≥120㎡ 大开间/走廊；柱心距任一墙盒 < 半墙厚+0.35 丢弃（否则贴墙留半片柱） | `CollectColumnBoxes` |
+| 盒子绕序 | 存三角形前若 `dot(cross(b-a,c-a), n) < 0` 交换 b/c；`MeshWindingTests` 守着 | `MeshAccum.AddTriangle/AddBox` |
+| 外廓 | 45° 截角 2–4 角（削掉 3%–5.7% 面积反解尺寸）+ 边上 1–2 缺口；房间 = 外廓裁出的凸多边形（`Room.Outline`），`Rect` 只作包围盒 | `FloorEnvelope` / `AddRoomClipped` |
+| 撤离阈值 | `FarThreshold = min(0.6×对角线, 0.7×该出生区最远可达撤离点)`，生成端与审计端共用 | `FloorValidator.FarThreshold` |
+| 覆盖率 | 房间 ≥0.40（1000 种子最差 0.4315）；真约束是"房间+走廊" ≥0.78 | `FloorGeneratorTests` / `FloorGeneratorBatchTests` |
+| 灯 | 吊顶盘 3.6×3.0m 网格（相邻盘转 90°）+ 走廊每 6m 一盏；实时点光 72 盏、range 16、intensity 5.5；ambient 0.42 | `CollectPanelBoxes` / `M1FloorScene` |
+| SSAO | URP 高保真渲染器 Intensity **1.35** / Radius **0.65** / Medium | `Assets/Settings/URP-HighFidelity-Renderer.asset` |
+
+## 6. 历史踩坑
+
+全部收敛在 [07-handoff.md](07-handoff.md) §8「血泪教训」，这里不再重复。
+
+## 7. 换机交接
+
+1. `git pull origin main`。
+2. 编辑器必须是团结 1.11.1（2022.3.62t18）；不要让 Hub 自动升级。
+3. 场景文件不要跨机 merge：到新机用菜单 `Escape From Work/M1/Build 3D Floor Scene` 重建 `FloorTest.unity`；同一时间只允许一台机器编辑该场景。
+4. 命令与环境路径见 07 §3（含"测试不要加 -quit"、必须等 `Get-Process Tuanjie` 退出）。

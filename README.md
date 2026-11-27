@@ -60,4 +60,12 @@ docs/3d-rebuild/             3D 重构：决策、技术方案、关卡设计、
 | [00-decisions.md](docs/3d-rebuild/00-decisions.md) | 已定决策（FPS、PvPvE、逐层匹配、存档点、Boss、地图迷雾…） |
 | [01-tech-plan.md](docs/3d-rebuild/01-tech-plan.md) | 技术方案（工程、包、asmdef、生成管线预算、存档、联机） |
 | [02-level-design.md](docs/3d-rebuild/02-level-design.md) | 关卡设计（尺度、层高吊顶、走廊分级与掩体、出生撤离、地图迷雾） |
-| [03-milestones.md](docs/3d-rebuild/03-milestones.md) | 里程碑与 M0/M1 验收状态 |
+| [03-milestones.md](docs/3d-rebuild/03-milestones.md) | 里程碑定义、验收门槛、风险与不做清单（当前状态见 07） |
+| [04-3d-assets.md](docs/3d-rebuild/04-3d-assets.md) | 3D 资产命名与建模规范 |
+| [05-plan-prototype.md](docs/3d-rebuild/05-plan-prototype.md) | 2D 平面原型（Python）与结论 |
+| [06-raid-structure.md](docs/3d-rebuild/06-raid-structure.md) | 对局结构：随机垂直切片、25 分钟、撤离与封死区 |
+| [07-handoff.md](docs/3d-rebuild/07-handoff.md) | **交接文档：现状 / 已完成 / 下一步 / 教训 / 资源清单** |
+| [08-materials.md](docs/3d-rebuild/08-materials.md) | PBR 材质库 31 套（清单 / tiling / 槽位 / 生成方式） |
+| [09-facilities.md](docs/3d-rebuild/09-facilities.md) | 设施语法库 12 类 × 主题包与验收 |
+| [10-art-pipeline.md](docs/3d-rebuild/10-art-pipeline.md) | 美术管线：Blender 41 道具 / 图生 3D / Unity 导入 |
+| [docs/archive/](docs/archive/ai-3d-generation-reference.md) | 归档：AI 3D 在线服务与 MCP 方案参考（已被 10 取代） |

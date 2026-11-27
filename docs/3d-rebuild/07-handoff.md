@@ -262,13 +262,13 @@ R5 / R6 已完成，落地方式：
 
 | 目录 | 内容 | 规格 | 生成脚本 | 文档 |
 |---|---|---|---|---|
-| `game/Assets/_Project/Art/Textures/` | 19 套 PBR（原 7 + 新 12） | 每套 `T_<Set>_{Albedo,Normal,Mask}.png` 1024²，Mask=RGBA（R metallic / G AO / B 1 / A smoothness） | `F:\ComfyUI\efw_gen_materials.py` + `F:\ComfyUI\efw_post_materials.py`（**本机 ComfyUI 目录，不在仓库里**：AI 出颜色颗粒 + 解析图案叠加） | `docs/3d-rebuild/08-materials.md` |
+| `game/Assets/_Project/Art/Textures/` | 31 套 PBR（首批 7 + 第二批 12 + 第三批 12） | 每套 `T_<Set>_{Albedo,Normal,Mask}.png` 1024²，Mask=RGBA（R metallic / G AO / B 255 / A smoothness） | `F:\ComfyUI\efw_gen_materials.py` + `efw_post_materials.py`（**本机 ComfyUI 目录，不在仓库里**：AI 出颜色颗粒 + 解析图案叠加） | `docs/3d-rebuild/08-materials.md` |
 | `game/Assets/_Project/Art/Signage/` | 35 张标识牌（出口 / 楼层 40F–50F / 疏散图 / 电梯面板与厅牌 / 导向 / 门牌 5001–5012） | 512²–1024×512 RGBA，圆角透明边 | `Art/Signage/generate_signage.py` | 同目录 `README.md` + `_contact_sheet.png` |
 | `game/Assets/_Project/Art/UI/` | 35 个 UI：5 准星（512²）、20 图标（256²）、10 地图标记 + 4 罗盘（256²/128²） | 纯白 #FFFFFF + 透明底，方便着色 | `Art/UI/generate_ui_icons.py` | 同目录 `README.md` + `_contact_sheet.png` |
 | `game/Assets/_Project/Art/Decals/` | 15 张贴花（弹孔 / 渗水 / 霉斑 / 裂纹 / 漆皮 / 擦痕 / 咖啡圈 / 泥痕 / 锈水 / 油渍 / 污渍 / 烟熏 / 流挂） | 512² RGBA，alpha 形状程序化 | `tools/art/gen_decals.py` | 同目录 `README.md` + `_contact_sheet.png` |
-| `game/Assets/_Project/Art/Props/` | **41 个 Blender 参数化道具**（柜/桌/椅/货架/机柜/储罐/病床/泵/冷风机/隔断…） | FBX + JSON，1unit=1m、pivot 底心、≤1500 tris | `tools/blender/gen_props.py` | `docs/3d-rebuild/10-props-blender.md` |
+| `game/Assets/_Project/Art/Props/` | **41 个 Blender 参数化道具**（柜/桌/椅/货架/机柜/储罐/病床/泵/冷风机/隔断…） | FBX + JSON，1unit=1m、pivot 底心、≤1500 tris | `tools/blender/gen_props.py` | `docs/3d-rebuild/10-art-pipeline.md` |
 | `game/Assets/_Project/Art/Menu/` | 5 张菜单图（主菜单/加载/阵亡/两版 Logo） | 1920×1080 / 1600×600 | `tools/art/gen_menu.py` | 同目录 `README.md` |
-| `tools/img2mesh/` | TripoSR 本地图生 3D 管线（跑通，2.3GB 显存 / ≈8s 一件 / 减到 1500 面） | 样例 `out/chair/*.fbx`、`out/plant/*.fbx` | `tools/img2mesh/run_tsr.py` | `docs/3d-rebuild/12-img2mesh.md` |
+| `tools/img2mesh/` | TripoSR 本地图生 3D 管线（跑通，2.3GB 显存 / ≈8s 一件 / 减到 1500 面） | 样例 `out/chair/*.fbx`、`out/plant/*.fbx` | `tools/img2mesh/run_tsr.py` | `docs/3d-rebuild/10-art-pipeline.md` |
 
 - 材质库：`Editor/Art/MaterialArtLibrary.cs` 的 `Slots` 把 `FloorMaterials` 的 10 个槽位映射到材质集（R2 后 `Column → ConcreteWall`、`Stair → RubberStair`），`TilingFor()` 已补全 19 套的每米重复；改完材质跑菜单 `Escape From Work/Art/Build Material Library From Textures` 或 `-executeMethod EscapeFromWork.EditorTools.MaterialArtLibrary.BuildAll` 重建 `Materials/Art/*.mat`。
 - **还没接进场景**：TileFloor / VenueCarpet / EpoxyFloor / CleanPanel / ServerPanel / DiamondPlate / IndustrialPaint / MetalDoor / GlassPanel 这 9 套没有槽位，等 R4 设施语法库（房间类型 → 材质集）再接。
