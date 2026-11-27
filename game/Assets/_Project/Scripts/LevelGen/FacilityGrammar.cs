@@ -167,7 +167,7 @@ namespace EscapeFromWork.LevelGen
 
         static readonly FacilityProfile[] Profiles =
         {
-            Profile(FacilityKind.Office,        "办公区",    60f, 300f, "CarpetTile",   "PaintedWall",   1.02f),
+            Profile(FacilityKind.Office,        "办公区",    60f, 300f, "CarpetTile",   "WoodPanel",     1.02f),
             Profile(FacilityKind.Meeting,       "会议室",    60f, 180f, "VenueCarpet",  "WoodPanel",     1.20f),
             Profile(FacilityKind.ServerHall,    "机房大厅", 220f, 900f, "CleanPanel",   "ServerPanel",   2.60f),
             Profile(FacilityKind.ServerRoom,    "机房",      60f, 220f, "CleanPanel",   "ServerPanel",   2.60f),

@@ -95,7 +95,7 @@ namespace EscapeFromWork.EditorTools
         static FloorMaterials BuildMaterials()
         {
             MethodInfo method = typeof(M1FloorScene).GetMethod("BuildMaterials",
-                BindingFlags.NonPublic | BindingFlags.Static);
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             return (FloorMaterials)method.Invoke(null, null);
         }
 
