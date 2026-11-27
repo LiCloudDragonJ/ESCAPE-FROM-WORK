@@ -112,6 +112,7 @@ namespace EscapeFromWork.LevelGen
             EmitTracked(root, meshes, "SpawnPads", spawn, mats.Spawn, false);
 
             BuildChunkLights(root, manifest.Lights);
+            SignageRenderer.Build(manifest.SourcePlan, manifest.Signs, root.transform);
             return root;
         }
 

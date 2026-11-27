@@ -5,135 +5,89 @@ using UnityEngine;
 
 namespace EscapeFromWork.Tests.EditMode
 {
-    /// <summary>
-    /// R6 验收：竖向核（西梯 / 核心筒电梯 / 东梯）一局只算一次，逐层同一坐标。
-    /// 对齐是结构保证，所以断言可以直接卡 0.5m 容差，而不是"允许偏移"。
-    /// </summary>
     public class VerticalLinkPlanTests
     {
         static readonly int[] Seeds = { 1, 2, 3, 5, 7, 11 };
 
         [Test]
-        public void CoresAlignAcrossFloorsWithinHalfMeter()
+        public void ElevatorAlignsAcrossFloors()
         {
             foreach (int seed in Seeds)
             {
                 RaidPlan raid = SlicePlanner.Generate(seed);
-                Assert.That(raid.CorePlan, Is.Not.Null, "seed " + seed + " 没有核布局");
-                Assert.That(raid.CorePlan.Cores.Count, Is.GreaterThanOrEqualTo(3),
-                    "seed " + seed + " 竖直核少于 3 个");
-
-                for (int f = 0; f < raid.Floors.Count; f++)
-                {
-                    FloorPlan plan = raid.Floors[f].Plan;
-                    Vector2 coreCenter = plan.Core.Center;
-                    Vector2 expected = CoreCenter(raid.CorePlan, VerticalLinkKind.Elevator, 1);
-                    Assert.That(Vector2.Distance(coreCenter, expected), Is.LessThan(0.5f),
-                        "seed " + seed + " 第 " + f + " 层核心筒与核布局对不上");
-
-                    for (int s = 0; s < plan.Stairs.Count; s++)
-                    {
-                        float best = float.MaxValue;
-                        for (int c = 0; c < raid.CorePlan.Cores.Count; c++)
-                        {
-                            VerticalCore core = raid.CorePlan.Cores[c];
-                            if (core.Kind != VerticalLinkKind.Stair) continue;
-                            best = Mathf.Min(best, Vector2.Distance(plan.Stairs[s].Center, core.Center));
-                        }
-                        Assert.That(best, Is.LessThan(0.5f),
-                            "seed " + seed + " 第 " + f + " 层楼梯与核布局对不上（最近偏差 " + best.ToString("0.00") + "m）");
-                    }
-                }
+                Vector2 expected = raid.StairGraph.Elevator.Center;
+                for (int f = 0; f < 4; f++)
+                    Assert.That(Vector2.Distance(expected, raid.Floors[f].Plan.Core.Center), Is.LessThan(0.001f));
             }
         }
 
-        static Vector2 CoreCenter(VerticalLinkPlan plan, VerticalLinkKind kind, int column)
-        {
-            for (int i = 0; i < plan.Cores.Count; i++)
-                if (plan.Cores[i].Kind == kind && plan.Cores[i].Column == column) return plan.Cores[i].Center;
-            return new Vector2(-999f, -999f);
-        }
-
         [Test]
-        public void EveryAdjacentPairHasThreeLinksInAtLeastTwoColumns()
+        public void StairPatternsAreDeliberatelyMisalignedBetweenPairs()
         {
             foreach (int seed in Seeds)
             {
-                RaidPlan raid = SlicePlanner.Generate(seed);
-                int pairs = raid.Floors.Count - 1;
-                Assert.AreEqual(pairs * 3, raid.Links.Count,
-                    "seed " + seed + " 通路数应为每对 3 条（实际 " + raid.Links.Count + "）");
-
-                for (int i = 0; i < pairs; i++)
+                StairGraphPlan graph = SlicePlanner.Generate(seed).StairGraph;
+                for (int pair = 0; pair < 2; pair++)
                 {
-                    int lower = raid.Floors[i].FloorIndex;
-                    int upper = raid.Floors[i + 1].FloorIndex;
-                    bool hasStair = false, hasElevator = false;
-                    var columns = new HashSet<int>();
-                    for (int l = 0; l < raid.Links.Count; l++)
-                    {
-                        VerticalLink link = raid.Links[l];
-                        if (link.LowerFloor != lower || link.UpperFloor != upper) continue;
-                        columns.Add(link.Column);
-                        if (link.Kind == VerticalLinkKind.Stair) hasStair = true;
-                        if (link.Kind == VerticalLinkKind.Elevator) hasElevator = true;
-                    }
-                    Assert.IsTrue(hasStair && hasElevator,
-                        "seed " + seed + " " + lower + "→" + upper + " 缺楼梯或电梯");
-                    Assert.That(columns.Count, Is.GreaterThanOrEqualTo(2),
-                        "seed " + seed + " " + lower + "→" + upper + " 的竖向通路挤在同一个象限");
+                    List<StairLink> a = graph.LinksBetween(pair, pair + 1);
+                    List<StairLink> b = graph.LinksBetween(pair + 1, pair + 2);
+                    for (int i = 0; i < a.Count; i++)
+                    for (int j = 0; j < b.Count; j++)
+                        Assert.That(Vector2.Distance(a[i].Center, b[j].Center), Is.GreaterThan(1f),
+                            "adjacent pairs must not form an aligned stair shaft");
                 }
             }
         }
 
         [Test]
-        public void LinkCoordinatesAreIdenticalBetweenFloorPairs()
+        public void EveryAdjacentPairHasTwoIndependentSeparatedStairs()
         {
             foreach (int seed in Seeds)
             {
-                RaidPlan raid = SlicePlanner.Generate(seed);
-                var byColumn = new Dictionary<int, Vector2>();
-                for (int l = 0; l < raid.Links.Count; l++)
+                StairGraphPlan graph = SlicePlanner.Generate(seed).StairGraph;
+                for (int pair = 0; pair < 3; pair++)
                 {
-                    VerticalLink link = raid.Links[l];
-                    Vector2 seen;
-                    if (!byColumn.TryGetValue(link.Column * 10 + (int)link.Kind, out seen))
+                    List<StairLink> stairs = graph.LinksBetween(pair, pair + 1);
+                    Assert.AreEqual(2, stairs.Count);
+                    Assert.That(Vector2.Distance(stairs[0].Center, stairs[1].Center), Is.GreaterThanOrEqualTo(30f));
+                    Assert.AreNotEqual(Quadrant(stairs[0].Center, graph.FloorCenter), Quadrant(stairs[1].Center, graph.FloorCenter));
+                    for (int i = 0; i < 2; i++)
                     {
-                        byColumn[link.Column * 10 + (int)link.Kind] = link.Center;
-                        continue;
-                    }
-                    Assert.That(Vector2.Distance(link.Center, seen), Is.LessThan(0.01f),
-                        "seed " + seed + " 相邻层通路坐标漂移（column " + link.Column + "）");
-                }
-            }
-        }
-
-        [Test]
-        public void CoresAreInsideOpenAreaOnEveryFloor()
-        {
-            foreach (int seed in Seeds)
-            {
-                RaidPlan raid = SlicePlanner.Generate(seed);
-                for (int f = 0; f < raid.Floors.Count; f++)
-                {
-                    SliceFloor floor = raid.Floors[f];
-                    for (int c = 0; c < raid.CorePlan.Cores.Count; c++)
-                    {
-                        Vector2 p = raid.CorePlan.Cores[c].Center;
-                        Assert.IsTrue(floor.IsOpen(p),
-                            "seed " + seed + " 第 " + floor.FloorIndex + " 层的竖向核落在封死区里");
+                        Assert.That(Vector2.Distance(stairs[i].Center, graph.FloorCenter), Is.LessThanOrEqualTo(45f));
+                        Assert.AreEqual(2, stairs[i].LowerDoors.Count);
+                        Assert.AreEqual(2, stairs[i].UpperDoors.Count);
+                        Assert.AreNotEqual(stairs[i].LowerDoors[0].Side, stairs[i].LowerDoors[1].Side);
                     }
                 }
             }
         }
 
+        static int Quadrant(Vector2 p, Vector2 c)
+        {
+            if (p.x < c.x) return p.y < c.y ? 0 : 1;
+            return p.y < c.y ? 3 : 2;
+        }
+
         [Test]
-        public void CorePlanIsDeterministicPerSeed()
+        public void FourPortalsPerFloorIncludeSealedBoundaryStubs()
+        {
+            StairGraphPlan graph = SlicePlanner.Generate(9).StairGraph;
+            Assert.AreEqual(16, graph.Portals.Count);
+            for (int f = 0; f < 4; f++)
+            {
+                List<StairPortal> portals = graph.PortalsOnFloor(f);
+                Assert.AreEqual(4, portals.Count);
+                Assert.AreEqual(f == 0 || f == 3 ? 2 : 4, graph.RealPortalsOnFloor(f).Count);
+                if (f == 0 || f == 3) Assert.AreEqual(2, portals.FindAll(p => p.IsBoundary && p.IsSealed).Count);
+            }
+        }
+
+        [Test]
+        public void GraphIsDeterministicPerSeed()
         {
             RaidPlan a = SlicePlanner.Generate(9);
             RaidPlan b = SlicePlanner.Generate(9);
-            Assert.AreEqual(a.CorePlan.Fingerprint(), b.CorePlan.Fingerprint());
-            Assert.AreEqual(a.Floors.Count, b.Floors.Count);
+            Assert.AreEqual(a.StairGraph.Fingerprint(), b.StairGraph.Fingerprint());
         }
     }
 }

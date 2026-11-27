@@ -2,14 +2,14 @@
 
 > 用途：给下一个接手的人/模型一份**待办总表**。仓库现状、已完成项、血泪教训、资源清单见 [07-handoff.md](07-handoff.md)；本文件只回答：**接下来做什么、卡在哪、怎么验收**。
 >
-> 状态快照：`main` @ `73abb53`（R8 + 三轮设计写回），工作区干净；EditMode **148/148 已本机复跑验证**（见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
+> 状态快照：`main` @ `2f10b9b`（R9/R10/R11 收尾改动**尚未提交**，工作区含新增文件）；EditMode **207/207 已本机复跑验证**（`game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
 
 ---
 
 ## 0. 一分钟结论
 
-- 生成器主线 R1–R8 已完成并推送；M1 只剩 **R9 标识牌、R10 体检器回归、R11 竖向连接系统、60fps/灯池实测**（最后一项需要高性能机）。
-- **不依赖拍板、现在就能做**：R10（T1）→ 竖向连接（T13）→ R9（T2）→ 运行时多楼层（T3）→ MapHud 规则（T4）→ 材质槽接渲染（T5）。文档冲突（T6）与三轮拍板写回（T11）已于 2026-11-27 完成。
+- 生成器主线 **R1–R11 全部完成**（R9/R10/R11 于 2026-11-27 收尾，改动未提交）；M1 只剩 **60fps/灯池实测（需高性能机）、灰盒补齐、分块 LOD+每块 NavMesh、多边形化第 3–4 步**，以及运行时侧的多楼层装载（T3）——**运行时目前仍是单层沙盒**。
+- **不依赖拍板、现在就能做**：T3（运行时多楼层）→ T4（MapHud 规则）→ T5（材质槽接渲染）→ T9/T10/T12。R10/T13/R9（T1/T13/T2）、文档冲突（T6）与三轮拍板写回（T11）已于 2026-11-27 完成。
 - **2026-11-27 已定稿**（06 §8.1 结构 5 项 + §8.2 细节 9 项 + §8.4 第三轮 15 项 = 三轮 29 项）：不设楼层总数、**每局固定 4 层**、单局 30 分钟、**最多 16 人 = 4–6 队（含 AI 队）× 每队 1–4 人、真人 ≥8 开局**、**两端出生对端撤离**、**每对相邻层 2 条单层楼梯 + 中心电梯**、取消深度=难度、TTK 按护甲 × 子弹、封死只做围挡+封锁带、AI ≤4、允许单/双排、楼层号取真实随机号、Boss 每层 20%、价值梯度保留（只影响价值场）、同 buildingSeed 跨局复用同楼、死胡同 ≤8%、撤离点按 02 §5.5 揭示。**剩余待定**（06 §8.3）：经济数值、首发武器清单、AI 难度分档、美术采购、200×160 确认、Boss 战斗形式/掉落、TTK 数值。
 - **两个隐藏缺口**（文档没写进 R9/R10，但会卡住后续）：
   1. **运行时仍是单层沙盒**：`SlicePlanner`/`RaidPlan`/`VerticalLinkPlan` 目前只被测试使用，`FloorRuntime`/`FloorStreamingRuntime` 一次只建一层（`FloorStreamingRuntime.Initialize(int seed,...)`）。多楼层装载、竖向通路（楼梯/电梯/楼板开洞）、切层是 M1 收尾到 M2 之间必须补的。
@@ -21,8 +21,8 @@
 
 | # | 任务 | 依赖 | 等拍板 | 主要落点 | 验收 | 量级 |
 |---|---|---|---|---|---|---|
-| T1 | **R10 体检器接回归**：把 06 §10 指标变成 EditMode 测试 | 无 | 否 | 新 `LevelGen/LevelAudit.cs` + `tests/EditMode/LevelAuditTests.cs` | 06 §10 每行有对应测试；不与既有测试重复 | 0.5–1 天 |
-| T2 | **R9 标识牌**：`SignageGenerator` + 场景渲染 | 无（素材已就绪） | 否 | 新 `LevelGen/Signage.cs`（或 `SignageGenerator.cs`）+ `FloorPlan.Signs` + 渲染层 | 每层 ≥1 处 YOU ARE HERE；`M1FloorScene.Capture` 截图可读 | 1–2 天 |
+| T1 | **R10 体检器接回归**：把 06 §10 指标变成 EditMode 测试 | 无 | 否 | 新 `LevelGen/LevelAudit.cs` + `tests/EditMode/LevelAuditTests.cs` | ✅ **2026-11-27 已完成**：`LevelAudit.cs` + `LevelAuditTests.cs`；走廊 30m / 侧出口 / 死路 / 房间挂接 / 环数 / 切片视线全部进全量回归 | 已完 |
+| T2 | **R9 标识牌**：`SignageGenerator` + 场景渲染 | 无（素材已就绪） | 否 | 新 `LevelGen/Signage.cs`（或 `SignageGenerator.cs`）+ `FloorPlan.Signs` + 渲染层 | ✅ **2026-11-27 已完成**：`Signage.cs` + `SignageRenderer.cs` + `Resources/Signage/`；每层 ≥1 处 YOU ARE HERE，测试出图 `game/TestResults/r9-signage.png` 可读 | 已完 |
 | T3 | **运行时多楼层**：`RaidPlan` 进运行时，竖向核与切层 | T1（护栏） | 否 | `FloorRuntime`/`FloorStreamingRuntime` + 新的楼层管理 | 固定 4 层同场景按真实标高叠放；2 条单层楼梯 + 中心电梯可跨层；切层后小地图换图 | 3–5 天 |
 | T4 | **MapHud 按 02 §5.5 改**：楼层条 / 拉闸房 / 撤离点门控 | T3（楼层数据） | 否 | `UI/MapHud.cs` + `FloorPlan` 数据补齐 | 进层只给本端可用数量；远层免费点到层自动标出、近层拉闸后标出并全楼广播；对端免费点不显示、对端拉闸点显示不可用；楼梯/电梯无迷雾 | 1–2 天 |
 | T5 | **材质槽接渲染**：主题材质 + 9 套未接材质 + per-room | T1 | 否 | `FloorMaterials` 扩槽 + `FloorChunkGeometry`/`FloorChunkManifest` 分槽 | 09 §5 MaterialSlotCoverage ≥14/19；机房/冷库/医疗一眼可辨 | 2–3 天 |
@@ -33,7 +33,7 @@
 | T10 | **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块改用真实轮廓 | T1 | 否 | `FloorValidator` / `MapRaster` / `FloorChunkGrid` | 斜墙、L 形合并后仍全连通；地图与几何一致 | 3–5 天 |
 | T11 | **06 §8 拍板落地**：三轮共 29 项已写回 06/00/02/03/07/09/11（2026-11-27） | — | 否 | 文档 + 相关实现 | ✅ 文档已完成；实现按拍板值（剩余待定见 06 §8.3） | 已完 |
 | T12 | **M2 战斗原型**（3 武器 / ADS / 后坐力 / AI 视锥听觉） | T7 + TTK 数值（M2 实测） | 否（框架已定） | `Scripts/Gameplay/` | 手感可调参；AI 会压制与绕后 | 1–2 周 |
-| T13 | **R11 竖向连接系统 + 两端撤离**：StairGraphPlan（每对相邻层 2 条独立单层楼梯 + 中心电梯）/ ExtractionPlan（每端 4 点、2 闸点房、电梯卡） | T1 | 否（第三轮已拍板） | 新 `LevelGen/StairGraphPlan.cs`、`LevelGen/ExtractionPlan.cs`；`FloorSpec`/`RaidPlan` 扩字段；废弃 `StairWestRect`/`StairEastRect`/`UseCores` | 每对相邻层 3 通路（2 梯 + 电梯）、每层 4 楼梯口、错开 ≥30m、跨层不对位；每端 4 撤离点两端不通用；审计通过 | 4–6 天 |
+| T13 | **R11 竖向连接系统 + 两端撤离**：StairGraphPlan（每对相邻层 2 条独立单层楼梯 + 中心电梯）/ ExtractionPlan（每端 4 点、2 闸点房、电梯卡） | T1 | 否（第三轮已拍板） | 新 `LevelGen/StairGraphPlan.cs`、`LevelGen/ExtractionPlan.cs`；`FloorSpec`/`RaidPlan` 扩字段；废弃 `StairWestRect`/`StairEastRect`/`UseCores` | ✅ **2026-11-27 已完成**：`StairGraphPlan.cs` + `ExtractionPlan.cs`；`SlicePlanner` 固定 4 层 30–33k㎡；旧 `UseCores/StairWestRect/StairEastRect` 已删除 | 已完 |
 
 > 顺序建议：T1 → T13 → T2 → T3 → T4 → T5 → T12；T7/T9 有高性能机时穿插。理由：先把 06 §10 变成测试护栏，再动会改生成器/场景的 R9 和材质。（T6 文档统一已于 2026-11-27 完成）
 
@@ -51,7 +51,7 @@
 
 | 06 §10 指标 | 现状 | 处理 |
 |---|---|---|
-| 切片可玩面积 24,000–30,000㎡ | `SlicePlannerTests` 已覆盖（**第三轮改 30–33k㎡ / 固定 4 层，T13 后需同步改**） | 复用，不重写 |
+| 切片可玩面积 30,000–33,000㎡ / 固定 4 层 | `SlicePlannerTests` 已同步为 F1/F4 21–22%、F2/F3 26–28% | 保留并纳入本轮全量回归 |
 | 房间中位 90–130㎡、<56㎡ ≤10% | `RoomScaleTests` 已覆盖 | 复用 |
 | 单门房 0（保险库 ≤8%） | `SingleDoorTests` 已覆盖 | 复用；Vault 还没生成 |
 | 最长直线视线 ≤45m | `SightlineAudit` + `SightlineTests` 已有（30–38m） | 扩到多楼层/切片层 |
@@ -68,7 +68,7 @@
 ## 3. T2：R9 SignageGenerator（素材已就绪）
 
 **已就绪**：`game/Assets/_Project/Art/Signage/` 35 张 PNG + `generate_signage.py` + `README.md`（尺寸/摆放高度/导入设置/两种渲染方案都在里面）。
-**缺的**：代码里没有 `Signage.cs`，`FloorPlan` 也没有 `Signs` 字段（06 §9.3 要求加）。
+**本轮已补实现**：`Signage.cs`、`SignageRenderer.cs` 与 `FloorPlan.Signs`；静态 Quad 和流式分块两条渲染路径均已接入，最终以本轮回归与截图结果为准。
 
 **数据层**（新增 `FloorPlan.Signs`，建议 `List<SignPlacement>{ Center, Normal(朝向), Width, Height, Kind, Text/Asset }`）：
 - 楼梯门旁：`S_Way_Stairs`（250×250，中心 1500mm）+ `S_Exit_Green`（600×300，门楣 2100–2400mm）
@@ -90,7 +90,7 @@
 ## 4. T3：运行时多楼层（文档未列，但 T4/M2 都卡在这里）
 
 **现状**：
-- `SlicePlanner.Generate(seed)` 产出 `RaidPlan`（3–4 层 × 20–32% 楼板 + 竖向核）；`RaidPlan` 只被 `SlicePlannerTests`/`VerticalLinkPlanTests` 使用。
+- `SlicePlanner.Generate(seed)` 现产出固定 4 层、30–33k㎡ 的 `RaidPlan`，携带 `StairGraphPlan` 与 `ExtractionPlan`；运行时仍只消费单层 `FloorPlan`，多楼层装载/切层属于 T3。
 - `FloorStreamingRuntime.Initialize(int seed, band, prototype, corridorLevels, materials, viewer)` / `Regenerate(seed)` 只生成**一层**；场景 `Whitebox/FloorTest/FloorStreamingTest` 都是单层沙盒。
 
 **要做的**：
@@ -99,7 +99,7 @@
 3. 切层：进电梯/楼梯后卸载旧层、生成新层（里程碑要求“电梯 5s 内完成下一层生成”）；`RaidPlan` 层是可提前生成的。
 4. 小地图换图：给 `MapHud` 传 `RaidPlan + 当前层 index`（T4 依赖）。
 
-**验收**：同 seed 下 3–4 层按标高叠放、竖井对位一致；从任意层能走到任意相邻层；切层 5s 内完成；内存不泄漏（连续进出 10 层）。
+**验收**：同 seed 下固定 4 层按标高叠放；单层楼梯只在所属层对对位、电梯跨层对位；从任意层能走到任意相邻层；切层 5s 内完成；内存不泄漏（连续进出 10 层）。
 
 ---
 
@@ -109,7 +109,7 @@
 **问题**：`DrawExtractions` 无条件画 `Plan.Extractions` 全部图标 + 类型 + 读条——旧规则“撤离点常显”。
 
 **三件事（02 §5.5）**：
-1. **楼层条**：只列本局 3–4 层（2026-11-27 取消楼层总数），每层只标“该层是否有可用撤离点”（实心/空心），不给位置/类型；本层高亮；进层只给“本层 N 个可用撤离点”。
+1. **楼层条**：只列本局固定 4 层，每层只标“该层是否有可用撤离点”（实心/空心），不给位置/类型；本层高亮；进层只给“本层 N 个可用撤离点”。
 2. **拉闸房永久可见**：轮廓 + 门 + “拉闸房”标签常显，不过迷雾，全队共享，阵亡保留。
 3. **撤离点门控**：进层只显示数量；进入拉闸房/完成拉闸后才标出被激活的具体撤离点（图标 + 位置 + 类型），拉闸后常显；拉闸全楼广播。
 
@@ -227,7 +227,8 @@
   -executeMethod EscapeFromWork.EditorTools.MaterialArtLibrary.BuildAll -quit
 ```
 
-- EditMode 基线：**148/148 通过**（2026-11-27 本机复跑验证，结果 `game/TestResults/editmode-20261127.xml`；总耗时 865s，其中首次资源导入/编译约 10 分钟，纯测试约 14.5 分钟——本机无独显，比文档记载的 4–5 分钟慢）。
+- EditMode 基线：**207/207 通过**（2026-11-27 R9/R10/R11 收尾轮，结果 `game/TestResults/t1-t13-r9-full-fix4-20261127.xml`；纯测试约 18.5 分钟，本机无独显）。上一基线 148/148 见 `game/TestResults/editmode-t1-baseline-20261127.xml`。
+- **结果判定**：XML 的 `testcasecount/result` 才是结论；Unity batch 在编辑器退出前就已写好 XML，可轮询文件出现。`-testResults` 尽量传绝对路径（相对路径会落到 `game/game/...`）。
 - 测试结果 XML 里 `testcasecount` 才是用例数（`[Test]` 特性只有 95 个，参数化 `[TestCase]` 才会到 148）。
 
 ### 10.2 禁区与硬约束
@@ -247,10 +248,11 @@
 
 ---
 
-## 11. 下次会话开场（给 KIMI K3.1 PRO）
+## 11. 下次会话开场
 
 1. 先读 [07-handoff.md](07-handoff.md)（现状 / 教训 / 禁区 / 资源）→ 本文件（待办）。
-2. `git log --oneline -8` 对齐 HEAD；`git status` 应为干净。
-3. 先跑 §10.1 的 EditMode 确认 **148/148** 基线，再动手。
-4. 从 **T1（R10 体检器）→ T13（竖向连接系统）** 开始（T6/T11 已完成）；每完成一项在 §1 表里改状态并提交（commit message 沿用 `生成器(Rx): ...` / `文档: ...` 风格）。
-5. 06 已定稿（§8.1 + §8.2 共 14 项）；剩余待定见 06 §8.3，未定前不要改「经济数值 / 首发武器 / AI 难度分档 / Boss 战斗形式」相关实现。
+2. `git log --oneline -8` 对齐 HEAD（`2f10b9b`）；`git status` 会列出 R9/R10/R11 的未提交改动——**先决定是否先提交这一批**，再动新代码。
+3. 先跑 §10.1 的 EditMode 确认 **207/207** 基线，再动手。
+4. 下一步按 **T3（运行时多楼层）→ T4（MapHud）→ T5（材质槽）**；T7（60fps 实测）/T9（LOD+NavMesh）需要高性能机，T10（多边形化）与 T12（战斗原型）按需穿插。每完成一项在 §1 表里改状态并提交（commit message 沿用 `生成器(Rx): ...` / `文档: ...` 风格）。
+5. 06 已定稿（§8.1/§8.2/§8.4 共 29 项）；剩余待定见 06 §8.3，未定前不要改「经济数值 / 首发武器 / AI 难度分档 / Boss 战斗形式」相关实现。
+6. 本轮踩过的坑：改完 `.cs` 必须 touch（`ops_edit_file` 保留旧 mtime，Unity 会跑旧 DLL）；测试前先 `Stop-Process` 残留的 Tuanjie 进程，否则报 “Multiple Tuanjie instances cannot open the same project” 直接崩；日志常是无效 UTF8，用 PowerShell `Select-String` 取行。

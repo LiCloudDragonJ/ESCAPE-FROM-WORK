@@ -13,6 +13,7 @@ namespace EscapeFromWork.LevelGen
     {
         public int Index;
         public RectF Rect;
+        public FloorPlan SourcePlan;
 
         public readonly List<BoxSpec> WallBoxes = new List<BoxSpec>();
         public readonly List<BoxSpec> CoreBoxes = new List<BoxSpec>();
@@ -26,6 +27,7 @@ namespace EscapeFromWork.LevelGen
         public readonly List<ExtractionPoint> Extractions = new List<ExtractionPoint>();
         public readonly List<RectF> SpawnPads = new List<RectF>();
         public readonly List<Vector2> Lights = new List<Vector2>();
+        public readonly List<SignPlacement> Signs = new List<SignPlacement>();
 
         public float WallVolume
         {
@@ -43,7 +45,7 @@ namespace EscapeFromWork.LevelGen
             {
                 return WallBoxes.Count + CoreBoxes.Count + ColumnBoxes.Count + StairBoxes.Count
                     + PanelBoxes.Count + ChamferBoxes.Count + Props.Count + Extractions.Count
-                    + SpawnPads.Count + Lights.Count;
+                    + SpawnPads.Count + Lights.Count + Signs.Count;
             }
         }
     }
@@ -59,6 +61,7 @@ namespace EscapeFromWork.LevelGen
                 manifests[i] = new FloorChunkManifest();
                 manifests[i].Index = i;
                 manifests[i].Rect = grid.Rect(i);
+                manifests[i].SourcePlan = plan;
             }
 
             List<BoxSpec> walls = new List<BoxSpec>();
@@ -142,6 +145,13 @@ namespace EscapeFromWork.LevelGen
             FloorGeometry.CollectLightPositions(plan, candidates);
             List<Vector2> sampled = FloorGeometry.SampleLights(candidates, lightBudget);
             for (int i = 0; i < sampled.Count; i++) manifests[grid.IndexAt(sampled[i])].Lights.Add(sampled[i]);
+
+            // A sign is a point item: exactly one owner, never clipped or duplicated.
+            for (int i = 0; i < plan.Signs.Count; i++)
+            {
+                SignPlacement sign = plan.Signs[i];
+                manifests[grid.IndexAt(sign.Center)].Signs.Add(sign);
+            }
 
             return manifests;
         }

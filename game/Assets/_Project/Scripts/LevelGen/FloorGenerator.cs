@@ -53,6 +53,7 @@ namespace EscapeFromWork.LevelGen
             // 栅格连通修补只对最终选中的方案做一次（每轮 attempt 都做会把 1000 种子批测拖到十几分钟）
             EnsureGridConnectivity(best, spec);
             RoomDoorPolicy.Apply(best);
+            CorridorBreaks.EnsureLateralExitCompliance(best, spec);
             AssignRoomTypes(best, spec);
             FacilityGrammar.Assign(best, spec);
             FacilityGrammar.AddHallBreaks(best, spec);
@@ -72,6 +73,7 @@ namespace EscapeFromWork.LevelGen
             CoverPlacer.DropPropsNearDoors(best);
             // 切角三角区在斜墙里面，桌子/隔断不能长在那里（走廊不会命中，房间角会）。
             best.Props.RemoveAll(p => RoomShape.BlockedInFloor(best, p.Rect.Center));
+            SignageGenerator.Populate(best);
 
             return best;
         }
@@ -312,13 +314,12 @@ namespace EscapeFromWork.LevelGen
             plan.Spec = spec;
             plan.Bounds = new RectF(0f, 0f, spec.Width, spec.Height);
 
-            // 竖向核：由 SlicePlanner/VerticalLinkPlan 统一给坐标时直接采用，保证同局各层完全对齐；
-            // 单层调试（UseCores=false）才按规格自己算。
-            if (spec.UseCores)
+            // R11 Raid 使用 StairGraphPlan 的逐层楼梯口；单层 Lab 保留原来的东西双梯兜底。
+            if (spec.UseStairGraph)
             {
                 plan.Core = ClampRect(spec.CoreRect, plan.Bounds);
-                plan.Stairs.Add(ClampRect(spec.StairWestRect, plan.Bounds));
-                plan.Stairs.Add(ClampRect(spec.StairEastRect, plan.Bounds));
+                for (int i = 0; i < spec.StairRects.Count; i++)
+                    plan.Stairs.Add(ClampRect(spec.StairRects[i], plan.Bounds));
             }
             else
             {
@@ -555,6 +556,9 @@ namespace EscapeFromWork.LevelGen
             for (int i = 0; i < segs.Count; i++)
             {
                 RectF seg = segs[i];
+                // 走廊带被核心筒/楼梯切出来的薄片是墙缝，但**不能丢**：验证栅格是按走廊矩形
+                // 铺的，丢掉薄片会把整层切成两个互不可达的半边（实测 seed 74 / 341 Top 层）。
+                // 审计侧通过“窄于 1.2m 不算走廊”的口径跳过，几何上它本来也走不过去。
                 if (seg.W < 0.8f || seg.H < 0.8f) continue;
                 bool main = !service && Mathf.Min(seg.W, seg.H) >= spec.MainCorridor - 0.01f;
                 AddCorridor(plan, seg, main, service);
@@ -1314,7 +1318,7 @@ namespace EscapeFromWork.LevelGen
 
         static void AddCorridor(FloorPlan plan, RectF r, bool main, bool service)
         {
-            Corridor c;
+            Corridor c = default;
             c.Rect = r;
             c.Main = main;
             c.Service = service;

@@ -1,7 +1,7 @@
 # 交接文档：给下一个模型 / 下一个会话
 
 > 目的：这份文档要让人**不读聊天记录也能接手**。如果你只读一页，读 §2 + §7 + §8。
-> 生成时间：2026-11-26。仓库 `ESCAPE FROM WORK`，分支 `main`，HEAD = `5e2a81c` 之后的一笔（含本文）。
+> 生成时间：2026-11-26（2026-11-27 R9/R10/R11 收尾后更新）。仓库 `ESCAPE FROM WORK`，分支 `main`，HEAD = `2f10b9b`；**R9/R10/R11 这批改动尚未提交**（工作区 36 项，下一棒先决定是否提交，见 11 §11）。
 
 ---
 
@@ -24,11 +24,11 @@
 **R2 走廊断点已完成**（2026-11-26，本笔提交）：主廊每 28m 切站、门斗双错位门、并行服务廊 1.8–2.1m 净宽、`隔断墙` 道具方案整段删除；全量 EditMode **109/109 通过**（R1 的 103 项 + 新增 `SightlineTests` 6 项）。
 **R3 房间尺度已完成**（2026-11-26，本笔提交）：面积统计改按真实轮廓、房间加用途类型、`RoomScaleTests` 4 项；全量 EditMode **113/113 通过**。
 **R4 设施语法库已完成**（2026-11-27）：`FacilityGrammar.cs` 18 类设施 × 7 主题、主题驱动切分、按用途配家具（每房 2–14 件）、大厅墙垛 `HallBreaks`、跨房间门对挡视屏；Blender 参数化道具管线（21 个 prefab + `PropCatalog`，1068/1191 件道具用上真模型）。
-**R5 切片结构已完成（口径已过时）**：`SlicePlanner` 现在是随机 3–4 层 × 每层 20–32% 楼板、总量 24,000–30,000㎡、封死区带世界内原因；**第三轮改为固定 4 层 × 21–28%（30–33k㎡）**，见 §7 的 R11 与 T13。
-**R6 竖向核对齐已完成**：`VerticalLinkPlan` 一局只算一次核坐标、逐层下发（`FloorSpec.UseCores`），相邻层固定 3 条通路、坐标误差 <0.5m。
+**R5 切片结构已完成**（2026-11-27 改口径）：`SlicePlanner` **固定 4 层**、可玩面积 **30,000–33,000㎡**、F1/F4 21–22% / F2/F3 26–28%、封死区带世界内原因；楼层号取真实随机世界楼层（`FloorSpec.WorldFloor`，40–50）。
+**R6 竖向核对齐已完成（已被 R11 取代）**：「全楼对齐核 + 西/东楼梯」模型已废弃，只保留电梯逐层对齐；楼梯改由 `StairGraphPlan` 逐对相邻层独立生成（`UseCores`/`StairWestRect`/`StairEastRect` 已从 `FloorSpec` 删除）。
 **R7 出生区图距离校验已完成**（2026-11-27）：`FloorValidator` 支持任意格宽（`BuildGrid(plan, cell)` + `Grid.Unit`），出生区按 2m 粗栅格做"最远点贪心"重排，出生区间步行距离 ≥ 本层锚点直径 35%；全量 EditMode **148/148 通过**（R7 那轮 132）。
 **R8 环路校验已完成**（2026-11-27）：`LoopInjector` 量化了环数（实测 49–69，是"房间数/12"下限的 5–6 倍），`Apply` 在达标时零改动，只保留"低于下限时补门"的保险。
-**R9–R10（标识牌生成 / 体检器接回归）还没开始；R11（竖向连接系统 + 两端撤离）是第三轮新增，也没开始。**
+**R9（标识牌）/ R10（体检器接回归）/ R11（竖向连接系统 + 两端撤离）已完成**（2026-11-27）：新增 `Signage.cs`/`SignageRenderer.cs`/`LevelAudit.cs`/`StairGraphPlan.cs`/`ExtractionPlan.cs` 与 4 个新测试文件；EditMode **207/207 全绿**（`game/TestResults/t1-t13-r9-full-fix4-20261127.xml`）。**但运行时仍是单层沙盒**，多楼层装载属 T3。
 
 ---
 
@@ -36,25 +36,25 @@
 
 | 项 | 值 |
 |---|---|
-| 仓库根 | `F:/Workspace/ESCAPE FROM WORK` |
+| 仓库根 | `D:/workspace/ESCAPE FROM WORK` |
 | Unity 工程 | `game/`（团结 1.11.1 / 2022.3.62t18） |
-| 引擎 | `F:/Workspace/UNITY/2022.3.62t18/Editor/Tuanjie.exe` |
-| git | 不在 PATH，用 `F:/Tools/git/cmd/git.exe`（MinGit 2.56.1）；提交要显式 `-c user.name=LiCloudDragonJ -c user.email=LiCloudDragonJ@users.noreply.github.com` |
+| 引擎 | `D:/workspace/2022.3.62t18/Editor/Tuanjie.exe` |
+| git | 已在 PATH（DSH 自带 winuxcmd 的 `git.exe`，直接 `git status/log/diff` 即可）；提交要显式 `-c user.name=LiCloudDragonJ -c user.email=LiCloudDragonJ@users.noreply.github.com` |
 | Python | `C:/Users/17613/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/python/python.exe`（numpy 2.3.5 + Pillow 12.3.0，**无** shapely/scipy/matplotlib） |
 | 字体 | `C:/Windows/Fonts/msyh.ttc`、`msyhbd.ttc` |
 
-> 上表是当前机器的实际路径。旧版本写的是 `D:/workspace/...` 与 `C:/Users/comme/...`，换机时以本表为准。
+> 本表已按本轮实际执行环境校正；换机时重新确认路径。
 
 **编译检查**（约 20–40s，日志里搜 `error CS`）：
 
 ```
-"F:/Workspace/UNITY/2022.3.62t18/Editor/Tuanjie.exe" -batchmode -quit   -projectPath "F:/Workspace/ESCAPE FROM WORK/game"   -logFile "F:/Workspace/ESCAPE FROM WORK/game/build.log"
+"D:/workspace/2022.3.62t18/Editor/Tuanjie.exe" -batchmode -quit   -projectPath "D:/workspace/ESCAPE FROM WORK/game"   -logFile "D:/workspace/ESCAPE FROM WORK/game/build.log"
 ```
 
 **全量 EditMode 测试**（约 4–5 分钟，**不要加 -quit**）：
 
 ```
-"F:/Workspace/UNITY/2022.3.62t18/Editor/Tuanjie.exe" -batchmode   -projectPath "F:/Workspace/ESCAPE FROM WORK/game"   -runTests -testPlatform EditMode   -testResults "F:/Workspace/ESCAPE FROM WORK/game/test-results.xml"   -logFile "F:/Workspace/ESCAPE FROM WORK/game/test.log"
+"D:/workspace/2022.3.62t18/Editor/Tuanjie.exe" -batchmode   -projectPath "D:/workspace/ESCAPE FROM WORK/game"   -runTests -testPlatform EditMode   -testResults "D:/workspace/ESCAPE FROM WORK/game/test-results.xml"   -logFile "D:/workspace/ESCAPE FROM WORK/game/test.log"
 ```
 
 `Tuanjie.exe` 起的一批处理会在 1–2s 内把控制权还给 shell，编辑器仍在跑：必须等到 `Get-Process Tuanjie` 为空，再从 `test-results.xml` 里读 `//test-case[@result='Failed']`。
@@ -95,13 +95,23 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 | `LevelGen/SightlineAudit.cs` | 210 | **真实几何视线审计**（R2 验收证据） | `Run(plan)` → `Report{CorridorMax, RoomMax, GlobalMax, From, To, Samples}` |
 | `LevelGen/FloorValidator.cs` | 271 | 校验与审计 | `FarThreshold(required, farthest)`（跨层推广的落点）、`AuditSpawns`、覆盖率/连通性断言 |
 | `LevelGen/FacilityGrammar.cs` | 560 | **R4 设施语法**：18 类设施 × 7 主题、主题驱动停止概率/最小面积、按用途配家具、大厅墙垛、跨房间门对挡视屏 | `Assign`、`AddRoomProps`、`AddHallBreaks`、`AddDoorScreens`、`ThemeOf`、`ZoneStopPBias`、`Profiles` |
-| `LevelGen/SlicePlanner.cs` | 338 | **R5 垂直切片**：3–4 层 × 每层 20–32% 楼板、封死区、通路（第三轮改固定 4 层 21–28%，待改） | `Generate(seed)` → `RaidPlan{Floors, Links, CorePlan, PlayableArea}` |
-| `LevelGen/VerticalLinkPlan.cs` | 130 | **R6 竖向核对齐**：一局只算一次核坐标，逐层下发 | `Default(spec)`、`ApplyTo(spec, floorIndex)`、`Fingerprint()` |
+| `LevelGen/SlicePlanner.cs` | 430 | **R5/R11 垂直切片**：固定 4 层、30–33k㎡、F1/F4 21–22% / F2/F3 26–28%、封死区、出生区重排；调用 `StairGraphPlan` + `ExtractionPlan` | `Generate(seed)` → `RaidPlan{Floors, Links, StairGraph, Extraction, PlayableArea}` |
+| `LevelGen/VerticalLinkPlan.cs` | 130 | **R6 电梯对齐（部分废弃）**：`ApplyTo` 已标 `[Obsolete]`，仅供单层 Lab 兜底；Raid 走 `StairGraphPlan` | `Default(spec)`、`ApplyTo(spec, floorIndex)`、`Fingerprint()` |
 | `LevelGen/LoopInjector.cs` | 200 | **R8 环路**：E−V+C 环数统计 + 低于下限时才补门 | `TargetCycles(plan)`、`CycleRank(plan)`、`Apply(plan, spec)` |
 | `LevelGen/CoverProps.cs` | 429 | 掩体/家具摆放（按房间类型与密度） | 摆件规则、掩体档位 |
 | `LevelGen/PropCatalog.cs` | 102 | 道具表（**R4 起由 Blender 管线自动填**，41 个模型 / 55 条别名） | `Entry{Name,Prefab,Size,Offset,AddBoxCollider}`、`LoadOrCreateDefault` |
 | `LevelGen/FloorChunk*.cs` | 481 | 分块：网格 / 计划 / 几何 / 流式 | `FloorChunkGeometry.BuildShell`、`FloorStreamer`、`FloorStreamingRuntime` |
 | `LevelGen/FloorRuntime.cs` | 68 | 运行时装配 | |
+
+**R9/R10/R11 新增文件（2026-11-27，全部有单测）**
+
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| `LevelGen/LevelAudit.cs` | 735 | **R10 体检器**：走廊直段合并后 ≤30m、20–30m 段必须有长墙侧出口、最大侧出口间距、死路走廊（Guo–Hall 骨架）、房间挂接（真实门 + 栅格同组件）、环数、切片视线 |
+| `LevelGen/Signage.cs` | 181 | **R9 标识牌布局**：楼梯/电梯/楼层/房间/疏散图五类，确定性摆放，避开门洞与开口 |
+| `LevelGen/SignageRenderer.cs` | 482 | **R9 渲染**：`Quad` + `Unlit/Transparent`，楼层/房号动态文字，疏散图按真实平面绘制 + YOU ARE HERE |
+| `LevelGen/StairGraphPlan.cs` | 338 | **R11 竖向连接**：6 条独立单层楼梯（2 per pair）、16 个楼梯口（4/层，F1/F4 边界封死口补足）、电梯逐层对齐 |
+| `LevelGen/ExtractionPlan.cs` | 413 | **R11 两端撤离**：每层 2 点共 8 点、每端 4 点不通用、2 个闸点房（F2/F3）、电梯交通卡、最后 3 分钟关 1 个免费点 |
 
 ### 4.2 玩法 / UI
 
@@ -127,8 +137,8 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 
 ### 4.4 测试（`game/Assets/tests/`）
 
-EditMode 21 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5）、`VerticalLinkPlanTests`（R6）、`SpawnSpacingTests`（R7）、`LoopInjectorTests`（R8）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
-**合计 EditMode 148 项，全绿**（2026-11-27，R8 完成后实测；R7 那轮 132、R6 那轮 129、R4 那轮 124、R3 是 113、R2 是 109、R1 是 103）。改生成器任何规则前先跑一遍全量当基线。
+EditMode **25 个文件**：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5/R11）、`VerticalLinkPlanTests`（R6/R11）、`SpawnSpacingTests`（R7）、`LoopInjectorTests`（R8）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`、`LevelAuditTests`（R10）、`SignageTests`（R9）、`StairGraphPlanTests`、`ExtractionPlanTests`（R11）；PlayMode：`WhiteboxSmokeTests`。
+**合计 EditMode 207 项，全绿**（2026-11-27，R9/R10/R11 完成后实测：`game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，纯测试约 18.5 分钟；历史上：148（R8 后）→ 132 → 129 → 124 → 113 → 109 → 103）。改生成器任何规则前先跑一遍全量当基线。
 
 ---
 
@@ -174,7 +184,7 @@ EditMode 21 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多
 | R10 | **体检器接回归**：把 `tools/plan-proto/audit_floors.py` 的指标搬进 EditMode 测试 | 新 `LevelAuditTests.cs` | 指标表（06 §10）进 CI |
 | R11 | **竖向连接系统 + 两端撤离**（第三轮）：StairGraphPlan（每对相邻层 2 条独立单层楼梯 + 中心电梯、每层 4 楼梯口）/ ExtractionPlan（每端 4 点、2 闸点房、电梯卡） | 新 `StairGraphPlan.cs`、`ExtractionPlan.cs`；废弃 `StairWestRect`/`StairEastRect`/`UseCores` | 相邻层 3 通路、错开 ≥30m、跨层不对位；每端 4 撤离点两端不通用 |
 
-> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，109/109）。**R3 已完成**（2026-11-26，113/113）。**R4 已完成**（2026-11-27，124/124）。**R5/R6 已完成**（2026-11-27，129/129）。**R7 已完成**（2026-11-27，132/132）。**R8 已完成**（2026-11-27，148/148）。下一步 **R9（标识牌生成）+ R11（竖向连接系统）**；R11 会改 `FloorSpec`/`RaidPlan`，建议先于运行时多楼层。
+> **R1–R11 全部已完成**：R1 103/103（commit `0bd87f1`）、R2 109、R3 113、R4 124、R5/R6 129、R7 132、R8 148、**R9/R10/R11 → 207/207**（2026-11-27，尚未提交）。下一步是运行时侧：**T3（多楼层装载）→ T4（MapHud 规则）→ T5（材质槽）**，见 [11-todo-handover.md](11-todo-handover.md)。
 > **对比图**：R2/R3 落地后已出 `r2-dollhouse.png`、`props-showcase*.png`、`plan-1/7*.png`；R7–R10 做完整层结构后重跑 `M1FloorScene.Capture` 出 after 图。
 
 R2 已完成，落地方式（改过的东西，别再重复设计）：
@@ -260,8 +270,9 @@ R8 已完成，落地方式（结论与 R8 计划里写的不一样，按实测�
 - **M1-D**：`PropCatalog` 已填 41 个 Blender 模型 / 55 条别名，seed 1 命中率 89.6%；仍有零星灰盒（无模型的别名）。
 - **M1-E**：分块 LOD 与"每块 NavMesh"未做。
 - **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块仍按房间矩形；斜墙隔断 + L 形合并未做。
-- **R1–R8 已完成**（2026-11-27，EditMode 148/148）：门数规则、走廊断点（最长视线 30–38m）、房间尺度（中位 100–123㎡、<56㎡ 7.0%）、设施语法库（18 类 × 7 主题）、垂直切片（3–4 层 × 20–32%，第三轮已改固定 4 层）、竖向核对齐（<0.5m）、出生区图距离散布（≥35% 直径）、环数校验（49–69，5–6 倍下限）。
-- **R9–R10 未做**：标识牌生成、体检器接回归。**R11 未做**：竖向连接系统（每对相邻层 2 条单层楼梯 + 中心电梯）与两端撤离（2026-11-27 第三轮新增）。
+- **R1–R11 已完成**（2026-11-27 收尾轮，EditMode 207/207）：门数规则、走廊断点（最长视线 30–38m）、房间尺度（中位 100–123㎡、<56㎡ 7.0%）、设施语法库（18 类 × 7 主题）、垂直切片（固定 4 层 / 30–33k㎡ / F1F4 21–22%、F2F3 26–28%）、出生区图距离散布（≥35% 直径）、环数校验（49–69）、**体检器接回归**（走廊 30m / 侧出口 / 死路 / 房间挂接 / 切片视线）、**标识牌生成**（五类牌 + 动态楼层房号 + 真实疏散图）、**竖向连接 + 两端撤离**（6 条单层楼梯 / 16 楼梯口 / 8 撤离点 / 2 闸点房 / 电梯卡 / 最后 3 分钟关点）。
+- **R9 证据**：`game/TestResults/r9-signage.png`（1400×700）已肉眼确认可读；`docs/3d-rebuild/screenshots/m1-floor3d-signage.png` **未生成**（`M1FloorScene.Capture` 未在本轮执行）。
+- **R10/R11 口径说明**：免费撤离点的「对方出生区 80m」按**可步行距离**计算（200m 长条楼层上欧氏 80m 对四个出生区无解），且仍要求几何不可通视；`ReseatSpawnZones` 把 F1/F4 出生区收回开放带两端。
 - **美术资源**：31 套 PBR（原 7 + 两批 24）、35 张标识牌、35 个 HUD 图标、15 张贴花、41 个 Blender 道具、5 张菜单图；`MaterialArtLibrary` 只接了 10 个槽位，**per-room 材质槽还没做**（设施已有 `FloorMaterial/WallMaterial` 数据，但没有落到几何上）。
 - **视觉待打磨**（用户试玩后会提）：墙面竖向拉丝/噪点（WorldUv + 高频法线）、整体偏暗（环境光 0.42、无后处理）、道具仍是低模扁平材质、无 LOD1。
 - **设计已定稿**（2026-11-27 三轮共 29 项，06 §8.1 / §8.2 / §8.4）：不设楼层总数、每局**固定 4 层**、30 分钟、**最多 16 人 = 4–6 队（含 AI 队）× 每队 1–4 人、真人 ≥8 开局**、取消深度=难度、TTK 护甲 × 子弹、封死只做施工围挡+封锁带、AI ≤4、允许单/双排、楼层号取真实随机号、Boss **每局 20% 刷 F2/F3**、**两端出生对端撤离**、**每对相邻层 2 条单层楼梯 + 中心电梯**、U 形价值、标识按局程序化且无迷雾、死胡同 ≤8%。
@@ -299,10 +310,10 @@ R8 已完成，落地方式（结论与 R8 计划里写的不一样，按实测�
 
 ## 13. 一句话交接
 
-**单层生成器、R1–R8 都已完成**：外廓多边形化；门数规则；走廊 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）；面积按真实轮廓 + 房间用途（中位 100–123㎡）；设施语法库（18 类 × 7 主题 + 41 个 Blender 道具）；垂直切片（3–4 层 × 20–32%，24–30k㎡；**第三轮已改固定 4 层 21–28%、30–33k㎡，R5 需改**）；竖向核跨层对齐（<0.5m）；出生区按 2m 粗栅格最远点重排（间距 ≥35% 直径）；环数 49–69（下限的 5–6 倍）。EditMode **148/148 全绿**。
-接下来 R9（标识牌生成）→ R10（体检器接回归）→ R11（竖向连接系统）；同时按用户试玩反馈打磨视觉（墙面拉丝/偏暗/道具材质）与 `MapHud` 的楼层条/拉闸房可见性/本端撤离点门控。
+**单层生成器 R1–R11 全部完成**：外廓多边形化；门数规则；走廊 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）；面积按真实轮廓 + 房间用途（中位 100–123㎡）；设施语法库（18 类 × 7 主题 + 41 个 Blender 道具）；**固定 4 层、30–33k㎡、F1/F4 21–22%、F2/F3 26–28%**；**6 条独立单层楼梯 + 逐层电梯 + 每层 4 楼梯口**；**每层 2 撤离点共 8 点、每端 4 点不通用 + 2 闸点房 + 电梯卡 + 最后 3 分钟关点**；**五类标识牌 + 动态楼层房号 + 真实疏散图（YOU ARE HERE）**；**体检器进回归**（走廊 30m / 侧出口 / 死路 / 房间挂接 / 环数 / 切片视线）。EditMode **207/207 全绿**（`t1-t13-r9-full-fix4-20261127.xml`），改动未提交。
+接下来是运行时侧：T3（多楼层装载 + 楼层切换 + 楼梯可走）→ T4（MapHud 楼层条 / 拉闸房可见性 / 本端撤离点门控）→ T5（per-room 材质槽）；同时按用户试玩反馈打磨视觉（墙面拉丝/偏暗/道具材质）。
 
 **地图/撤离可见性规则（2026-11-26 用户确认）记在 `02-level-design.md` §5.5**：小地图只画当前层；楼层条只标"哪层还有可用撤离点"；拉闸房没有迷雾、永久可见；进层只显示"本层 N 个可用撤离点"，**进入拉闸房之后**才标出被激活的具体撤离点（图标 + 位置 + 类型），拉闸全楼广播。`MapHud.cs` 目前只有 `MapFog` + 单层 `MapRaster`，楼层条 / 拉闸房可见性 / 撤离点门控都还没做。
 
-**接下来做什么**：见 [11-todo-handover.md](11-todo-handover.md)（T1–T13，含 R10/R9/R11 的落点与验收、运行时多楼层缺口、文档冲突清单、三轮 29 项拍板记录与剩余待定 06 §8.3）。
+**接下来做什么**：见 [11-todo-handover.md](11-todo-handover.md)（T1–T13 状态表；R10/R9/R11 已完成，剩运行时多楼层 T3、MapHud T4、材质槽 T5、性能/LOD/多边形化，以及三轮 29 项拍板记录与剩余待定 06 §8.3）。
 

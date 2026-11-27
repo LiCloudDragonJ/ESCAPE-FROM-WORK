@@ -278,7 +278,17 @@ namespace EscapeFromWork.EditorTools
             }
             Shot(camera, coreEye, coreTarget, dir + "m1-floor3d-core.png");
 
-            Debug.Log("[M1] screenshots written: spawn / corridor / core");
+            // R9：在真实墙面和门洞环境中拍疏散图，不能只靠孤立 UI 证明可读性。
+            SignPlacement sign = plan.Signs.Find(s => s.Kind == SignKind.Evacuation);
+            if (sign.Kind == SignKind.Evacuation)
+            {
+                Vector3 target = new Vector3(sign.Center.x, sign.Elevation, sign.Center.y);
+                Vector3 normal = new Vector3(sign.Normal.x, 0f, sign.Normal.y);
+                Shot(camera, target + normal * 3.2f + new Vector3(0f, 0.1f, 0f), target,
+                    dir + "m1-floor3d-signage.png");
+            }
+
+            Debug.Log("[M1] screenshots written: spawn / corridor / core / signage");
         }
 
         /// <summary>

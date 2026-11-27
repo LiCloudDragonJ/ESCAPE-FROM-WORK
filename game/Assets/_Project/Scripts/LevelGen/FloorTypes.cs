@@ -47,6 +47,11 @@ namespace EscapeFromWork.LevelGen
         /// 所以由 CorridorBreaks 在切段时写进来，别再让下游用 W/H 比大小去猜。
         /// </summary>
         public bool Vertical;
+        /// <summary>
+        /// 由房间溶解而来的通行区（RoomDoorPolicy.DissolveRoom）：它是大厅/过厅，不是走廊。
+        /// 走廊直段、服务廊开口这类指标不该把大厅算进去，否则两段走廊隔着大厅会被并成一条超长“直廊”。
+        /// </summary>
+        public bool Hall;
     }
 
     public struct Zone
@@ -215,6 +220,10 @@ namespace EscapeFromWork.LevelGen
     public class FloorSpec
     {
         public int Seed = 1;
+        /// <summary>Zero-based raid floor slot; display labels add one.</summary>
+        public int FloorIndex;
+        /// <summary>Real building floor used by signage; zero-based structural slots remain in FloorIndex.</summary>
+        public int WorldFloor = 1;
         public float Width = 200f;
         public float Height = 160f;
         public FloorBand Band = FloorBand.Tower;
@@ -247,16 +256,10 @@ namespace EscapeFromWork.LevelGen
         /// <summary>房间最短边；低于它房间连一张办公桌都放不下。</summary>
         public float MinRoomSide = 3.2f;
 
-        /// <summary>
-        /// R6：由 <see cref="VerticalLinkPlan"/> 统一下发竖向核时置 true。
-        /// 之后 CoreRect / StairWestRect / StairEastRect 生效，生成器不再自己算核心筒与楼梯位置——
-        /// 这样同一局的每一层核坐标完全一致（跨层对齐是结构保证，不是巧合）。
-        /// </summary>
-        public bool UseCores;
+        /// <summary>R11：由 StairGraphPlan 下发本层全部真实/边界楼梯口；电梯核心仍跨层对齐。</summary>
+        public bool UseStairGraph;
         public RectF CoreRect;
-        public RectF StairWestRect;
-        public RectF StairEastRect;
-        public int CoreFloorIndex = -1;
+        public List<RectF> StairRects = new List<RectF>();
 
         public static FloorSpec Default(int seed)
         {
@@ -283,6 +286,7 @@ namespace EscapeFromWork.LevelGen
         /// <summary>本层所有物理撤离设施候选（消防梯/电梯/货梯/擦窗机/天台下索），先全放、后挑选。</summary>
         public List<ExtractionPoint> ExtractionCandidates = new List<ExtractionPoint>();
         public List<PropPlacement> Props = new List<PropPlacement>();
+        public List<SignPlacement> Signs = new List<SignPlacement>();
         public List<RectF> SpawnZones = new List<RectF>();
         /// <summary>房间与房间之间的额外门（绕过走廊的环路边）。</summary>
         public List<Door> LoopDoors = new List<Door>();

@@ -134,7 +134,7 @@ namespace EscapeFromWork.LevelGen
         {
             Room old = plan.Rooms[index];
             int corridor = plan.Corridors.Count;
-            plan.Corridors.Add(new Corridor { Rect = old.Rect, Main = false });
+            plan.Corridors.Add(new Corridor { Rect = old.Rect, Main = false, Hall = true });
             plan.Rooms.RemoveAt(index);
             for (int i = 0; i < plan.Rooms.Count; i++)
             {

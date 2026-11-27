@@ -7,14 +7,14 @@ namespace EscapeFromWork.LevelGen
 
     public enum VerticalLinkKind { Stair, Elevator, Freight, Service }
 
-    /// <summary>相邻两层之间的一条竖向通路。竖向核固定对位，随机的是房间——所以链接位置每局都一样。</summary>
+    /// <summary>相邻两层之间的一条单层竖向通路；楼梯按层对错位，电梯保持对位。</summary>
     public struct VerticalLink
     {
         public int LowerFloor;
         public int UpperFloor;
         public Vector2 Center;
         public VerticalLinkKind Kind;
-        /// <summary>0 = 西侧核，1 = 中部核，2 = 东侧核。用于验收"不全在同一象限"。</summary>
+        /// <summary>楼梯所在象限：0 左下、1 左上、2 右上、3 右下；电梯固定为 -1。</summary>
         public int Column;
     }
 
@@ -37,7 +37,7 @@ namespace EscapeFromWork.LevelGen
         public List<RectF> Open = new List<RectF>();
         public List<SealedArea> Sealed = new List<SealedArea>();
         public float PlayableArea;
-        /// <summary>开放区占整层可玩面积的比例（验收 20–32%）。</summary>
+        /// <summary>开放区占整层可玩面积的比例（F1/F4：21–22%；F2/F3：26–28%）。</summary>
         public float OpenFraction;
         public bool IsLandmark;
 
@@ -50,17 +50,17 @@ namespace EscapeFromWork.LevelGen
     }
 
     /// <summary>
-    /// 一局的地图：随机 3–4 层 × 每层 20–32% 楼板，合计 24,000–30,000㎡，
-    /// 相邻层固定 3 条竖向通路（西梯 / 核心筒电梯 / 东梯），其余楼板用世界内原因封死。
+    /// R11：固定 F1–F4（索引 0–3），F1/F4 开放 21–22%，F2/F3 开放 26–28%，
+    /// 合计 30,000–33,000㎡。每对相邻层恰有两部错位单层楼梯和一部交通电梯。
     /// </summary>
     public class RaidPlan
     {
         public int Seed;
         public List<SliceFloor> Floors = new List<SliceFloor>();
         public List<VerticalLink> Links = new List<VerticalLink>();
-        /// <summary>R6：本局所有楼层共用的竖向核布局（跨层对齐的结构保证）。</summary>
-        public VerticalLinkPlan CorePlan;
-        /// <summary>本局可玩面积合计（㎡），验收 24,000–30,000。</summary>
+        public StairGraphPlan StairGraph;
+        public ExtractionPlan Extraction;
+        /// <summary>本局可玩面积合计（㎡），验收 30,000–33,000。</summary>
         public float PlayableArea;
 
         public int FloorCount { get { return Floors.Count; } }
@@ -85,145 +85,227 @@ namespace EscapeFromWork.LevelGen
     /// </summary>
     public static class SlicePlanner
     {
-        public const int MinFloors = 3;
+        public const int MinFloors = 4;
         public const int MaxFloors = 4;
-        public const float MinPlayableArea = 24000f;
-        public const float MaxPlayableArea = 30000f;
-        public const float TargetPlayableArea = 27000f;
-        public const float MinOpenFraction = 0.20f;
-        public const float MaxOpenFraction = 0.32f;
+        public const float MinPlayableArea = 30000f;
+        public const float MaxPlayableArea = 33000f;
+        public const float TargetPlayableArea = 31500f;
+        public const float MinOpenFraction = 0.21f;
+        public const float MaxOpenFraction = 0.28f;
 
         public static RaidPlan Generate(int seed)
         {
-            System.Random rng = new System.Random(seed);
-            int floorCount = rng.NextDouble() < 0.55 ? 3 : 4;
-            return Generate(seed, floorCount);
+            return Generate(seed, FloorCount);
         }
+
+        const int FloorCount = 4;
 
         public static RaidPlan Generate(int seed, int floorCount)
         {
+            if (floorCount != FloorCount)
+                throw new System.ArgumentException("R11 raid is fixed at exactly four floors", "floorCount");
             System.Random rng = new System.Random(seed * 7331 + floorCount);
+            // 真实楼层号：标识牌资产只覆盖 40F–50F，四层切片落在其中连续四层，
+            // 与 02 §5.4 "楼层号取 SlicePlanner 的 worldFloor，不是 0..n" 一致。
+            int startFloor = rng.Next(40, 48);
             RaidPlan raid = new RaidPlan();
             raid.Seed = seed;
-            floorCount = Mathf.Clamp(floorCount, MinFloors, MaxFloors);
+            FloorSpec template = FloorSpec.Default(seed);
+            raid.StairGraph = StairGraphPlan.Generate(seed, template.Width, template.Height);
 
-            int start = rng.Next(3, 52 - floorCount);
-            float perFloorTarget = TargetPlayableArea / floorCount;
-
-            // R6：核坐标一局只算一次，逐层下发；层与层之间不可能对不上。
-            raid.CorePlan = VerticalLinkPlan.Default(FloorSpec.Default(seed));
-
-            for (int i = 0; i < floorCount; i++)
+            for (int i = 0; i < FloorCount; i++)
             {
-                int worldFloor = start + i;
-                FloorSpec spec = FloorSpec.Default(seed * 7919 + worldFloor * 131);
+                FloorSpec spec = FloorSpec.Default(seed * 7919 + i * 131);
+                spec.FloorIndex = i;
+                spec.WorldFloor = startFloor + i;
                 spec.Band = FloorBand.Tower;
-                raid.CorePlan.ApplyTo(spec, worldFloor);
+                spec.UseStairGraph = true;
+                spec.CoreRect = raid.StairGraph.ElevatorForFloor(i);
+                spec.StairRects.AddRange(raid.StairGraph.StairsOnFloor(i));
                 FloorPlan plan = FloorGenerator.Generate(spec);
-
-                SliceFloor floor = new SliceFloor();
-                floor.FloorIndex = worldFloor;
-                floor.Spec = spec;
-                floor.Plan = plan;
-                raid.Floors.Add(floor);
+                raid.Floors.Add(new SliceFloor { FloorIndex = i, Spec = spec, Plan = plan });
             }
 
-            // 先按面积密度估一个起始比例，再迭代逼近目标总量（每层独立微调，保证都在 20–32% 内）。
-            for (int i = 0; i < raid.Floors.Count; i++)
-            {
-                SliceFloor f = raid.Floors[i];
-                float full = FullPlayableArea(f.Plan);
-                float fraction = Mathf.Clamp(perFloorTarget / Mathf.Max(1f, full), MinOpenFraction, MaxOpenFraction);
-                Layout(f, fraction, rng);
-            }
-
-            for (int pass = 0; pass < 4; pass++)
+            float[] targets = { 0.215f, 0.275f, 0.275f, 0.215f };
+            for (int i = 0; i < FloorCount; i++) Layout(raid.Floors[i], targets[i], rng);
+            for (int pass = 0; pass < 6; pass++)
             {
                 float total = 0f;
-                for (int i = 0; i < raid.Floors.Count; i++) total += raid.Floors[i].PlayableArea;
-                float error = TargetPlayableArea / Mathf.Max(1f, total);
-                if (Mathf.Abs(total - TargetPlayableArea) < 400f) break;
-
-                for (int i = 0; i < raid.Floors.Count; i++)
+                for (int i = 0; i < FloorCount; i++) total += raid.Floors[i].PlayableArea;
+                if (total >= MinPlayableArea && total <= MaxPlayableArea) break;
+                float correction = TargetPlayableArea / Mathf.Max(1f, total);
+                for (int i = 0; i < FloorCount; i++)
                 {
-                    SliceFloor f = raid.Floors[i];
-                    float full = FullPlayableArea(f.Plan);
-                    float fraction = Mathf.Clamp(f.OpenFraction * error, MinOpenFraction, MaxOpenFraction);
-                    Layout(f, fraction, rng);
+                    float min, max;
+                    FractionRange(i, out min, out max);
+                    targets[i] = Mathf.Clamp(targets[i] * correction, min, max);
+                    Layout(raid.Floors[i], targets[i], rng);
                 }
             }
 
+            for (int i = 0; i < FloorCount; i++)
+                if (i == 0 || i == FloorCount - 1) ReseatSpawnZones(raid.Floors[i]);
+
             raid.PlayableArea = 0f;
-            for (int i = 0; i < raid.Floors.Count; i++) raid.PlayableArea += raid.Floors[i].PlayableArea;
-
+            for (int i = 0; i < FloorCount; i++) raid.PlayableArea += raid.Floors[i].PlayableArea;
             BuildLinks(raid);
-            return raid;        }
-
-        /// <summary>整层可玩面积（房间真实轮廓 + 走廊），用来算开放比例。</summary>
-        public static float FullPlayableArea(FloorPlan plan)
-        {
-            float rooms = plan.RoomArea;
-            float corridors = 0f;
-            for (int i = 0; i < plan.Corridors.Count; i++) corridors += plan.Corridors[i].Rect.Area;
-            return rooms + corridors;
+            ExtractionPlan.Generate(raid);
+            return raid;
         }
 
-        /// <summary>按比例给某层铺开放带：横贯全宽的一条 + 三处竖向核 + 连接短廊。</summary>
+        /// <summary>
+        /// 出生层（F1/F4）的出生区必须落在开放带内、且贴着带的两端。
+        /// FloorGenerator 在整块楼板上按四角选房，切片后这些房间可能落在封死区（06 §4.1：出生点只在边缘服务节点），
+        /// 既让玩家出生在不可达区域，也让对端免费撤离点的 80m 预算被幽灵出生区吃掉。
+        /// 每端 2 个出生区，保留 4 区的容量与同层队伍间距，同时给带走半层的撤离点留出步行余量。
+        /// </summary>
+        static void ReseatSpawnZones(SliceFloor floor)
+        {
+            FloorPlan plan = floor.Plan;
+            RectF band = floor.Band;
+            List<RectF> pool = new List<RectF>();
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.W < 4f || r.H < 4f) continue;
+                if (!floor.IsOpen(r.Center)) continue;
+                if (plan.Envelope != null && !FloorEnvelope.Contains(plan.Envelope.Outline, r.Center)) continue;
+                pool.Add(r);
+            }
+            for (int i = 0; i < plan.Corridors.Count; i++)
+            {
+                RectF r = plan.Corridors[i].Rect;
+                if (r.W < 4f || r.H < 4f) continue;
+                if (!floor.IsOpen(r.Center)) continue;
+                pool.Add(r);
+            }
+            if (pool.Count < 4) return;
+
+            float yLow = band.Center.y - band.H * 0.25f;
+            float yHigh = band.Center.y + band.H * 0.25f;
+            Vector2[] anchors =
+            {
+                new Vector2(band.X + 12f, yLow),
+                new Vector2(band.X + 12f, yHigh),
+                new Vector2(band.XMax - 12f, yLow),
+                new Vector2(band.XMax - 12f, yHigh),
+            };
+
+            List<RectF> chosen = new List<RectF>();
+            List<int> used = new List<int>();
+            for (int a = 0; a < anchors.Length; a++)
+            {
+                int best = -1;
+                float bestDist = float.MaxValue;
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    if (used.Contains(i)) continue;
+                    float d = Vector2.Distance(pool[i].Center, anchors[a]);
+                    if (d < bestDist) { bestDist = d; best = i; }
+                }
+                if (best < 0) continue;
+                used.Add(best);
+                chosen.Add(MakeSpawnRect(pool[best]));
+            }
+            if (chosen.Count != 4) return;
+
+            plan.SpawnZones.Clear();
+            plan.SpawnZones.AddRange(chosen);
+        }
+
+        static RectF MakeSpawnRect(RectF pick)
+        {
+            float size = Mathf.Min(10f, Mathf.Min(pick.W - 0.4f, pick.H - 0.4f));
+            if (size < 2f) size = 2f;
+            Vector2 center = pick.Center;
+            return new RectF(center.x - size * 0.5f, center.y - size * 0.5f, size, size);
+        }
+
+        public static void FractionRange(int floorIndex, out float min, out float max)
+        {
+            bool middle = floorIndex == 1 || floorIndex == 2;
+            min = middle ? 0.26f : 0.21f;
+            max = middle ? 0.28f : 0.22f;
+        }
+
+        /// <summary>
+        /// 开放比例的基数（06 §10：F1/F4 21–22%、F2/F3 26–28%，合计 30,000–33,000㎡）。
+        /// 必须用整层楼板面积：房间+走廊的可玩面积只有约 29,500㎡，而四层开放比例合计约 98%，
+        /// 按它算即使开到上限也只有约 28,900㎡，永远到不了 30,000 下限（实测 seed 1 只有 28,891㎡）。
+        /// </summary>
+        public static float FullPlayableArea(FloorPlan plan)
+        {
+            return plan.Bounds.Area;
+        }
+
+        /// <summary>开放带位置由楼层种子固定，带宽双向收敛到本层目标比例。</summary>
         static void Layout(SliceFloor floor, float fraction, System.Random rng)
         {
             FloorPlan plan = floor.Plan;
             float full = Mathf.Max(1f, FullPlayableArea(plan));
             RectF bounds = plan.Bounds;
-
-            float h = Mathf.Clamp(bounds.H * fraction, 24f, bounds.H * MaxOpenFraction);
-            float y0 = Mathf.Lerp(0f, bounds.H - h, (float)rng.NextDouble());
-            // 带子尽量别把核心筒劈成两半：核心筒在东侧偏北，带子贴到它下沿或完全包含它。
-            foreach (RectF core in new[] { plan.Core })
-            {
-                bool overlapsCore = y0 < core.YMax && y0 + h > core.Y;
-                bool splits = overlapsCore && y0 > core.Y && y0 + h < core.YMax;
-                if (splits) y0 = core.Y - h + 2f;
-            }
-            // 调整后必须夹回楼层内，否则北侧会露出没被登记成"封死区"的楼板（铺不满整层）。
-            y0 = Mathf.Clamp(y0, 0f, bounds.H - h);
-
-            // 竖直核：两座楼梯 + 核心筒，永远开放——跨层通路靠它们，随机的是房间不是楼梯。
+            float jitter = (float)new System.Random(floor.Spec.Seed * 97 + 13).NextDouble();
+            float centerY = bounds.Center.y + Mathf.Lerp(-8f, 8f, jitter);
             var cores = new List<RectF>();
             cores.Add(plan.Core);
             for (int i = 0; i < plan.Stairs.Count; i++) cores.Add(plan.Stairs[i]);
 
-            // 迭代收敛：房间中心在带内、但房间探出带外时，按包围盒统计会把整间都算进可玩面积
-            // （实测虚高到 35.3%），所以每轮量完按超出比例回收带宽，再重算竖向核与连接廊。
-            var parts = new List<RectF>();
-            RectF band = new RectF(bounds.X, y0, bounds.W, h);
-            for (int pass = 0; pass < 5; pass++)
+            float low = 12f, high = bounds.H;
+            float bestError = float.MaxValue;
+            RectF bestBand = bounds;
+            List<RectF> bestParts = null;
+            float bestArea = 0f;
+            float bestH = 12f;
+
+            // PlayableInOpen 对带宽是“台阶函数”（房间按中心是否落在开放片里整块计入），
+            // 纯二分会在台阶边缘来回跳、停在离目标 0.6pp 之外（实测 F4 只到 0.2214 > 22%）。
+            // 先 80 点粗扫，再在最优带宽邻域内二分细化。
+            float Evaluate(float h)
             {
-                band = new RectF(bounds.X, y0, bounds.W, h);
-                parts.Clear();
+                float y0 = Mathf.Clamp(centerY - h * 0.5f, bounds.Y, bounds.YMax - h);
+                RectF band = new RectF(bounds.X, y0, bounds.W, h);
+                var parts = new List<RectF>();
                 parts.Add(band);
                 for (int i = 0; i < cores.Count; i++)
                 {
                     RectF c = cores[i].Inflate(0.2f);
-                    // 只有"带子完整包住竖向核"才不用另加；部分重叠时核的中心点可能在带外，
-                    // 玩家就到不了楼梯/电梯（seed 1 第 13 层就是这样漏的）。
                     if (band.Contains(c.Center) && band.Contains(new Vector2(c.X, c.Y)) &&
                         band.Contains(new Vector2(c.XMax, c.YMax))) continue;
                     parts.Add(c);
                     if (!Intersects(band, c)) parts.Add(Connector(band, c));
                 }
-
-                float measured = PlayableInOpen(plan, parts, band) / full;
-                if (measured <= MaxOpenFraction + 0.004f) break;
-                float shrink = Mathf.Clamp((MaxOpenFraction - 0.004f) / Mathf.Max(0.01f, measured), 0.70f, 1f);
-                h = Mathf.Max(24f, h * shrink);
-                y0 = Mathf.Clamp(y0, 0f, bounds.H - h);
+                float area = PlayableInOpen(plan, parts, band);
+                float measured = area / full;
+                float error = Mathf.Abs(measured - fraction);
+                if (error < bestError)
+                {
+                    bestError = error;
+                    bestBand = band;
+                    bestParts = new List<RectF>(parts);
+                    bestArea = area;
+                    bestH = h;
+                }
+                return measured;
             }
 
-            floor.Band = band;
+            const int Coarse = 80;
+            float span = bounds.H - 12f;
+            for (int i = 0; i <= Coarse; i++) Evaluate(12f + span * i / Coarse);
+            float step = span / Coarse;
+            low = Mathf.Max(12f, bestH - step);
+            high = Mathf.Min(bounds.H, bestH + step);
+            for (int pass = 0; pass < 30; pass++)
+            {
+                float h = (low + high) * 0.5f;
+                if (Evaluate(h) < fraction) low = h;
+                else high = h;
+            }
+
+            floor.Band = bestBand;
             floor.Open.Clear();
-            floor.Open.AddRange(parts);
-            floor.PlayableArea = PlayableInOpen(plan, floor.Open, band);
-            floor.OpenFraction = floor.PlayableArea / full;
+            floor.Open.AddRange(bestParts);
+            floor.PlayableArea = bestArea;
+            floor.OpenFraction = bestArea / full;
             BuildSealed(floor, rng);
         }
 
@@ -259,8 +341,15 @@ namespace EscapeFromWork.LevelGen
             float area = 0f;
             for (int i = 0; i < plan.Rooms.Count; i++)
             {
-                Vector2 c = plan.Rooms[i].Rect.Center;
-                if (ContainsAny(open, c)) area += RoomShape.AreaOf(plan.Rooms[i]);
+                // 房间按“真实轮廓面积 × 落进开放带的包围盒比例”连续计入。
+                // 原来按房间中心是否在开放片里整块计入，是台阶函数（一个 200㎡ 房间就是 0.6pp），
+                // 二分永远凑不到 21.5%，实测 F4 最好只能到 22.14%（超 22% 上限）。
+                Room room = plan.Rooms[i];
+                float rectArea = room.Rect.Area;
+                if (rectArea <= 0.01f) continue;
+                float inter = IntersectionArea(room.Rect, band);
+                if (inter <= 0f) continue;
+                area += RoomShape.AreaOf(room) * Mathf.Clamp01(inter / rectArea);
             }
             for (int i = 0; i < plan.Corridors.Count; i++)
             {
@@ -306,21 +395,29 @@ namespace EscapeFromWork.LevelGen
                 });
         }
 
-        /// <summary>相邻层之间的 3 条竖向通路，坐标直接取自本局共用的核布局（R6）。</summary>
+        /// <summary>每对相邻层严格三条：StairGraph 的两部单层楼梯 + 一部交通电梯。</summary>
         static void BuildLinks(RaidPlan raid)
         {
             raid.Links.Clear();
-            if (raid.CorePlan == null) return;
             for (int i = 0; i + 1 < raid.Floors.Count; i++)
             {
                 SliceFloor lower = raid.Floors[i];
                 SliceFloor upper = raid.Floors[i + 1];
-                for (int c = 0; c < raid.CorePlan.Cores.Count; c++)
+                List<StairLink> stairs = raid.StairGraph.LinksBetween(lower.FloorIndex, upper.FloorIndex);
+                for (int s = 0; s < stairs.Count; s++)
                 {
-                    VerticalCore core = raid.CorePlan.Cores[c];
-                    AddLink(raid, lower, upper, core.Center, core.Kind, core.Column);
+                    Vector2 center = stairs[s].LowerRect.Center;
+                    AddLink(raid, lower, upper, center, VerticalLinkKind.Stair,
+                        Quadrant(center, raid.StairGraph.FloorCenter));
                 }
+                AddLink(raid, lower, upper, raid.StairGraph.Elevator.Center, VerticalLinkKind.Elevator, -1);
             }
+        }
+
+        static int Quadrant(Vector2 p, Vector2 center)
+        {
+            if (p.x < center.x) return p.y < center.y ? 0 : 1;
+            return p.y < center.y ? 3 : 2;
         }
 
         static void AddLink(RaidPlan raid, SliceFloor lower, SliceFloor upper, Vector2 center,

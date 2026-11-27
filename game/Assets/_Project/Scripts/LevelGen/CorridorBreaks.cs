@@ -33,8 +33,8 @@ namespace EscapeFromWork.LevelGen
         public const float ServiceDoorWidth = 0.8f;
         /// <summary>门斗 → 服务廊的侧门宽。</summary>
         public const float SideOpeningWidth = 1.2f;
-        /// <summary>末段短于这个长度就不值得再插一个门斗。</summary>
-        public const float MinTail = 4f;
+        /// <summary>06 §10：28m 站距 + 2m 最小尾段，保证任何直段都不超过 30m。</summary>
+        public const float MinTail = 2f;
         /// <summary>短于这个长度的碎片不单独成段（会并进相邻段）。</summary>
         public const float MinPiece = 2f;
 
@@ -67,13 +67,14 @@ namespace EscapeFromWork.LevelGen
             List<Piece> pieces = new List<Piece>();
             for (int i = 0; i < src.Count; i++) Split(src[i], spec, pieces, plan.CorridorOpenings);
 
+            DropUnopenableService(pieces);
             DropOrphanService(pieces);
             AddLateralOpenings(pieces, plan.CorridorOpenings);
 
             for (int i = 0; i < pieces.Count; i++)
             {
                 Piece p = pieces[i];
-                Corridor c;
+                Corridor c = default;
                 c.Rect = p.Rect;
                 // 门斗也是主廊的一段（3m × 4.8m，短边不够宽，光看尺寸会被判成支廊）
                 c.Main = !p.Service && (p.Vestibule || Mathf.Min(p.Rect.W, p.Rect.H) >= spec.MainCorridor - 0.01f);
@@ -84,6 +85,123 @@ namespace EscapeFromWork.LevelGen
             }
 
             EnsureServiceOpenings(plan);
+        }
+
+        /// <summary>Shorten an unserved 20–30m run with a real staggered-door vestibule.</summary>
+        public static void EnsureLateralExitCompliance(FloorPlan plan, FloorSpec spec)
+        {
+            for (int i = 0; i < plan.Corridors.Count; i++)
+            {
+                Corridor old = plan.Corridors[i];
+                if (old.Service || old.Vestibule) continue;
+                bool vertical = old.Main ? old.Vertical : old.Rect.H > old.Rect.W;
+                float length = vertical ? old.Rect.H : old.Rect.W;
+                if (length < LevelAudit.SideExitRequiredFrom || length > LevelAudit.MaxCorridorSegment + 0.05f) continue;
+                if (HasLateralExit(plan, old, vertical)) continue;
+                float start = vertical ? old.Rect.Y : old.Rect.X;
+                float end = vertical ? old.Rect.YMax : old.Rect.XMax;
+                float mid = (start + end) * 0.5f;
+                float a = mid - VestibuleLength * 0.5f, b = mid + VestibuleLength * 0.5f;
+                if (a - start < MinPiece || end - b < MinPiece) continue;
+                float band = vertical ? old.Rect.W : old.Rect.H;
+                float across = vertical ? old.Rect.X : old.Rect.Y;
+                Corridor left = old, vestibule = old, right = old;
+                left.Rect = vertical ? new RectF(across, start, band, a - start) : new RectF(start, across, a - start, band);
+                left.Vertical = vertical;
+                vestibule.Rect = vertical ? new RectF(across, a, band, VestibuleLength) : new RectF(a, across, VestibuleLength, band);
+                vestibule.Vertical = vertical;
+                vestibule.Vestibule = true;
+                right.Rect = vertical ? new RectF(across, b, band, end - b) : new RectF(b, across, end - b, band);
+                right.Vertical = vertical;
+                plan.Corridors[i] = left;
+                int vestibuleIndex = plan.Corridors.Count;
+                plan.Corridors.Add(vestibule);
+                int rightIndex = plan.Corridors.Count;
+                plan.Corridors.Add(right);
+                RemapSplitDoors(plan, i, vestibuleIndex, rightIndex, a, b, vertical);
+                AddCrossDoor(plan.CorridorOpenings, vertical, band, across, a, MainDoorWidth);
+                AddCrossDoor(plan.CorridorOpenings, vertical, band, across, b, MainDoorWidth);
+            }
+        }
+
+        static bool HasLateralExit(FloorPlan plan, Corridor c, bool vertical)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                if (room.HasDoor && IsSideDoor(c.Rect, vertical, room.Door)) return true;
+                if (room.ExtraDoors != null)
+                    for (int d = 0; d < room.ExtraDoors.Count; d++)
+                        if (IsSideDoor(c.Rect, vertical, room.ExtraDoors[d])) return true;
+            }
+            for (int i = 0; i < plan.LoopDoors.Count; i++)
+                if (IsSideDoor(c.Rect, vertical, plan.LoopDoors[i])) return true;
+            for (int i = 0; i < plan.CorridorOpenings.Count; i++)
+                if (IsSideDoor(c.Rect, vertical, plan.CorridorOpenings[i])) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 侧出口必须是开在长墙上的门/开口：竖廊要 East/West 法线，横廊要 North/South 法线。
+        /// 只看位置不看朝向会把横墙上的门当成侧出口，体检器于是报 20–30m 段无侧出口
+        /// （实测 seed 1 F2 3.25×26.5 的 Connector 就是这么漏掉的）。
+        /// </summary>
+        static bool IsSideDoor(RectF rect, bool vertical, Door door)
+        {
+            Vector2 n;
+            switch (door.Side)
+            {
+                case DoorSide.North: n = Vector2.up; break;
+                case DoorSide.South: n = Vector2.down; break;
+                case DoorSide.East: n = Vector2.right; break;
+                default: n = Vector2.left; break;
+            }
+            if (vertical)
+            {
+                if (Mathf.Abs(n.x) < 0.5f || Mathf.Abs(n.y) > 0.5f) return false;
+            }
+            else
+            {
+                if (Mathf.Abs(n.y) < 0.5f || Mathf.Abs(n.x) > 0.5f) return false;
+            }
+            return OnLongWall(rect, vertical, door.Center);
+        }
+
+        static bool OnLongWall(RectF r, bool vertical, Vector2 p)
+        {
+            if (vertical)
+                return p.y >= r.Y - 0.05f && p.y <= r.YMax + 0.05f &&
+                    (Mathf.Abs(p.x - r.X) <= 0.75f || Mathf.Abs(p.x - r.XMax) <= 0.75f);
+            return p.x >= r.X - 0.05f && p.x <= r.XMax + 0.05f &&
+                (Mathf.Abs(p.y - r.Y) <= 0.75f || Mathf.Abs(p.y - r.YMax) <= 0.75f);
+        }
+
+        static Door RemapSplitDoor(Door d, int oldIndex, int vestibule, int right, float a, float b, bool vertical)
+        {
+            if (d.Corridor != oldIndex) return d;
+            float along = vertical ? d.Center.y : d.Center.x;
+            if (along >= b) d.Corridor = right;
+            else if (along >= a) d.Corridor = vestibule;
+            return d;
+        }
+
+        static void RemapSplitDoors(FloorPlan plan, int oldIndex, int vestibule, int right, float a, float b, bool vertical)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                if (room.HasDoor) room.Door = RemapSplitDoor(room.Door, oldIndex, vestibule, right, a, b, vertical);
+                if (room.ExtraDoors != null)
+                    for (int d = 0; d < room.ExtraDoors.Count; d++)
+                        room.ExtraDoors[d] = RemapSplitDoor(room.ExtraDoors[d], oldIndex, vestibule, right, a, b, vertical);
+                room.CorridorIndex = room.HasDoor ? room.Door.Corridor : -1;
+                room.DoorToCorridor = room.CorridorIndex >= 0;
+                plan.Rooms[i] = room;
+            }
+            for (int i = 0; i < plan.LoopDoors.Count; i++)
+                plan.LoopDoors[i] = RemapSplitDoor(plan.LoopDoors[i], oldIndex, vestibule, right, a, b, vertical);
+            for (int i = 0; i < plan.CorridorOpenings.Count; i++)
+                plan.CorridorOpenings[i] = RemapSplitDoor(plan.CorridorOpenings[i], oldIndex, vestibule, right, a, b, vertical);
         }
 
         /// <summary>
@@ -214,6 +332,12 @@ namespace EscapeFromWork.LevelGen
         static void AddCrossDoor(List<Door> openings, bool vertical, float band, float across,
             float line, float width)
         {
+            // 窄廊里 1.4m 的门几乎占满带宽，两扇错位门会重叠成一条直线，视线照样穿过去
+            // （实测 seed 1 F2 一条 1.6m 宽的绕行廊，站距两侧各 25m，视线 0.6→49.2 穿过两扇门）。
+            // 带宽不够时按“两侧各留 0.2m 墙垛、两扇门之间至少留 0.3m 墙垛”把门收窄；
+            // 宽廊（>=3.4m）不受影响，仍然是 1.4m 主门。
+            float maxDoor = (band - 0.4f) * 0.5f - 0.15f;
+            if (width > maxDoor) width = Mathf.Max(0.5f, maxDoor);
             float half = width * 0.5f;
             float margin = Mathf.Max(0.2f, (band - width * 2f) * 0.25f);
             // 取侧：line 的奇偶保证同一条走廊上的门交替，across 的奇偶再拆开"两条几乎重叠的走廊"
@@ -250,6 +374,20 @@ namespace EscapeFromWork.LevelGen
         /// 服务廊被核心筒/楼梯削掉一条边时，会和主廊之间留出 0.3–0.4m 的夹缝：两圈墙谁也进不去，
         /// 这段服务廊天生就是死空间。直接丢掉——留着只会让"每段都要有开口"变成假要求。
         /// </summary>
+        /// <summary>
+        /// 短到开不出一道侧门的服务廊碎片（被核心筒/楼梯裁掉一截、或被门斗站切出 2–2.4m 的尾巴）
+        /// 永远满足不了“每段服务廊都要有开口”，留着只是走不进去的死空间，直接丢。
+        /// 侧门要求沿长轴重叠 >= SideOpeningWidth + 1.2m，比这还短的段不可能开门。
+        /// </summary>
+        static void DropUnopenableService(List<Piece> pieces)
+        {
+            for (int i = pieces.Count - 1; i >= 0; i--)
+            {
+                if (!pieces[i].Service) continue;
+                if (pieces[i].End - pieces[i].Start < SideOpeningWidth + 1.2f) pieces.RemoveAt(i);
+            }
+        }
+
         static void DropOrphanService(List<Piece> pieces)
         {
             for (int i = pieces.Count - 1; i >= 0; i--)
@@ -289,6 +427,24 @@ namespace EscapeFromWork.LevelGen
                 if (!OverlapAlong(pieces[i], pieces[j], out float along)) continue;
                 AddOpening(openings, pieces[i], side, along);
             }
+
+        }
+
+        static int FindAnyAdjacent(List<Piece> pieces, int i, out DoorSide side)
+        {
+            side = DoorSide.East;
+            int best = -1;
+            float bestOverlap = 0.8f;
+            for (int j = 0; j < pieces.Count; j++)
+            {
+                if (j == i || !Adjacent(pieces[i].Rect, pieces[j].Rect, out DoorSide candidate)) continue;
+                float overlap = Mathf.Min(pieces[i].End, pieces[j].End) - Mathf.Max(pieces[i].Start, pieces[j].Start);
+                if (overlap <= bestOverlap) continue;
+                bestOverlap = overlap;
+                best = j;
+                side = candidate;
+            }
+            return best;
         }
 
         /// <summary>两段在长轴上的重叠够不够开一扇侧门；够就把门心位置交出来。</summary>

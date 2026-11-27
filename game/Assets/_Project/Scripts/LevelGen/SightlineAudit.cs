@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -33,7 +34,17 @@ namespace EscapeFromWork.LevelGen
             public int Samples;
         }
 
-        public static Report Run(FloorPlan plan)
+        public static Report Run(FloorPlan plan) { return Run(plan, null, null); }
+
+        /// <summary>Optional world-space filter used by raid slices to exclude sealed floor areas.</summary>
+        public static Report Run(FloorPlan plan, Func<Vector2, bool> includePoint) { return Run(plan, includePoint, null); }
+
+        /// <summary>
+        /// visiblePoint 可选：把世界坐标里“不可通视”的区域当实墙。切开楼层时封死区只是本局不可进入，
+        /// 几何上并没有墙；视线审计必须按同一口径把封死区当墙，否则会量出穿越封死区的一整段假通视
+        /// （实测 raid 某层量到 60m，就是射线飞过了封死条）。
+        /// </summary>
+        public static Report Run(FloorPlan plan, Func<Vector2, bool> includePoint, Func<Vector2, bool> visiblePoint)
         {
             bool[] solid;
             int cols, rows;
@@ -54,6 +65,7 @@ namespace EscapeFromWork.LevelGen
             for (int i = 0; i < points.Count; i++)
             {
                 Vector2 p = points[i];
+                if (includePoint != null && !includePoint(p)) continue;
                 if (!Walkable(solid, cols, rows, p)) continue;
                 report.Samples++;
                 bool corridor = InCorridor(plan, p);
@@ -61,7 +73,7 @@ namespace EscapeFromWork.LevelGen
                 {
                     float angle = d * Mathf.PI * 2f / Directions;
                     Vector2 dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                    float dist = RayLength(solid, cols, rows, p, dir);
+                    float dist = RayLength(solid, cols, rows, p, dir, visiblePoint);
                     if (dist > report.GlobalMax)
                     {
                         report.GlobalMax = dist;
@@ -135,13 +147,15 @@ namespace EscapeFromWork.LevelGen
             return !SolidAt(solid, cols, rows, p.x, p.y);
         }
 
-        static float RayLength(bool[] solid, int cols, int rows, Vector2 from, Vector2 dir)
+        static float RayLength(bool[] solid, int cols, int rows, Vector2 from, Vector2 dir, Func<Vector2, bool> visiblePoint)
         {
             float t = 0f;
             while (t < MaxRay)
             {
                 t += Step;
-                if (SolidAt(solid, cols, rows, from.x + dir.x * t, from.y + dir.y * t)) return t - Step;
+                Vector2 p = new Vector2(from.x + dir.x * t, from.y + dir.y * t);
+                if (SolidAt(solid, cols, rows, p.x, p.y)) return t - Step;
+                if (visiblePoint != null && !visiblePoint(p)) return t - Step;
             }
             return MaxRay;
         }

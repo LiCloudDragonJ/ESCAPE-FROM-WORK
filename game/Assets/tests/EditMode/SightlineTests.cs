@@ -28,7 +28,7 @@ namespace EscapeFromWork.Tests.EditMode
                 {
                     RectF r = plan.Corridors[i].Rect;
                     float length = Mathf.Max(r.W, r.H);
-                    Assert.That(length, Is.LessThanOrEqualTo(32.5f),
+                    Assert.That(length, Is.LessThanOrEqualTo(30.05f),
                         "seed " + seed + " 有一整段 " + length.ToString("F1") + "m 的走廊没有断点");
                 }
             }
@@ -42,7 +42,7 @@ namespace EscapeFromWork.Tests.EditMode
                 FloorPlan plan = Plan(seed);
                 Assert.That(CorridorBreaks.CountVestibules(plan), Is.GreaterThan(20),
                     "seed " + seed + " 几乎没有门斗：断点没生成");
-                Assert.That(CorridorBreaks.LongestSegment(plan), Is.LessThanOrEqualTo(32.5f));
+                Assert.That(CorridorBreaks.LongestSegment(plan), Is.LessThanOrEqualTo(30.05f));
             }
         }
 
@@ -104,9 +104,12 @@ namespace EscapeFromWork.Tests.EditMode
                     Corridor c = plan.Corridors[i];
                     if (!c.Service) continue;
                     service++;
-                    float band = Mathf.Min(c.Rect.W, c.Rect.H);
+                    // 带宽取长轴的垂直方向：服务廊被核心筒/楼梯裁短后，长轴可能比 2.3m 带宽还短，
+                    // 用 Min(W,H) 会把“长度”当成“带宽”（实测 seed 4 量出 2.03，误判净宽 1.63）。
+                    float band = c.Vertical ? c.Rect.W : c.Rect.H;
                     // 净宽 = 带宽 - 墙厚 0.4m，验收要 1.8–2.1m
-                    Assert.That(band - 0.4f, Is.InRange(1.7f, 2.1f), "服务廊净宽不对");
+                    Assert.That(band - 0.4f, Is.InRange(1.7f, 2.1f),
+                        "seed " + seed + " 服务廊净宽不对 rect=" + c.Rect.W + "x" + c.Rect.H + " vertical=" + c.Vertical);
                     Assert.That(c.Main, Is.False, "服务廊不该标成主廊");
                 }
                 Assert.That(service, Is.GreaterThan(20), "seed " + seed + " 没有铺服务廊");
@@ -124,7 +127,8 @@ namespace EscapeFromWork.Tests.EditMode
                     Corridor c = plan.Corridors[i];
                     if (!c.Service) continue;
                     Assert.That(HasSideOpening(plan, c), Is.True,
-                        "服务廊有一段没有任何开口，等于封死的空间");
+                        "seed " + seed + " 服务廊有一段没有任何开口，等于封死的空间 rect=" +
+                        c.Rect.W + "x" + c.Rect.H + " at (" + c.Rect.X + "," + c.Rect.Y + ") vertical=" + c.Vertical);
                 }
             }
         }

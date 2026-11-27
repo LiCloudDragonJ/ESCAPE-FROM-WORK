@@ -70,23 +70,18 @@ namespace EscapeFromWork.LevelGen
             return shifted;
         }
 
-        /// <summary>把核布局写进某层的规格，FloorGenerator 会照它生成核心筒与楼梯。</summary>
+        /// <summary>旧 Lab 描述符的兼容投影；R11 Raid 不得使用这个跨层对齐楼梯模型。</summary>
+        [System.Obsolete("R11 raid uses StairGraphPlan; this adapter is only for legacy Lab tooling.")]
         public void ApplyTo(FloorSpec spec, int floorIndex)
         {
-            spec.UseCores = true;
+            spec.UseStairGraph = true;
+            spec.StairRects.Clear();
             for (int i = 0; i < Cores.Count; i++)
             {
                 VerticalCore c = Cores[i];
                 if (c.Kind == VerticalLinkKind.Elevator) spec.CoreRect = c.Rect;
+                if (c.Kind == VerticalLinkKind.Stair) spec.StairRects.Add(c.Rect);
             }
-            // 两座楼梯按 Column 排序后分别下发，避免"哪座是西梯"取决于生成顺序。
-            var stairs = new List<VerticalCore>();
-            for (int i = 0; i < Cores.Count; i++)
-                if (Cores[i].Kind == VerticalLinkKind.Stair) stairs.Add(Cores[i]);
-            stairs.Sort((a, b) => a.Column.CompareTo(b.Column));
-            if (stairs.Count > 0) spec.StairWestRect = stairs[0].Rect;
-            if (stairs.Count > 1) spec.StairEastRect = stairs[1].Rect;
-            spec.CoreFloorIndex = floorIndex;
         }
 
         /// <summary>同一种子在两局里共享同一套核坐标时，用来做逐层校验的稳定指纹。</summary>

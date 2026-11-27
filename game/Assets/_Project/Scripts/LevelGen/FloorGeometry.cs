@@ -352,6 +352,7 @@ namespace EscapeFromWork.LevelGen
             Emit(root, "SolidMass", solidMass, mats.Wall);
 
             AddLights(root, plan);
+            SignageRenderer.Build(plan, plan.Signs, root.transform);
             return root;
         }
 
