@@ -148,7 +148,7 @@ MonoBehaviour:
   - Name: "\u7EB8\u7BB1\u5806"
     Prefab: {fileID: 1321847748016622897, guid: c76505365746e2147a574fe5bdef82c2,
       type: 3}
-    Size: {x: 1.26, y: 2.08, z: 0.785}
+    Size: {x: 0.78, y: 1.4, z: 0.755}
     Offset: {x: 0, y: 0, z: 0}
     YawOffset: 0
     AddBoxCollider: 0
@@ -627,7 +627,7 @@ MonoBehaviour:
   - Name: "\u8D27\u5806"
     Prefab: {fileID: 1321847748016622897, guid: c76505365746e2147a574fe5bdef82c2,
       type: 3}
-    Size: {x: 1.26, y: 2.08, z: 0.785}
+    Size: {x: 0.78, y: 1.4, z: 0.755}
     Offset: {x: 0, y: 0, z: 0}
     YawOffset: 0
     AddBoxCollider: 0
@@ -676,7 +676,7 @@ MonoBehaviour:
   - Name: "\u5C0F\u7EB8\u7BB1"
     Prefab: {fileID: 1321847748016622897, guid: c76505365746e2147a574fe5bdef82c2,
       type: 3}
-    Size: {x: 1.26, y: 2.08, z: 0.785}
+    Size: {x: 0.78, y: 1.4, z: 0.755}
     Offset: {x: 0, y: 0, z: 0}
     YawOffset: 0
     AddBoxCollider: 0

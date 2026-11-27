@@ -251,21 +251,19 @@ def gen_sofa():
 
 
 def gen_crate_stack():
-    """纸箱堆 1.4×0.9×1.4：三层错位纸箱。"""
+    """纸箱堆 0.78×0.74×1.4：三层纸箱，逐层略收、层间不外挑。"""
     o = []
     layout = [
-        (0.62, 0.58, 0.44, -0.32, 0.10),
-        (0.62, 0.58, 0.44, 0.32, -0.08),
-        (0.60, 0.56, 0.42, -0.28, -0.10),
-        (0.58, 0.54, 0.40, 0.30, 0.12),
-        (0.56, 0.52, 0.38, 0.0, 0.0),
+        (0.78, 0.74, 0.50, 0.00, 0.00),
+        (0.72, 0.68, 0.48, 0.01, -0.01),
+        (0.64, 0.60, 0.42, -0.01, 0.01),
     ]
     z = 0.0
     for i, (w, d, h, x, y) in enumerate(layout):
         o.append(box("crate_%d" % i, (w, d, h), (x, y, z + h * 0.5), BODY if i % 2 == 0 else WHITE, 0.012))
         o.append(box("tape_%d" % i, (w * 0.5, 0.02, 0.012), (x, y - d * 0.5 - 0.005, z + h - 0.02), ACCENT, 0.0))
         z += h
-    return o, (1.4, 0.9), 1.4, "large", ("WoodPanel", "IndustrialPaint")
+    return o, (0.80, 0.76), 1.40, "large", ("WoodPanel", "IndustrialPaint")
 
 
 def gen_trash_bin():

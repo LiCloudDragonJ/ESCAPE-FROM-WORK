@@ -54,19 +54,21 @@
     {
       "id": "crate_stack",
       "name": "纸箱堆",
-      "width": 1.26,
-      "depth": 0.785,
-      "height": 2.08,
+      "width": 0.78,
+      "depth": 0.755,
+      "height": 1.4,
       "footprint": [
-        1.4,
-        0.9
+        0.8,
+        0.76
       ],
       "size_class": "large",
-      "triangles": 600,
+      "triangles": 360,
       "material_slots": [
         "WoodPanel",
         "IndustrialPaint"
-      ]
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
     },
     {
       "id": "trash_bin",
