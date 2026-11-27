@@ -357,6 +357,8 @@ namespace EscapeFromWork.LevelGen
             AssignCorridorDoors(plan);
             AddLoopDoors(plan, spec, rng);
             AddDeadEndBypass(plan, spec, rng);
+            // R8：补环（只加门，不改墙）。必须在连通性修复之前，之后的 EnsureConnectivity 会把新门一起算进去。
+            LoopInjector.Apply(plan, spec);
             EnsureConnectivity(plan);
             AddExtractions(plan, spec, rng);
             AddSpawnZones(plan, spec);
@@ -850,7 +852,7 @@ namespace EscapeFromWork.LevelGen
             return count;
         }
 
-        static bool DoorNear(Room room, Vector2 point, float radius)
+        internal static bool DoorNear(Room room, Vector2 point, float radius)
         {
             float sq = radius * radius;
             if (room.HasDoor && (room.Door.Center - point).sqrMagnitude < sq) return true;
@@ -1278,7 +1280,7 @@ namespace EscapeFromWork.LevelGen
             return score;
         }
 
-        static bool FindDoorBetween(RectF a, RectF b, out Vector2 center, out DoorSide side, out float overlapLen)
+        internal static bool FindDoorBetween(RectF a, RectF b, out Vector2 center, out DoorSide side, out float overlapLen)
         {
             const float gap = 0.8f;
             center = Vector2.zero;

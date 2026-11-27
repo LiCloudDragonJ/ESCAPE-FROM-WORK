@@ -292,7 +292,9 @@ namespace EscapeFromWork.EditorTools
         }
 
         /// <summary>
-        /// 鐢熸垚鑰楁椂鍩虹嚎锛歊7 鐨勫嚭鐢熷尯鏁ｅ竷淇浼氶澶栬窇绮楁爡鏍?flood锛?000 绉嶅瓙鎵规祴瀵规垚鏈緢鏁忔劅锛?        /// 鐢ㄨ繖涓帰閽堢‘璁ゃ€屾瘡灞傚鑺卞灏戞绉掋€嶈€屼笉鏄瓑鎵规祴璺戝崄鍒嗛挓銆?        /// </summary>
+        /// 生成耗时基线：R7 的出生区散布修复会额外跑粗栅格 flood，1000 种子批测对成本很敏感，
+        /// 用这个探针确认「每层多花多少毫秒」而不是等批测跑十分钟。
+        /// </summary>
         public static void SpawnBench()
         {
             const int n = 120;
@@ -331,6 +333,31 @@ namespace EscapeFromWork.EditorTools
                 "R2PROBE BENCH seeds={0} gen_ms={1} gen_per_seed={2:F1} audit_ms={3} audit_per_seed={4:F1} spacing_fail={5} worst_ratio={6:F2} min_diameter={7:F1}",
                 n, gen.ElapsedMilliseconds, gen.ElapsedMilliseconds / (double)n,
                 audit.ElapsedMilliseconds, audit.ElapsedMilliseconds / (double)n, failed, worstRatio, minDiameter));
+        }
+
+        /// <summary>
+        /// R8：打印每层的房间数、环数、目标环数，用来定验收区间（目标 = 房间数 / 12）。
+        /// </summary>
+        public static void Loops()
+        {
+            for (int seed = 1; seed <= 12; seed++)
+            {
+                FloorPlan plan = FloorGenerator.Generate(FloorSpec.Default(seed));
+                int target = LoopInjector.TargetCycles(plan);
+                int rank = LoopInjector.CycleRank(plan);
+                Debug.Log(string.Format(
+                    "R2PROBE LOOPS seed={0} rooms={1} corridors={2} doors={3} target={4} rank={5} ratio={6:F2}",
+                    seed, plan.Rooms.Count, plan.Corridors.Count, plan.LoopDoors.Count,
+                    target, rank, target > 0 ? (float)rank / target : 0f));
+                // 拆环：把门最多的房间单独统计一下，方便判断环是"房间之间"还是"走廊之间"。
+                int roomDoors = 0;
+                for (int i = 0; i < plan.Rooms.Count; i++)
+                {
+                    Room r = plan.Rooms[i];
+                    roomDoors += (r.HasDoor ? 1 : 0) + (r.ExtraDoors != null ? r.ExtraDoors.Count : 0);
+                }
+                Debug.Log(string.Format("R2PROBE LOOPS seed={0} roomDoorRecords={1}", seed, roomDoors));
+            }
         }
 
         static float SumLength(FloorPlan plan)

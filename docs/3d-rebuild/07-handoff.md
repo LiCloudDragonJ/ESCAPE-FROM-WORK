@@ -25,8 +25,9 @@
 **R4 设施语法库已完成**（2026-11-27）：`FacilityGrammar.cs` 18 类设施 × 7 主题、主题驱动切分、按用途配家具（每房 2–14 件）、大厅墙垛 `HallBreaks`、跨房间门对挡视屏；Blender 参数化道具管线（21 个 prefab + `PropCatalog`，1068/1191 件道具用上真模型）。
 **R5 切片结构已完成**：`SlicePlanner` 随机 3–4 层 × 每层 20–32% 楼板、总量 24,000–30,000㎡、封死区带世界内原因。
 **R6 竖向核对齐已完成**：`VerticalLinkPlan` 一局只算一次核坐标、逐层下发（`FloorSpec.UseCores`），相邻层固定 3 条通路、坐标误差 <0.5m。
-**R7 出生区图距离校验已完成**（2026-11-27）：`FloorValidator` 支持任意格宽（`BuildGrid(plan, cell)` + `Grid.Unit`），出生区按 2m 粗栅格做"最远点贪心"重排，出生区间步行距离 ≥ 本层锚点直径 35%；全量 EditMode **132/132 通过**。
-**R8–R10（环路注入 / 标识牌生成 / 体检器接回归）还没开始。**
+**R7 出生区图距离校验已完成**（2026-11-27）：`FloorValidator` 支持任意格宽（`BuildGrid(plan, cell)` + `Grid.Unit`），出生区按 2m 粗栅格做"最远点贪心"重排，出生区间步行距离 ≥ 本层锚点直径 35%；全量 EditMode **148/148 通过**（R7 那轮 132）。
+**R8 环路校验已完成**（2026-11-27）：`LoopInjector` 量化了环数（实测 49–69，是"房间数/12"下限的 5–6 倍），`Apply` 在达标时零改动，只保留"低于下限时补门"的保险。
+**R9–R10（标识牌生成 / 体检器接回归）还没开始。**
 
 ---
 
@@ -95,6 +96,7 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 | `LevelGen/FacilityGrammar.cs` | 560 | **R4 设施语法**：18 类设施 × 7 主题、主题驱动停止概率/最小面积、按用途配家具、大厅墙垛、跨房间门对挡视屏 | `Assign`、`AddRoomProps`、`AddHallBreaks`、`AddDoorScreens`、`ThemeOf`、`ZoneStopPBias`、`Profiles` |
 | `LevelGen/SlicePlanner.cs` | 338 | **R5 垂直切片**：3–4 层 × 每层 20–32% 楼板、封死区、通路 | `Generate(seed)` → `RaidPlan{Floors, Links, CorePlan, PlayableArea}` |
 | `LevelGen/VerticalLinkPlan.cs` | 130 | **R6 竖向核对齐**：一局只算一次核坐标，逐层下发 | `Default(spec)`、`ApplyTo(spec, floorIndex)`、`Fingerprint()` |
+| `LevelGen/LoopInjector.cs` | 200 | **R8 环路**：E−V+C 环数统计 + 低于下限时才补门 | `TargetCycles(plan)`、`CycleRank(plan)`、`Apply(plan, spec)` |
 | `LevelGen/CoverProps.cs` | 429 | 掩体/家具摆放（按房间类型与密度） | 摆件规则、掩体档位 |
 | `LevelGen/PropCatalog.cs` | 102 | 道具表（**R4 起由 Blender 管线自动填**，41 个模型 / 55 条别名） | `Entry{Name,Prefab,Size,Offset,AddBoxCollider}`、`LoadOrCreateDefault` |
 | `LevelGen/FloorChunk*.cs` | 481 | 分块：网格 / 计划 / 几何 / 流式 | `FloorChunkGeometry.BuildShell`、`FloorStreamer`、`FloorStreamingRuntime` |
@@ -124,8 +126,8 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 
 ### 4.4 测试（`game/Assets/tests/`）
 
-EditMode 20 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5）、`VerticalLinkPlanTests`（R6）、`SpawnSpacingTests`（R7）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
-**合计 EditMode 132 项，全绿**（2026-11-27，R7 完成后实测；R6 那轮 129、R4 那轮 124、R3 是 113、R2 是 109、R1 是 103）。改生成器任何规则前先跑一遍全量当基线。
+EditMode 21 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5）、`VerticalLinkPlanTests`（R6）、`SpawnSpacingTests`（R7）、`LoopInjectorTests`（R8）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`；PlayMode：`WhiteboxSmokeTests`。
+**合计 EditMode 148 项，全绿**（2026-11-27，R8 完成后实测；R7 那轮 132、R6 那轮 129、R4 那轮 124、R3 是 113、R2 是 109、R1 是 103）。改生成器任何规则前先跑一遍全量当基线。
 
 ---
 
@@ -166,11 +168,11 @@ EditMode 20 个文件：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多
 | R5 | **SlicePlanner**：随机 **3–4 层** × 每层 **20–32%** 楼板、面积 24–30k㎡、封死区、连通性 | `LevelGen/SlicePlanner.cs` | 面积/连通/竖向通路 ≥3 且不同象限 |
 | R6 | **VerticalLinkPlan**：竖向核跨层对齐 | 新 `VerticalLinkPlan.cs` + `FloorSpec` | 相邻层 ≥3 通路、坐标对齐误差 <0.5m |
 | R7 | **图距离出生散布**：出生区按步行距离重排 | `FloorValidator`（`CoarseCell`/`CoarseDiameter`/`AuditSpawnSpacing`）+ `FloorGenerator.RepairSpawnSpread` | 出生区间距 ≥35%；`SpawnSpacingTests`。到撤离 ≥50% 由既有 `ExtractionSpreadTests` + `FarThreshold` 覆盖 |
-| R8 | **环路注入**：外环 + 内环 + 局部环，环数 ≈ 房间数/12 | `FloorGenerator` / `SlicePlanner` | E−V+1 落在 ±30% |
+| R8 | **环路**：环数（E−V+C）不低于"房间数/12"的下限；实测已是 5–6 倍 | `LevelGen/LoopInjector.cs` | 环数 ≥ 目标；达标时零改动 |
 | R9 | **SignageGenerator**：疏散牌 / 楼层号 / 平面图牌 / 电梯面板 | 新 `Signage.cs` + 场景装饰 | 每层 ≥1 处"你在这里"牌；截图可读 |
 | R10 | **体检器接回归**：把 `tools/plan-proto/audit_floors.py` 的指标搬进 EditMode 测试 | 新 `LevelAuditTests.cs` | 指标表（06 §10）进 CI |
 
-> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，109/109）。**R3 已完成**（2026-11-26，113/113）。**R4 已完成**（2026-11-27，124/124）。**R5/R6 已完成**（2026-11-27，129/129）。**R7 已完成**（2026-11-27，132/132）。下一步 R8（环路注入）；R8 及之后的验收仍按上表原文。
+> **R1 已完成**（commit `0bd87f1`，EditMode 103/103）。**R2 已完成**（2026-11-26，109/109）。**R3 已完成**（2026-11-26，113/113）。**R4 已完成**（2026-11-27，124/124）。**R5/R6 已完成**（2026-11-27，129/129）。**R7 已完成**（2026-11-27，132/132）。**R8 已完成**（2026-11-27，148/148）。下一步 R9（标识牌生成）。
 > **对比图**：R2/R3 落地后已出 `r2-dollhouse.png`、`props-showcase*.png`、`plan-1/7*.png`；R7–R10 做完整层结构后重跑 `M1FloorScene.Capture` 出 after 图。
 
 R2 已完成，落地方式（改过的东西，别再重复设计）：
@@ -215,6 +217,14 @@ R7 已完成，落地方式（改过的东西，别再重复设计）：
 - 实测：`R2Probe.SpawnBench` 120 个种子 `spacing_fail=0`、最差比值 1.02、`gen 172.6ms/种子`（不开修复 162.5ms，审计本身 3.5ms）；`SpawnSpacingTests` 3 项（8 种子 35% 断言 / 6 种子可达撤离 / 同种子确定性）。
 - 到撤离的"≥50%"由既有 `ExtractionSpreadTests` + `FarThreshold`（图距离，本来就非直线）覆盖，没有另起一套。
 
+R8 已完成，落地方式（结论与 R8 计划里写的不一样，按实测走）：
+- **先量后做**：`R2Probe.Loops` 打 12 个种子，环数（E − V + C，节点 = 房间 + 走廊，边只取 `room.Door` + `room.ExtraDoors`）实测 **49–69**，而"房间数 / 12"只有 **9–11** —— 主廊 + 支廊 + 并行服务廊本来就把环数撑到 5–6 倍。R8 计划里"环数 ≈ 房间数/12，±30%"这个上限假设是错的：本生成器的房间图天生比它环通得多。
+- 因此 `LevelGen/LoopInjector.cs` 的目标改成**下限**：`TargetCycles = max(1, rooms/12)`，`Apply` 只在 `rank < 0.7 * target` 时补门，正常分布下**零改动**（12 个种子实测 `added=0`）。
+- 补门规则（真需要时）：找共享墙重叠 ≥2.4m、门距 ≥1.6m、且**当前图上已连通**的相邻房间（未连通时加的是桥，环数不涨），在共享墙中点开 1.0–1.6m 门，写进双方 `ExtraDoors` + `plan.LoopDoors`；`rng = seed*8647+211`。接线点在 `Build` 的 `AddDeadEndBypass` 之后、`EnsureConnectivity` 之前。
+- 不读 `plan.LoopDoors` 做环数统计：它是同一扇门的重复登记，算两遍环数会翻倍。
+- `LoopInjectorTests` 4 项 16 例：环数 ≥ 目标（6 种子）、已达标时 `Apply` 零改动且环数不变（6 种子）、同种子环数确定（3 种子）、每间房至少 1 扇门。全量 EditMode **148/148**。
+- 真要再提"绕行感"，杠杆不在加门，而在 R4 的 `HallBreaks`/`AddDoorScreens` 与房间连通形状 —— 加门只会让环数从 5 倍变 6 倍，玩家感知不到。
+
 ---
 
 ## 8. 血泪教训（别重犯）
@@ -248,8 +258,8 @@ R7 已完成，落地方式（改过的东西，别再重复设计）：
 - **M1-D**：`PropCatalog` 已填 41 个 Blender 模型 / 55 条别名，seed 1 命中率 89.6%；仍有零星灰盒（无模型的别名）。
 - **M1-E**：分块 LOD 与"每块 NavMesh"未做。
 - **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块仍按房间矩形；斜墙隔断 + L 形合并未做。
-- **R1–R7 已完成**（2026-11-27，EditMode 132/132）：门数规则、走廊断点（最长视线 30–38m）、房间尺度（中位 100–123㎡、<56㎡ 7.0%）、设施语法库（18 类 × 7 主题）、垂直切片（3–4 层 × 20–32%）、竖向核对齐（<0.5m）、出生区图距离散布（≥35% 直径）。
-- **R8–R10 未做**：环路注入、标识牌生成、体检器接回归。
+- **R1–R8 已完成**（2026-11-27，EditMode 148/148）：门数规则、走廊断点（最长视线 30–38m）、房间尺度（中位 100–123㎡、<56㎡ 7.0%）、设施语法库（18 类 × 7 主题）、垂直切片（3–4 层 × 20–32%）、竖向核对齐（<0.5m）、出生区图距离散布（≥35% 直径）、环数校验（49–69，5–6 倍下限）。
+- **R9–R10 未做**：标识牌生成、体检器接回归。
 - **美术资源**：31 套 PBR（原 7 + 两批 24）、35 张标识牌、35 个 HUD 图标、15 张贴花、41 个 Blender 道具、5 张菜单图；`MaterialArtLibrary` 只接了 10 个槽位，**per-room 材质槽还没做**（设施已有 `FloorMaterial/WallMaterial` 数据，但没有落到几何上）。
 - **视觉待打磨**（用户试玩后会提）：墙面竖向拉丝/噪点（WorldUv + 高频法线）、整体偏暗（环境光 0.42、无后处理）、道具仍是低模扁平材质、无 LOD1。
 - **设计待拍板**（06 §8）：楼层总数、封死楼板的表现、25 还是 30 分钟、TTK、AI 玩家上限、深度是否保留难度分层。
@@ -287,8 +297,8 @@ R7 已完成，落地方式（改过的东西，别再重复设计）：
 
 ## 13. 一句话交接
 
-**单层生成器、R1–R7 都已完成**：外廓多边形化；门数规则；走廊 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）；面积按真实轮廓 + 房间用途（中位 100–123㎡）；设施语法库（18 类 × 7 主题 + 41 个 Blender 道具）；垂直切片（3–4 层 × 20–32%，24–30k㎡）；竖向核跨层对齐（<0.5m）；出生区按 2m 粗栅格最远点重排（间距 ≥35% 直径）。EditMode **132/132 全绿**。
-接下来 R8（环路注入）→ R9（标识牌生成）→ R10（体检器接回归）；同时按用户试玩反馈打磨视觉（墙面拉丝/偏暗/道具材质）与 `MapHud` 的楼层条/拉闸房可见性/撤离点门控。
+**单层生成器、R1–R8 都已完成**：外廓多边形化；门数规则；走廊 28m 站 + 门斗 + 并行服务廊（最长直线视线 30–38m）；面积按真实轮廓 + 房间用途（中位 100–123㎡）；设施语法库（18 类 × 7 主题 + 41 个 Blender 道具）；垂直切片（3–4 层 × 20–32%，24–30k㎡）；竖向核跨层对齐（<0.5m）；出生区按 2m 粗栅格最远点重排（间距 ≥35% 直径）；环数 49–69（下限的 5–6 倍）。EditMode **148/148 全绿**。
+接下来 R9（标识牌生成）→ R10（体检器接回归）；同时按用户试玩反馈打磨视觉（墙面拉丝/偏暗/道具材质）与 `MapHud` 的楼层条/拉闸房可见性/撤离点门控。
 
 **地图/撤离可见性规则（2026-11-26 用户确认）记在 `02-level-design.md` §5.5**：小地图只画当前层；楼层条只标"哪层还有可用撤离点"；拉闸房没有迷雾、永久可见；进层只显示"本层 N 个可用撤离点"，**进入拉闸房之后**才标出被激活的具体撤离点（图标 + 位置 + 类型），拉闸全楼广播。`MapHud.cs` 目前只有 `MapFog` + 单层 `MapRaster`，楼层条 / 拉闸房可见性 / 撤离点门控都还没做。
 
