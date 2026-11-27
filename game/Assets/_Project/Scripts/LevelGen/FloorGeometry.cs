@@ -387,7 +387,7 @@ namespace EscapeFromWork.LevelGen
                 Room room = plan.Rooms[i];
                 FacilityProfile profile = FacilityGrammar.Get(room.Facility);
                 AddRoomFloor(plan, room, Bucket(floorBuckets, profile.FloorMaterial));
-                AddRoomWallBand(room, Bucket(bandBuckets, profile.WallMaterial));
+                AddRoomWallBand(room, Bucket(bandBuckets, profile.WallMaterial), profile.WallBandHeight);
             }
 
             foreach (KeyValuePair<string, MeshAccum> kv in floorBuckets)

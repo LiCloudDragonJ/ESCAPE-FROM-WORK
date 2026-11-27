@@ -57,6 +57,11 @@ namespace EscapeFromWork.LevelGen
         public string FloorMaterial;
         /// <summary>墙面材质槽。</summary>
         public string WallMaterial;
+        /// <summary>
+        /// 墙裙高度（m）。洁净/工业设施把面板做到接近吊顶，办公类只做 1.02m 踢脚墙裙，
+        /// 这样同一套材质槽也能靠"铺多高"区分房间气质。
+        /// </summary>
+        public float WallBandHeight;
     }
 
     public static class FacilityGrammar
@@ -162,27 +167,28 @@ namespace EscapeFromWork.LevelGen
 
         static readonly FacilityProfile[] Profiles =
         {
-            Profile(FacilityKind.Office,        "办公区",    60f, 300f, "CarpetTile",   "PaintedWall"),
-            Profile(FacilityKind.Meeting,       "会议室",    60f, 180f, "VenueCarpet",  "WoodPanel"),
-            Profile(FacilityKind.ServerHall,    "机房大厅", 220f, 900f, "CleanPanel",   "ServerPanel"),
-            Profile(FacilityKind.ServerRoom,    "机房",      60f, 220f, "CleanPanel",   "ServerPanel"),
-            Profile(FacilityKind.Riser,         "管井",      14f,  56f, "ConcreteFloor","ConcreteWall"),
-            Profile(FacilityKind.ColdRoom,      "冷库",      80f, 500f, "EpoxyFloor",   "CleanPanel"),
-            Profile(FacilityKind.PipeGallery,   "管廊",      18f,  70f, "ConcreteFloor","IndustrialPaint"),
-            Profile(FacilityKind.Workshop,      "车间",     140f, 700f, "DiamondPlate", "IndustrialPaint"),
-            Profile(FacilityKind.ControlRoom,   "中控室",    60f, 220f, "TileFloor",    "CleanPanel"),
-            Profile(FacilityKind.Substation,    "变电室",    40f, 160f, "RubberStair",  "IndustrialPaint"),
-            Profile(FacilityKind.TankRoom,      "储罐间",    60f, 320f, "EpoxyFloor",   "ColdMetal"),
-            Profile(FacilityKind.IsolationRoom, "隔离室",    36f, 140f, "CleanPanel",   "CleanPanel"),
-            Profile(FacilityKind.LoadingDock,   "装卸区",   150f, 600f, "ConcreteFloor","IndustrialPaint"),
-            Profile(FacilityKind.Archive,       "档案室",    60f, 300f, "WoodPanel",    "PaintedWall"),
-            Profile(FacilityKind.CleanRoom,     "洁净间",    60f, 240f, "CleanPanel",   "CleanPanel"),
-            Profile(FacilityKind.LivingPod,     "生活舱",    20f,  60f, "VenueCarpet",  "PaintedWall"),
-            Profile(FacilityKind.Storage,       "储藏间",    14f, 120f, "ConcreteFloor","PaintedWall"),
-            Profile(FacilityKind.Toilet,        "卫生间",    12f,  56f, "TileFloor",    "TileFloor"),
+            Profile(FacilityKind.Office,        "办公区",    60f, 300f, "CarpetTile",   "PaintedWall",   1.02f),
+            Profile(FacilityKind.Meeting,       "会议室",    60f, 180f, "VenueCarpet",  "WoodPanel",     1.20f),
+            Profile(FacilityKind.ServerHall,    "机房大厅", 220f, 900f, "CleanPanel",   "ServerPanel",   2.60f),
+            Profile(FacilityKind.ServerRoom,    "机房",      60f, 220f, "CleanPanel",   "ServerPanel",   2.60f),
+            Profile(FacilityKind.Riser,         "管井",      14f,  56f, "ConcreteFloor","ConcreteWall",  2.40f),
+            Profile(FacilityKind.ColdRoom,      "冷库",      80f, 500f, "EpoxyFloor",   "CleanPanel",    2.60f),
+            Profile(FacilityKind.PipeGallery,   "管廊",      18f,  70f, "ConcreteFloor","IndustrialPaint", 1.80f),
+            Profile(FacilityKind.Workshop,      "车间",     140f, 700f, "DiamondPlate", "IndustrialPaint", 1.60f),
+            Profile(FacilityKind.ControlRoom,   "中控室",    60f, 220f, "TileFloor",    "CleanPanel",    2.60f),
+            Profile(FacilityKind.Substation,    "变电室",    40f, 160f, "RubberStair",  "IndustrialPaint", 1.40f),
+            Profile(FacilityKind.TankRoom,      "储罐间",    60f, 320f, "EpoxyFloor",   "ColdMetal",     1.80f),
+            Profile(FacilityKind.IsolationRoom, "隔离室",    36f, 140f, "CleanPanel",   "CleanPanel",    2.60f),
+            Profile(FacilityKind.LoadingDock,   "装卸区",   150f, 600f, "ConcreteFloor","IndustrialPaint", 1.40f),
+            Profile(FacilityKind.Archive,       "档案室",    60f, 300f, "WoodPanel",    "PaintedWall",   1.02f),
+            Profile(FacilityKind.CleanRoom,     "洁净间",    60f, 240f, "CleanPanel",   "CleanPanel",    2.60f),
+            Profile(FacilityKind.LivingPod,     "生活舱",    20f,  60f, "VenueCarpet",  "PaintedWall",   1.02f),
+            Profile(FacilityKind.Storage,       "储藏间",    14f, 120f, "ConcreteFloor","PaintedWall",   1.02f),
+            Profile(FacilityKind.Toilet,        "卫生间",    12f,  56f, "TileFloor",    "TileFloor",     2.60f),
         };
 
-        static FacilityProfile Profile(FacilityKind kind, string name, float min, float max, string floor, string wall)
+        static FacilityProfile Profile(FacilityKind kind, string name, float min, float max, string floor, string wall,
+            float wallBandHeight = 1.02f)
         {
             FacilityProfile p;
             p.Kind = kind;
@@ -191,6 +197,7 @@ namespace EscapeFromWork.LevelGen
             p.MaxArea = max;
             p.FloorMaterial = floor;
             p.WallMaterial = wall;
+            p.WallBandHeight = wallBandHeight;
             return p;
         }
 

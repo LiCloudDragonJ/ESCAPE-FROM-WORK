@@ -256,6 +256,13 @@
 - **新道具**：`tools/blender/gen_props.py` 扩到 1985 行、新增 `render_props.py` 3/4 视角抽查；道具 82 件 / 10,802 tris；`PropCatalog` 96 条（82 真件 + 别名）。**遗留**：别名与真件同名重复（如 配线架 / 管井架 / 阀门组），命中靠"别名追加在后面、真件优先"；T8 清理时把重复条目合并。
 - **本批审计工具**：`game/Assets/_Project/Scripts/Editor/PropAuditProbe.cs`（菜单 `Escape From Work/Debug/Prop Orientation Audit`、`Prop Grid Render`、`Dump Corridor Props`），输出 `docs/3d-rebuild/prop-audit.tsv` 与 `screenshots/props-grid-34.png`。
 
+### 10.5 2026-11-27 晚 21:00 这批（设施墙裙通高 + 设施房间出图）
+
+- `FacilityProfile.WallBandHeight`：洁净/机房/冷库/控制室/隔离/洁净间/卫生间 2.60m，管井 2.40，管廊/储罐 1.80，车间 1.60，变电/装卸 1.40，其余 1.02–1.20；`FloorGeometry.EmitRoomSurfaces` 按它出 `RoomBand_*`。`RoomFinishTests` 9/9（新增 `CleanFacilities_BandAlmostReachesTheCeiling`）。
+- 新工具 `game/Assets/_Project/Scripts/Editor/FacilityCapture.cs`（菜单 `Escape From Work/M1/Capture Facility Rooms`）按 FacilityKind 各拍一张 `docs/3d-rebuild/screenshots/facility-<kind>.png`；seed=1 本层只有 12 类设施（无 ServerHall/CleanRoom/IsolationRoom/Archive/PipeGallery），机房/医疗主题要靠主题配比补。
+- 办公区 `PaintedWall` 墙裙与基础墙同色，1.02m 踢脚几乎看不出来（待换色/换材质）。
+- T3 多楼层运行时只起了骨架（`TowerRuntime`/`TowerSetup`/`TowerCapture`），因 Gameplay→LevelGen 的 asmdef 引用与 `FloorPlan.Width/Height` 编译问题在 21:30 前回滚，未提交；下次从「阶 assembly 引用 + FloorPlan 尺寸取 Spec」重新开始。
+
 ---
 
 ## 11. 下次会话开场

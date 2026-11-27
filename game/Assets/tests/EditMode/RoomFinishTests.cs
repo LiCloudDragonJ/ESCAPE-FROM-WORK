@@ -79,7 +79,7 @@ namespace EscapeFromWork.Tests.EditMode
         }
 
         [Test]
-        public void WallBand_StaysBelowTheDoorHead(
+        public void WallBand_RisesToItsFacilityHeight(
             [Values(1, 3)] int seed)
         {
             FloorPlan plan = TowerPlan(seed);
@@ -88,19 +88,39 @@ namespace EscapeFromWork.Tests.EditMode
             {
                 Room room = plan.Rooms[i];
                 if (room.Rect.W < 2.5f || room.Rect.H < 2.5f) continue;
+                FacilityProfile profile = FacilityGrammar.Get(room.Facility);
+                float height = profile.WallBandHeight;
+                Assert.Greater(height, 0.5f, profile.Name + " 的墙裙高度必须大于踢脚");
+
                 FloorGeometry.MeshAccum acc = new FloorGeometry.MeshAccum();
-                FloorGeometry.AddRoomWallBand(room, acc);
+                FloorGeometry.AddRoomWallBand(room, acc, height);
                 if (acc.Vertices.Count == 0) continue;
 
                 for (int v = 0; v < acc.Vertices.Count; v++)
                 {
                     float y = acc.Vertices[v].y;
                     Assert.GreaterOrEqual(y, -0.001f, "墙裙不能低于地面");
-                    Assert.LessOrEqual(y, 1.06f, "墙裙高过门楣会切到门洞");
+                    Assert.LessOrEqual(y, height + 0.01f,
+                        profile.Name + " 的墙裙高过自己的设施高度");
                 }
                 checkedRooms++;
             }
             Assert.Greater(checkedRooms, 0, "至少检查到一个房间墙裙");
+        }
+
+        [Test]
+        public void CleanFacilities_BandAlmostReachesTheCeiling()
+        {
+            // 洁净/机房/冷库靠通高面板区分，办公靠 1.02m 踢脚墙裙——两种高度都要存在
+            FacilityProfile clean = FacilityGrammar.Get(FacilityKind.CleanRoom);
+            FacilityProfile server = FacilityGrammar.Get(FacilityKind.ServerHall);
+            FacilityProfile cold = FacilityGrammar.Get(FacilityKind.ColdRoom);
+            FacilityProfile office = FacilityGrammar.Get(FacilityKind.Office);
+
+            Assert.GreaterOrEqual(clean.WallBandHeight, 2.4f, "洁净间墙裙应接近吊顶");
+            Assert.GreaterOrEqual(server.WallBandHeight, 2.4f, "机房大厅墙裙应接近吊顶");
+            Assert.GreaterOrEqual(cold.WallBandHeight, 2.4f, "冷库墙裙应接近吊顶");
+            Assert.LessOrEqual(office.WallBandHeight, 1.1f, "办公区应只做踢脚墙裙");
         }
 
         [Test]

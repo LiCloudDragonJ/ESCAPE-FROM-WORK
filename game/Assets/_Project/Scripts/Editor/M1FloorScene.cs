@@ -784,7 +784,7 @@ namespace EscapeFromWork.EditorTools
             if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder(Root + "/Materials", "Floor");
         }
 
-        static FloorMaterials BuildMaterials()
+        public static FloorMaterials BuildMaterials()
         {
             MaterialArtLibrary.BuildAll();
             FloorMaterials mats = new FloorMaterials();
