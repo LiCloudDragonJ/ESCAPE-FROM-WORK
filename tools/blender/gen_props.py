@@ -158,6 +158,11 @@ def finish(ob, name):
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.remove_doubles(threshold=0.0005)
     bpy.ops.mesh.normals_make_consistent(inside=False)
+    # 立方体投影 UV：1 个 UV 单位 = 1 米，Unity 侧材质 tiling 才能按真实尺度铺（否则每个面都是 0–1，
+    # 木纹被放大成一整块，花纹还会在相邻面上跳）。
+    if not ob.data.uv_layers:
+        ob.data.uv_layers.new(name="UVMap")
+    bpy.ops.uv.cube_project(cube_size=1.0, correct_aspect=True, scale_to_bounds=False)
     bpy.ops.object.mode_set(mode="OBJECT")
     ob.name = name
     return ob

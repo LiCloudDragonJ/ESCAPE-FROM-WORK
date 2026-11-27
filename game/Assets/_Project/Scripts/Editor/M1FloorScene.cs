@@ -31,7 +31,7 @@ namespace EscapeFromWork.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            RenderSettings.ambientLight = new Color(0.52f, 0.53f, 0.56f);
             RenderSettings.fog = false;
 
             Vector3 spawn = SpawnPoint(plan);
@@ -86,7 +86,7 @@ namespace EscapeFromWork.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            RenderSettings.ambientLight = new Color(0.52f, 0.53f, 0.56f);
             RenderSettings.fog = false;
 
             GameObject root = new GameObject("FloorRuntime");
@@ -180,7 +180,7 @@ namespace EscapeFromWork.EditorTools
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            RenderSettings.ambientLight = new Color(0.52f, 0.53f, 0.56f);
 
             FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
 
@@ -304,7 +304,7 @@ namespace EscapeFromWork.EditorTools
 
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            RenderSettings.ambientLight = new Color(0.52f, 0.53f, 0.56f);
             FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
 
             GameObject cameraObject = new GameObject("CaptureCamera");
@@ -511,7 +511,7 @@ namespace EscapeFromWork.EditorTools
             FloorPlan plan = FloorGenerator.Generate(spec);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.47f);
+            RenderSettings.ambientLight = new Color(0.52f, 0.53f, 0.56f);
             FloorGeometry.Build(plan, mats, null, PropCatalog.LoadOrCreateDefault());
             Physics.SyncTransforms();
 

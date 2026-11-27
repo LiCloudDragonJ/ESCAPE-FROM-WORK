@@ -19,7 +19,7 @@ namespace EscapeFromWork.EditorTools
         {
             { "Wall", "PaintedWall" },
             { "Floor", "CarpetTile" },
-            { "Ceiling", "CeilingTile" },
+            { "Ceiling", "CeilingGrid" },
             { "Column", "ConcreteWall" },
             { "Core", "DarkMetal" },
             { "Stair", "RubberStair" },

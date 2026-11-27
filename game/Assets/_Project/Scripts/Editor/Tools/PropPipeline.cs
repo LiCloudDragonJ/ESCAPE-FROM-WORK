@@ -196,54 +196,132 @@ namespace EscapeFromWork.EditorTools
                       meta.Height.ToString("0.00") + " x " + meta.Depth.ToString("0.00") + ")");
         }
 
+        /// <summary>
+        /// 道具 → 材质套（`Assets/_Project/Art/Textures/<Set>`）。FBX 里的材质只分"body/dark/accent"，
+        /// 但 Unity 侧每个 prefab 只用一个扁平材质，所以这里按道具语义挑最具辨识度的一套：
+        /// 木家具用木纹、机柜/机架用深色钢板、布艺用吸音布、玻璃隔断用磨砂玻璃。
+        /// </summary>
+        static readonly Dictionary<string, string> SetByProp = new Dictionary<string, string>
+        {
+            { "cabinet_group", "WoodPanel" },
+            { "desk", "WoodPanel" },
+            { "meeting_table", "WoodPanel" },
+            { "archive_shelf", "WoodPanel" },
+            { "shelf_unit", "WoodPanel" },
+            { "crate_stack", "WoodPanel" },
+            { "pallet", "WoodPanel" },
+            { "pallet_stack", "WoodPanel" },
+            { "workbench", "WoodPanel" },
+            { "workbench_v2", "WoodPanel" },
+            { "printer", "DarkMetal" },
+            { "server_rack", "ServerPanel" },
+            { "power_cabinet", "DarkMetal" },
+            { "control_console", "DarkMetal" },
+            { "screen_wall", "DarkMetal" },
+            { "vending_machine", "CleanPanel" },
+            { "cold_shelf", "ColdMetal" },
+            { "cold_fan", "ColdMetal" },
+            { "tank", "ColdMetal" },
+            { "pump", "RustSteel" },
+            { "pipe_rack", "RustSteel" },
+            { "barrel", "RustSteel" },
+            { "cable_spool", "WoodPanel" },
+            { "fire_cabinet", "HazardPaint" },
+            { "extinguisher", "HazardPaint" },
+            { "sign_stand", "DarkMetal" },
+            { "trash_bin", "BrushedMetal" },
+            { "water_cooler", "CleanPanel" },
+            { "water_cooler_v2", "CleanPanel" },
+            { "locker", "BrushedMetal" },
+            { "med_cabinet", "CleanPanel" },
+            { "tool_cart", "DiamondPlate" },
+            { "medical_cart", "CleanPanel" },
+            { "office_chair", "FabricPanel" },
+            { "folding_chair", "DarkMetal" },
+            { "sofa", "FabricPanel" },
+            { "partition", "FabricPanel" },
+            { "glass_partition", "FrostedGlass" },
+            { "bed", "FabricPanel" },
+            { "hospital_bed", "CleanPanel" },
+            { "plant", "ConcreteFloor" },
+        };
+
         static string SlotFor(PropMeta meta)
         {
-            if (meta.MaterialSlots != null && meta.MaterialSlots.Length > 0)
+            string set;
+            if (SetByProp.TryGetValue(meta.Id, out set)) return set;
+            if (meta.SizeClass == "large") return "WoodPanel";
+            if (meta.SizeClass == "small") return "BrushedMetal";
+            return "DarkMetal";
+        }
+
+        /// <summary>扁平材质按材质套的气候调光滑度：布最哑、玻璃最亮、金属居中。</summary>
+        static float SmoothnessFor(string set)
+        {
+            switch (set)
             {
-                string slot = meta.MaterialSlots[0];
-                if (MaterialArtLibrary.TryLoad(slot) != null) return slot;
+                case "FabricPanel": return 0.06f;
+                case "WoodPanel": return 0.22f;
+                case "WoodFloor": return 0.18f;
+                case "CarpetTile": return 0.05f;
+                case "FrostedGlass": return 0.62f;
+                case "GlassPanel": return 0.66f;
+                case "CleanPanel": return 0.5f;
+                case "CeramicWall": return 0.55f;
+                case "ColdMetal": return 0.48f;
+                case "ServerPanel": return 0.4f;
+                case "DiamondPlate": return 0.34f;
+                case "RustSteel": return 0.28f;
+                case "BrushedMetal": return 0.4f;
+                case "DarkMetal": return 0.44f;
+                case "HazardPaint": return 0.3f;
+                case "ConcreteFloor": return 0.15f;
+                default: return 0.2f;
             }
-            if (meta.SizeClass == "large") return "PropLarge";
-            if (meta.SizeClass == "small") return "PropSmall";
-            return "PropMedium";
+        }
+
+        static Texture2D AlbedoFor(string set)
+        {
+            string path = "Assets/_Project/Art/Textures/" + set + "/T_" + set + "_Albedo.png";
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         /// <summary>
-        /// 道具用"扁平材质"：只保留 albedo + 低光滑度，去掉法线/金属贴图。
-        /// 原因：Blender 导出的盒子每个面都是 0–1 UV，法线贴图在平面上一铺就像瓦楞纸，
-        /// 近看全是条棱（2026-11-27 道具总览图实测）。道具的形体靠几何与倒角，不靠法线。
+        /// 道具用"扁平材质"：贴 albedo（按 1 UV = 1 m 的立方体投影铺），去法线与金属贴图。
+        /// 原因：道具的形体靠几何与倒角，法线在平面上只会糊成一片噪声（2026-11-27 总览图实测）。
         /// </summary>
         static readonly Dictionary<string, Material> FlatMaterials = new Dictionary<string, Material>();
 
-        static Material PropMaterial(string slot)
+        static Material PropMaterial(string set)
         {
             Material cached;
-            if (FlatMaterials.TryGetValue(slot, out cached)) return cached;
+            if (FlatMaterials.TryGetValue(set, out cached)) return cached;
 
             const string dir = "Assets/_Project/Materials/Props";
             EnsureFolder(dir);
-            string path = dir + "/M_Prop_" + slot + ".mat";
+            string path = dir + "/M_Prop_" + set + ".mat";
 
             Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-            Material source = MaterialArtLibrary.TryLoad(slot);
             if (mat == null)
             {
                 Shader shader = Shader.Find("Universal Render Pipeline/Lit");
                 mat = new Material(shader);
-                if (source != null)
+                Texture2D albedo = AlbedoFor(set);
+                if (albedo != null)
                 {
-                    Texture albedo = source.GetTexture("_BaseMap");
-                    if (albedo != null) mat.SetTexture("_BaseMap", albedo);
-                    mat.SetColor("_BaseColor", source.GetColor("_BaseColor"));
+                    mat.SetTexture("_BaseMap", albedo);
+                    // 立方体投影已是"1 UV = 1 米"，材质的 tiling 再乘一遍会碎掉。
+                    mat.mainTextureScale = Vector2.one;
                 }
-                mat.SetFloat("_Smoothness", 0.18f);
+                mat.SetColor("_BaseColor", Color.white);
+                mat.SetFloat("_Smoothness", SmoothnessFor(set));
                 mat.SetFloat("_Metallic", 0f);
                 mat.SetFloat("_EnvironmentReflections", 0f);
                 mat.enableInstancing = true;
                 AssetDatabase.CreateAsset(mat, path);
             }
 
-            FlatMaterials[slot] = mat;
+            FlatMaterials[set] = mat;
             return mat;
         }
 
@@ -331,8 +409,8 @@ namespace EscapeFromWork.EditorTools
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.42f, 0.44f, 0.48f);
 
-            const int perRow = 7;
-            const float spacing = 2.6f;
+            const int perRow = 10;
+            const float spacing = 1.9f;
             for (int i = 0; i < prefabs.Count; i++)
             {
                 int row = i / perRow, col = i % perRow;
@@ -341,16 +419,24 @@ namespace EscapeFromWork.EditorTools
                 go.transform.rotation = Quaternion.identity;
             }
 
+            int rows = Mathf.CeilToInt(prefabs.Count / (float)perRow);
+            var gridCenter = new Vector3(0f, 0.85f, -(rows - 1) * spacing * 0.5f);
+            float halfWidth = perRow * spacing * 0.5f;
+            float halfDepth = rows * spacing * 0.5f;
+
             var camGo = new GameObject("ShowcaseCam");
             var cam = camGo.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.07f, 0.08f, 0.10f);
-            cam.fieldOfView = 42f;
-            int rows = Mathf.CeilToInt(prefabs.Count / (float)perRow);
-            float width = perRow * spacing;
-            float height = Mathf.Max(4f, rows * spacing);
-            cam.transform.position = new Vector3(0f, width * 0.62f, -height * 0.55f - 3f);
-            cam.transform.LookAt(new Vector3(0f, 0.9f, -height * 0.4f));
+            // 正交俯视角：一排排道具不会被透视挤到画外，尺寸也可直接对照。
+            cam.orthographic = true;
+            cam.orthographicSize = Mathf.Max(halfDepth, halfWidth / (16f / 9f)) + 0.3f;
+            float elevation = 62f * Mathf.Deg2Rad;
+            var offset = new Vector3(0f, Mathf.Sin(elevation), -Mathf.Cos(elevation)) * (halfDepth + 12f);
+            cam.transform.position = gridCenter + offset;
+            cam.transform.LookAt(gridCenter);
+            cam.nearClipPlane = 0.05f;
+            cam.farClipPlane = 80f;
 
             // Unity 批处理的当前目录是工程目录（game/），出图路径要显式指到仓库 docs/ 下
             string outDir = Path.GetFullPath(Path.Combine(Application.dataPath, "../../docs/3d-rebuild/screenshots"));

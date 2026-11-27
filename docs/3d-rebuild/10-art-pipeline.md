@@ -23,8 +23,16 @@
 & "...\blender.exe" -b -P "tools\blender\gen_props.py" -- --out "...\Art\Props" --render "docs\3d-rebuild\screenshots\props-showcase-2.png"
 ```
 
-规格：1 unit = 1m、pivot 底面中心、正面 +Z、盒式/柱式 UV、材质槽按 `size_class` 回退。
+规格：1 unit = 1m、pivot 底面中心、正面 +Z、**立方体投影 UV（1 UV = 1 米）**、材质按道具语义选套（见下）。
 面数预算（04 规范）：大件 ≤1500 / 中件 ≤900 / 小件 ≤300；脚本逐件打印 `[PROP] <id> tris=<n> OK`，新道具超预算会 `BUDGET FAIL` 并以 exit 3 结束。
+
+### UV 与材质：为什么之前像"瓦楞纸"
+
+- **老问题**：Blender 基元自带 UV 是每个面 0–1，1.8m 柜子的木纹会被放大成一整块，法线贴图在平面上糊成横竖条纹（早期 `props-showcase` 就是这观感）。
+- **现在**：`finish()` 里在合并顶点后做一次 `bpy.ops.uv.cube_project(cube_size=1.0)`，UV 直接以米为单位；Unity 侧扁平材质的 tiling 固定 1，于是"1 米 1 次"和场景墙面/地面的 `WorldUv` 完全一致，道具贴图不会跟房间对不上。
+- **材质按道具选套**（`PropPipeline.SetByProp`，共 41 条）：木家具 → `WoodPanel`；机架/机柜/控制台 → `ServerPanel`/`DarkMetal`；冷库货架、储罐 → `ColdMetal`；泵、管架、油桶 → `RustSteel`；布艺座椅、沙发、隔断、床 → `FabricPanel`；玻璃隔断 → `FrostedGlass`；消防柜/灭火器 → `HazardPaint`；工具车 → `DiamondPlate`；纯净设备 → `CleanPanel`；绿植盆 → `ConcreteFloor`。
+- 扁平材质只留 `_BaseMap` + `_BaseColor`（smoothness 按套给：布 0.06、木 0.22、玻璃 0.62、金属 0.4），去掉法线/金属贴图 —— 道具的形体靠几何、倒角与投影，不靠法线噪声。
+- 历史材质 `M_Prop_PropLarge/PropMedium/PropSmall` 已删，换成 12 个按材质套命名的 `M_Prop_<Set>.mat`。
 
 **第二批 20 件**（全部达标，`prop_manifest.json` 共 41 项）：
 
@@ -96,7 +104,7 @@ F:\ComfyUI\venv\Scripts\python.exe tools\img2mesh\run_tsr.py --image <png> --out
 ## 5. 已知缺口
 
 1. **没有 LOD1**：41 件只有 LOD0，tris 余量足够但远距离切换还没做。
-2. **玻璃不透明**：`glass_partition` / `fire_cabinet` / `vending_machine` 的玻璃在 Unity 里会被统一换成不透明 slot 材质；要修得给玻璃单独 slot，或在 `BuildPrefab` 里按材质名保留。
+2. **玻璃仍不完全透明**：扁平材质只贴 albedo，`FrostedGlass` 给的是灰白磨砂面（看起来是磨砂玻璃，但没有真正透明/折射）。要真透明得单开一套 URP 透明材质并在 `BuildPrefab` 里按材质名保留 FBX 上的原始分槽。
 3. **尺寸与 PropSpec 有出入**：折叠椅 0.82m（Spec 0.5）、泵组深 0.68m（Spec 0.6）、病床 1.52m 含输液架——贴墙摆放可能嵌墙，碰撞盒高度可在 prefab 上单独调。
-4. **UV 是基元自带盒式/柱式**：贴 signage 前要给 `sign_stand` 牌面单独排 UV。
+4. **UV 是立方体投影**：`sign_stand` 的牌面还只是"1 米 1 次"的木纹/金属纹，没有单独排牌面 UV；贴 signage 图需要给它一块独立 UV 区。
 5. **道具仍偏"扁平"**：没有法线贴图/粗糙度变化，观感靠几何与光照；远景可接受，近景需要贴图或顶点 AO。

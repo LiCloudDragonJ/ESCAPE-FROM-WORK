@@ -88,16 +88,18 @@ PropLarge / PropMedium / PropSmall / SightBreak。现在接的是：
 |---|---|
 | Wall | PaintedWall |
 | Floor | CarpetTile |
-| Ceiling | CeilingTile |
+| Ceiling | **CeilingGrid**（2026-11-27 从 CeilingTile 换成带 T 型龙骨的办公吊顶，3D 图里吊顶终于看得出板缝） |
 | Column | ConcreteWall（R2 时换） |
 | Core | DarkMetal |
 | Stair | RubberStair（R2 时换） |
-| PropLarge | WoodPanel |
-| PropMedium | DarkMetal |
-| PropSmall | BrushedMetal |
+| PropLarge | WoodPanel（**已不被道具使用**：道具改成按语义选套，见 [10-art-pipeline.md](10-art-pipeline.md)） |
+| PropMedium | DarkMetal（同上，保留给旧引用） |
+| PropSmall | BrushedMetal（同上，保留给旧引用） |
 | SightBreak | PaintedWall |
 
 **31 套里还有 21 套没有槽位**。要按房间/设施换材质，得给 `FloorMaterials`/`MaterialArtLibrary` 加 per-room 覆盖入口（`Room.FloorMaterial/WallMaterial` 数据已经在 `FacilityGrammar` 里算好，只是没落到几何上）。设施与材质的对应建议见 [09-facilities.md](09-facilities.md)。
+
+道具不走这 10 个槽：`PropPipeline.SetByProp` 给 41 件道具逐一指定材质集，扁平材质在 `Assets/_Project/Materials/Props/M_Prop_<Set>.mat`（12 个），UV 以米为单位（1 UV = 1 m），所以材质集的 `TilingFor` 对道具不再生效。
 
 ## 5. 生成方式与已知取舍
 
