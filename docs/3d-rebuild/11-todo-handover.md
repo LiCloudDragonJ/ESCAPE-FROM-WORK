@@ -2,7 +2,7 @@
 
 > 用途：给下一个接手的人/模型一份**待办总表**。仓库现状、已完成项、血泪教训、资源清单见 [07-handoff.md](07-handoff.md)；本文件只回答：**接下来做什么、卡在哪、怎么验收**。
 >
-> 状态快照：`main` @ 本会话最新提交（2026-11-27 R9 场景出图修复，见 §10.1）；EditMode **208/208 已本机复跑验证**（`game/TestResults/editmode-20261127-signage.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
+> 状态快照：`main` 含 `149af02`（2026-11-27 R9 场景出图修复，见 §10.1）；EditMode **208/208 已本机复跑验证**（`game/TestResults/editmode-20261127-signage.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
 
 ---
 
@@ -245,13 +245,15 @@
 - `tools.read` 偶发 120s 超时：一次读小范围。
 - 压缩 summary 用数组 `join`，不要用模板字符串（反引号会咬断）。
 - Unity 单次调用常 >120s：跑测试/编译用后台任务。
+- **`-batchmode` 起的是分离进程**：`& Tuanjie.exe ...` 立刻返回、`$LASTEXITCODE` 是空的、日志还没写完；要 `Start-Sleep 6` 后轮询 `Get-Process Tuanjie` 直到没有进程，再读 `-logFile`。用 `Start-Process` 只等几秒会误判成 exit=1 且没有日志（tpm.log 里能看到 "parent process is no longer running"）。出图同理：`M1FloorScene.Capture` 跑完要等进程退出再看 `docs/3d-rebuild/screenshots/`。
+- **中文 Markdown 不要用 PowerShell 改写**：`Get-Content -Raw` + `Set-Content`/`WriteAllText` 会把 UTF-8 当 ANSI 再存一次，整篇变乱码（2026-11-27 踩过，靠 `git checkout --` 恢复）。改文档一律用 edit 工具按行替换。
 
 ---
 
 ## 11. 下次会话开场
 
 1. 先读 [07-handoff.md](07-handoff.md)（现状 / 教训 / 禁区 / 资源）→ 本文件（待办）。
-2. `git log --oneline -8` 对齐 HEAD（最新提交是 2026-11-27「标识: 牌按墙心线挂、别埋进墙」）；`git status` 应干净。R9/R10/R11 在 `a9d20d5` 一次性提交（53 文件 / +4625 / −332），出图修复在其后。
+2. `git log --oneline -8` 对齐 HEAD（R9 出图修复 = `149af02`「标识: 牌按墙心线挂，修 R9 场景出图整块埋进墙里」）；`git status` 应干净。R9/R10/R11 在 `a9d20d5` 一次性提交（53 文件 / +4625 / −332），出图修复在其后。
 3. 先跑 §10.1 的 EditMode 确认 **208/208** 基线，再动手。
 4. 下一步按 **T3（运行时多楼层）→ T4（MapHud）→ T5（材质槽）**；T7（60fps 实测）/T9（LOD+NavMesh）需要高性能机，T10（多边形化）与 T12（战斗原型）按需穿插。每完成一项在 §1 表里改状态并提交（commit message 沿用 `生成器(Rx): ...` / `文档: ...` 风格）。
 5. 06 已定稿（§8.1/§8.2/§8.4 共 29 项）；剩余待定见 06 §8.3，未定前不要改「经济数值 / 首发武器 / AI 难度分档 / Boss 战斗形式」相关实现。
