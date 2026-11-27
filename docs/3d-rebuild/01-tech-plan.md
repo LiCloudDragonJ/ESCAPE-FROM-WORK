@@ -173,4 +173,4 @@ asmdef：EscapeFromWork.Core / .Rules / .LevelGen / .Gameplay / .AI / .UI / .Dat
 | 大平层重复感 | 每层 2–4 个功能区 + 6 种原型 + 事件；Floor Lab 批量审图 |
 | 生成器 bug 导致不可玩 | 1000 种子批测进 CI；失败种子可复现 |
 | 联机后期返工 | Rules 层纯 C#；seed 确定性；输入命令化 |
-| 单层 12 人匹配人口碎片 | 先 AI 对手；联机按层匹配 + AI 补位；60s 未满即开局 |
+| 16 人 / 4–6 队匹配人口碎片 | 先 AI 对手；联机按 **4 层一局**匹配 + AI 补位；60s 未满即开局 |
