@@ -1,7 +1,7 @@
 # 交接文档：给下一个模型 / 下一个会话
 
 > 目的：这份文档要让人**不读聊天记录也能接手**。如果你只读一页，读 §2 + §7 + §8。
-> 生成时间：2026-11-26（2026-11-27 R9/R10/R11 收尾后更新）。仓库 `ESCAPE FROM WORK`，分支 `main`，HEAD = `a9d20d5`（R9/R10/R11 已提交，工作区干净）。
+> 生成时间：2026-11-26（2026-11-27 R9/R10/R11 收尾与 R9 场景出图修复后更新）。仓库 `ESCAPE FROM WORK`，分支 `main`，HEAD = 本会话最新提交（R9 出图修复，工作区干净）。
 
 ---
 
@@ -138,7 +138,7 @@ cd "D:/workspace/ESCAPE FROM WORK/tools/plan-proto"
 ### 4.4 测试（`game/Assets/tests/`）
 
 EditMode **25 个文件**：`FloorGeneratorTests`、`FloorGeneratorBatchTests`（多种子批量）、`FloorEnvelopeTests`、`FloorCoverageTests`、`WallLayoutTests`、`ExtractionSpreadTests`、`ChunkStreamingTests`、`CoverPropsTests`、`SightlineTests`（R2）、`RoomScaleTests`（R3）、`FacilityTests`（R4）、`SlicePlannerTests`（R5/R11）、`VerticalLinkPlanTests`（R6/R11）、`SpawnSpacingTests`（R7）、`LoopInjectorTests`（R8）、`MapFogTests`、`MeshWindingTests`、`ShellColliderTests`、`PlayerMathTests`、`PlayerFeelTests`、`SingleDoorTests`、`LevelAuditTests`（R10）、`SignageTests`（R9）、`StairGraphPlanTests`、`ExtractionPlanTests`（R11）；PlayMode：`WhiteboxSmokeTests`。
-**合计 EditMode 207 项，全绿**（2026-11-27，R9/R10/R11 完成后实测：`game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，纯测试约 18.5 分钟；历史上：148（R8 后）→ 132 → 129 → 124 → 113 → 109 → 103）。改生成器任何规则前先跑一遍全量当基线。
+**合计 EditMode 208 项，全绿**（2026-11-27 R9 出图修复后实测：`game/TestResults/editmode-20261127-signage.xml`，纯测试约 9 分 56 秒；上一基线 207 见 `t1-t13-r9-full-fix4-20261127.xml`；历史上：148（R8 后）→ 132 → 129 → 124 → 113 → 109 → 103）。改生成器任何规则前先跑一遍全量当基线。
 
 ---
 
@@ -271,7 +271,7 @@ R8 已完成，落地方式（结论与 R8 计划里写的不一样，按实测�
 - **M1-E**：分块 LOD 与"每块 NavMesh"未做。
 - **多边形化第 3–4 步**：导航栅格 / 小地图 / 分块仍按房间矩形；斜墙隔断 + L 形合并未做。
 - **R1–R11 已完成**（2026-11-27 收尾轮，EditMode 207/207）：门数规则、走廊断点（最长视线 30–38m）、房间尺度（中位 100–123㎡、<56㎡ 7.0%）、设施语法库（18 类 × 7 主题）、垂直切片（固定 4 层 / 30–33k㎡ / F1F4 21–22%、F2F3 26–28%）、出生区图距离散布（≥35% 直径）、环数校验（49–69）、**体检器接回归**（走廊 30m / 侧出口 / 死路 / 房间挂接 / 切片视线）、**标识牌生成**（五类牌 + 动态楼层房号 + 真实疏散图）、**竖向连接 + 两端撤离**（6 条单层楼梯 / 16 楼梯口 / 8 撤离点 / 2 闸点房 / 电梯卡 / 最后 3 分钟关点）。
-- **R9 证据**：`game/TestResults/r9-signage.png`（1400×700）已肉眼确认可读；`docs/3d-rebuild/screenshots/m1-floor3d-signage.png` **未生成**（`M1FloorScene.Capture` 未在本轮执行）。
+- **R9 证据**：`game/TestResults/r9-signage.png`（1400×700）测试出图可读；**2026-11-27 已在本机跑通场景内出图**——`docs/3d-rebuild/screenshots/m1-floor3d-signage.png`（1920×1080）里疏散图与房号牌都贴在墙上、可辨认。修图过程中发现并修复了一个真 bug：标识原来按 **房间 rect 边**偏移，而墙是砌在 **rect 经 WallInset 外扩后的墙线**上，两者差 0.2m，牌整块埋进墙里看不见。现在 `SignageGenerator.PlaceOnRect/TrySide` 带 `wallInset` 参数（rooms 传 `plan.Spec.WallInset`，stairs/core 传 0），按墙心线 + 半墙厚 + 2cm 缝隙挂；回归用 `SignageTests.EverySign_HangsClearAndCloseToItsWall` 钉住（不得埋墙、也不得离墙漂移）。
 - **R10/R11 口径说明**：免费撤离点的「对方出生区 80m」按**可步行距离**计算（200m 长条楼层上欧氏 80m 对四个出生区无解），且仍要求几何不可通视；`ReseatSpawnZones` 把 F1/F4 出生区收回开放带两端。
 - **美术资源**：31 套 PBR（原 7 + 两批 24）、35 张标识牌、35 个 HUD 图标、15 张贴花、41 个 Blender 道具、5 张菜单图；`MaterialArtLibrary` 只接了 10 个槽位，**per-room 材质槽还没做**（设施已有 `FloorMaterial/WallMaterial` 数据，但没有落到几何上）。
 - **视觉待打磨**（用户试玩后会提）：墙面竖向拉丝/噪点（WorldUv + 高频法线）、整体偏暗（环境光 0.42、无后处理）、道具仍是低模扁平材质、无 LOD1。

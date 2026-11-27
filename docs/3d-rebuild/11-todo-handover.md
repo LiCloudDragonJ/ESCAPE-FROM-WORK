@@ -2,7 +2,7 @@
 
 > 用途：给下一个接手的人/模型一份**待办总表**。仓库现状、已完成项、血泪教训、资源清单见 [07-handoff.md](07-handoff.md)；本文件只回答：**接下来做什么、卡在哪、怎么验收**。
 >
-> 状态快照：`main` @ `a9d20d5`（R9/R10/R11 已提交，工作区干净）；EditMode **207/207 已本机复跑验证**（`game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
+> 状态快照：`main` @ 本会话最新提交（2026-11-27 R9 场景出图修复，见 §10.1）；EditMode **208/208 已本机复跑验证**（`game/TestResults/editmode-20261127-signage.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
 
 ---
 
@@ -22,7 +22,7 @@
 | # | 任务 | 依赖 | 等拍板 | 主要落点 | 验收 | 量级 |
 |---|---|---|---|---|---|---|
 | T1 | **R10 体检器接回归**：把 06 §10 指标变成 EditMode 测试 | 无 | 否 | 新 `LevelGen/LevelAudit.cs` + `tests/EditMode/LevelAuditTests.cs` | ✅ **2026-11-27 已完成**：`LevelAudit.cs` + `LevelAuditTests.cs`；走廊 30m / 侧出口 / 死路 / 房间挂接 / 环数 / 切片视线全部进全量回归 | 已完 |
-| T2 | **R9 标识牌**：`SignageGenerator` + 场景渲染 | 无（素材已就绪） | 否 | 新 `LevelGen/Signage.cs`（或 `SignageGenerator.cs`）+ `FloorPlan.Signs` + 渲染层 | ✅ **2026-11-27 已完成**：`Signage.cs` + `SignageRenderer.cs` + `Resources/Signage/`；每层 ≥1 处 YOU ARE HERE，测试出图 `game/TestResults/r9-signage.png` 可读 | 已完 |
+| T2 | **R9 标识牌**：`SignageGenerator` + 场景渲染 | 无（素材已就绪） | 否 | 新 `LevelGen/Signage.cs`（或 `SignageGenerator.cs`）+ `FloorPlan.Signs` + 渲染层 | ✅ **2026-11-27 已完成**：`Signage.cs` + `SignageRenderer.cs` + `Resources/Signage/`；每层 ≥1 处 YOU ARE HERE，测试出图 `game/TestResults/r9-signage.png` 可读；**同日晚 `M1FloorScene.Capture` 出场景内图 `docs/3d-rebuild/screenshots/m1-floor3d-signage.png` 可读**（修掉了"牌按 rect 边偏移、被 0.4m 墙心线覆盖"的埋牌 bug） | 已完 |
 | T3 | **运行时多楼层**：`RaidPlan` 进运行时，竖向核与切层 | T1（护栏） | 否 | `FloorRuntime`/`FloorStreamingRuntime` + 新的楼层管理 | 固定 4 层同场景按真实标高叠放；2 条单层楼梯 + 中心电梯可跨层；切层后小地图换图 | 3–5 天 |
 | T4 | **MapHud 按 02 §5.5 改**：楼层条 / 拉闸房 / 撤离点门控 | T3（楼层数据） | 否 | `UI/MapHud.cs` + `FloorPlan` 数据补齐 | 进层只给本端可用数量；远层免费点到层自动标出、近层拉闸后标出并全楼广播；对端免费点不显示、对端拉闸点显示不可用；楼梯/电梯无迷雾 | 1–2 天 |
 | T5 | **材质槽接渲染**：主题材质 + 9 套未接材质 + per-room | T1 | 否 | `FloorMaterials` 扩槽 + `FloorChunkGeometry`/`FloorChunkManifest` 分槽 | 09 §5 MaterialSlotCoverage ≥14/19；机房/冷库/医疗一眼可辨 | 2–3 天 |
@@ -227,7 +227,7 @@
   -executeMethod EscapeFromWork.EditorTools.MaterialArtLibrary.BuildAll -quit
 ```
 
-- EditMode 基线：**207/207 通过**（2026-11-27 R9/R10/R11 收尾轮，结果 `game/TestResults/t1-t13-r9-full-fix4-20261127.xml`；纯测试约 18.5 分钟，本机无独显）。上一基线 148/148 见 `game/TestResults/editmode-t1-baseline-20261127.xml`。
+- EditMode 基线：**208/208 通过**（2026-11-27 R9 场景出图修复后，结果 `game/TestResults/editmode-20261127-signage.xml`；纯测试约 9 分 56 秒，本机 9800X3D/4070TiS）。上一基线 207/207 见 `game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，更早 148/148 见 `game/TestResults/editmode-t1-baseline-20261127.xml`。
 - **结果判定**：XML 的 `testcasecount/result` 才是结论；Unity batch 在编辑器退出前就已写好 XML，可轮询文件出现。`-testResults` 尽量传绝对路径（相对路径会落到 `game/game/...`）。
 - 测试结果 XML 里 `testcasecount` 才是用例数（`[Test]` 特性只有 95 个，参数化 `[TestCase]` 才会到 148）。
 
@@ -251,8 +251,8 @@
 ## 11. 下次会话开场
 
 1. 先读 [07-handoff.md](07-handoff.md)（现状 / 教训 / 禁区 / 资源）→ 本文件（待办）。
-2. `git log --oneline -8` 对齐 HEAD（`a9d20d5`）；`git status` 应干净。R9/R10/R11 已在 `a9d20d5` 一次性提交（53 文件 / +4625 / −332）。
-3. 先跑 §10.1 的 EditMode 确认 **207/207** 基线，再动手。
+2. `git log --oneline -8` 对齐 HEAD（最新提交是 2026-11-27「标识: 牌按墙心线挂、别埋进墙」）；`git status` 应干净。R9/R10/R11 在 `a9d20d5` 一次性提交（53 文件 / +4625 / −332），出图修复在其后。
+3. 先跑 §10.1 的 EditMode 确认 **208/208** 基线，再动手。
 4. 下一步按 **T3（运行时多楼层）→ T4（MapHud）→ T5（材质槽）**；T7（60fps 实测）/T9（LOD+NavMesh）需要高性能机，T10（多边形化）与 T12（战斗原型）按需穿插。每完成一项在 §1 表里改状态并提交（commit message 沿用 `生成器(Rx): ...` / `文档: ...` 风格）。
 5. 06 已定稿（§8.1/§8.2/§8.4 共 29 项）；剩余待定见 06 §8.3，未定前不要改「经济数值 / 首发武器 / AI 难度分档 / Boss 战斗形式」相关实现。
 6. 本轮踩过的坑：改完 `.cs` 必须 touch（`ops_edit_file` 保留旧 mtime，Unity 会跑旧 DLL）；测试前先 `Stop-Process` 残留的 Tuanjie 进程，否则报 “Multiple Tuanjie instances cannot open the same project” 直接崩；日志常是无效 UTF8，用 PowerShell `Select-String` 取行。

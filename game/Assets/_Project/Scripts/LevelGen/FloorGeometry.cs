@@ -798,7 +798,8 @@ namespace EscapeFromWork.LevelGen
             }
         }
 
-        static float WallBodyThickness(FloorPlan plan)
+        /// <summary>Body thickness of interior partitions; the box is centred on the wall line.</summary>
+        public static float WallBodyThickness(FloorPlan plan)
         {
             return Mathf.Max(WallThickness, plan.Spec.WallInset * 2f);
         }

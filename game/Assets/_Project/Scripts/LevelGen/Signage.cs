@@ -23,18 +23,22 @@ namespace EscapeFromWork.LevelGen
     /// <summary>R9 pure placement pass: deterministic, door-safe and independent of scene objects.</summary>
     public static class SignageGenerator
     {
+        /// <summary>Gap between the plate and the wall face it hangs on.</summary>
+        public const float WallFaceGap = 0.02f;
+
         public static void Populate(FloorPlan plan)
         {
             plan.Signs.Clear();
             int displayFloor = plan.Spec.WorldFloor;
+            float roomInset = Mathf.Max(0f, plan.Spec.WallInset);
             for (int i = 0; i < plan.Stairs.Count; i++)
                 PlaceOnRect(plan, plan.Stairs[i], SignKind.Stair, "STAIRS", "Wayfinding/S_Way_Stairs",
-                    new Vector2(0.55f, 0.55f), -1, null);
+                    new Vector2(0.55f, 0.55f), -1, null, 0f);
 
             PlaceOnRect(plan, plan.Core, SignKind.Elevator, "ELEVATOR", "Elevator/S_Elevator_Hall",
-                new Vector2(0.8f, 0.4f), -1, null);
+                new Vector2(0.8f, 0.4f), -1, null, 0f);
             PlaceOnRect(plan, plan.Core, SignKind.Floor, "F" + displayFloor, "Floor/S_Floor_Plate",
-                new Vector2(0.65f, 0.65f), -1, null);
+                new Vector2(0.65f, 0.65f), -1, null, 0f);
 
             for (int i = 0; i < plan.Rooms.Count; i++)
             {
@@ -42,13 +46,13 @@ namespace EscapeFromWork.LevelGen
                 string number = (displayFloor * 100 + i + 1).ToString("0000");
                 Door? preferred = room.HasDoor ? room.Door : (Door?)null;
                 PlaceOnRect(plan, room.Rect, SignKind.Room, number, "Room/S_Room_Plate_Master",
-                    new Vector2(0.5f, 0.25f), i, preferred);
+                    new Vector2(0.5f, 0.25f), i, preferred, roomInset);
             }
 
-            PlaceEvacuation(plan, displayFloor);
+            PlaceEvacuation(plan, displayFloor, roomInset);
         }
 
-        static void PlaceEvacuation(FloorPlan plan, int displayFloor)
+        static void PlaceEvacuation(FloorPlan plan, int displayFloor, float roomInset)
         {
             var rooms = new List<int>();
             for (int i = 0; i < plan.Rooms.Count; i++) rooms.Add(i);
@@ -59,25 +63,25 @@ namespace EscapeFromWork.LevelGen
                 Room room = plan.Rooms[index];
                 Door? preferred = room.HasDoor ? room.Door : (Door?)null;
                 if (PlaceOnRect(plan, room.Rect, SignKind.Evacuation, "YOU ARE HERE · F" + displayFloor,
-                    null, new Vector2(0.9f, 0.675f), index, preferred)) return;
+                    null, new Vector2(0.9f, 0.675f), index, preferred, roomInset)) return;
             }
             // A stair/core wall is a valid fallback on an unusually fragmented floor.
             for (int i = 0; i < plan.Stairs.Count; i++)
                 if (PlaceOnRect(plan, plan.Stairs[i], SignKind.Evacuation, "YOU ARE HERE · F" + displayFloor,
-                    null, new Vector2(0.9f, 0.675f), -1, null)) return;
+                    null, new Vector2(0.9f, 0.675f), -1, null, 0f)) return;
             PlaceOnRect(plan, plan.Core, SignKind.Evacuation, "YOU ARE HERE · F" + displayFloor,
-                null, new Vector2(0.9f, 0.675f), -1, null);
+                null, new Vector2(0.9f, 0.675f), -1, null, 0f);
         }
 
         static bool PlaceOnRect(FloorPlan plan, RectF rect, SignKind kind, string text, string texture,
-            Vector2 size, int roomIndex, Door? preferred)
+            Vector2 size, int roomIndex, Door? preferred, float wallInset)
         {
             if (preferred.HasValue)
             {
                 Door door = preferred.Value;
                 Vector2 tangent = Tangent(door.Side);
                 float offset = (door.Width + size.x) * 0.5f + 0.3f;
-                if (TrySide(plan, rect, door.Side, kind, text, texture, size, roomIndex,
+                if (TrySide(plan, rect, door.Side, kind, text, texture, size, roomIndex, wallInset,
                     door.Center + tangent * offset, door.Center - tangent * offset)) return true;
             }
 
@@ -87,7 +91,7 @@ namespace EscapeFromWork.LevelGen
                 DoorSide side = (DoorSide)(((int)first + n) % 4);
                 float length = side == DoorSide.North || side == DoorSide.South ? rect.W : rect.H;
                 if (length < size.x + 0.3f) continue;
-                if (TrySide(plan, rect, side, kind, text, texture, size, roomIndex,
+                if (TrySide(plan, rect, side, kind, text, texture, size, roomIndex, wallInset,
                     Along(rect, side, 0.2f), Along(rect, side, 0.35f), Along(rect, side, 0.5f),
                     Along(rect, side, 0.65f), Along(rect, side, 0.8f))) return true;
             }
@@ -103,7 +107,7 @@ namespace EscapeFromWork.LevelGen
         }
 
         static bool TrySide(FloorPlan plan, RectF rect, DoorSide side, SignKind kind, string text, string texture,
-            Vector2 size, int roomIndex, params Vector2[] candidates)
+            Vector2 size, int roomIndex, float wallInset, params Vector2[] candidates)
         {
             Vector2 normal = Normal(side);
             Vector2 tangent = Tangent(side);
@@ -114,9 +118,20 @@ namespace EscapeFromWork.LevelGen
                 float max = side == DoorSide.North || side == DoorSide.South ? rect.XMax : rect.YMax;
                 float value = side == DoorSide.North || side == DoorSide.South ? wall.x : wall.y;
                 if (value < min + size.x * 0.5f + 0.12f || value > max - size.x * 0.5f - 0.12f) continue;
-                Vector2 center = wall + normal * 0.025f;
+                // The rect edge is the walkable boundary, not the wall: room walls are built on the
+                // leaf edge (rect inflated by WallInset), so the plate must clear that centreline.
+                // Door-derived candidates keep their along-wall position but take the edge line.
+                Vector2 mount;
+                if (side == DoorSide.South) mount = new Vector2(wall.x, rect.Y);
+                else if (side == DoorSide.North) mount = new Vector2(wall.x, rect.YMax);
+                else if (side == DoorSide.West) mount = new Vector2(rect.X, wall.y);
+                else mount = new Vector2(rect.XMax, wall.y);
+                Vector2 centreline = mount + normal * wallInset;
+                float wallHalf = FloorGeometry.WallBodyThickness(plan) * 0.5f;
+                Vector2 center = centreline + normal * (wallHalf + WallFaceGap);
+                Vector2 footprintCenter = mount + normal * 0.025f;
                 Vector2 footprintSize = Mathf.Abs(tangent.x) > 0.5f ? new Vector2(size.x, 0.05f) : new Vector2(0.05f, size.x);
-                RectF footprint = new RectF(center.x - footprintSize.x * 0.5f, center.y - footprintSize.y * 0.5f,
+                RectF footprint = new RectF(footprintCenter.x - footprintSize.x * 0.5f, footprintCenter.y - footprintSize.y * 0.5f,
                     footprintSize.x, footprintSize.y);
                 if (!ClearOfDoors(plan, footprint)) continue;
                 bool overlapsSign = false;

@@ -44,7 +44,7 @@ namespace EscapeFromWork.Tests.EditMode
             for (int f = 0; f < 4; f++)
             {
                 int worldFloor = raid.Floors[f].Spec.WorldFloor;
-                Assert.That(worldFloor, Is.InRange(40, 50), "真实楼层号必须落在标识牌资产覆盖的 40F–50F");
+                Assert.That(worldFloor, Is.InRange(40, 50), "真实楼层号必须落在标识牌资产覆盖�?40F�?0F");
                 List<SignPlacement> signs = raid.Floors[f].Plan.Signs;
                 Assert.AreEqual("F" + worldFloor, signs.Find(s => s.Kind == SignKind.Floor).Text);
                 for (int i = 0; i < signs.Count; i++)
@@ -80,6 +80,50 @@ namespace EscapeFromWork.Tests.EditMode
             bool horizontal = door.Side == DoorSide.North || door.Side == DoorSide.South;
             Vector2 size = horizontal ? new Vector2(door.Width, 0.35f) : new Vector2(0.35f, door.Width);
             return sign.Overlaps(new RectF(door.Center.x - size.x * 0.5f, door.Center.y - size.y * 0.5f, size.x, size.y));
+        }
+
+        [Test]
+        public void EverySign_HangsClearAndCloseToItsWall()
+        {
+            // Walls are boxes centred on a line that sits outside the walkable rect (rooms are
+            // inflated by WallInset when walls are built). A plate must sit exactly half a body plus
+            // the face gap outside that centreline: nearer is buried in the wall, farther floats.
+            foreach (FloorPlan plan in Plans())
+            {
+                float half = FloorGeometry.WallBodyThickness(plan) * 0.5f;
+                float inset = Mathf.Max(0f, plan.Spec.WallInset);
+                foreach (SignPlacement sign in plan.Signs)
+                    Assert.IsTrue(HangsOnAWall(plan, sign, half, inset),
+                        "sign not mounted clear of a wall face: " + sign.Kind + " " + sign.Text + " at " + sign.Center);
+            }
+        }
+
+        static bool HangsOnAWall(FloorPlan plan, SignPlacement sign, float half, float inset)
+        {
+            float want = half + SignageGenerator.WallFaceGap;
+            for (int i = 0; i < plan.Rooms.Count; i++)
+                if (MountedOn(sign.Center, plan.Rooms[i].Rect, inset, want)) return true;
+            for (int i = 0; i < plan.Stairs.Count; i++)
+                if (MountedOn(sign.Center, plan.Stairs[i], 0f, want)) return true;
+            return MountedOn(sign.Center, plan.Core, 0f, want);
+        }
+
+        static bool MountedOn(Vector2 center, RectF rect, float inset, float want)
+        {
+            const float tolerance = 0.02f;
+            bool withinX = center.x >= rect.X - 0.001f && center.x <= rect.XMax + 0.001f;
+            bool withinY = center.y >= rect.Y - 0.001f && center.y <= rect.YMax + 0.001f;
+            if (withinX)
+            {
+                if (Mathf.Abs((rect.Y - inset) - center.y - want) < tolerance) return true;
+                if (Mathf.Abs(center.y - (rect.YMax + inset) - want) < tolerance) return true;
+            }
+            if (withinY)
+            {
+                if (Mathf.Abs((rect.X - inset) - center.x - want) < tolerance) return true;
+                if (Mathf.Abs(center.x - (rect.XMax + inset) - want) < tolerance) return true;
+            }
+            return false;
         }
 
         [Test]
