@@ -1,0 +1,19 @@
+{
+  "id": "air_shower",
+  "name": "风淋室",
+  "width": 1.2,
+  "depth": 1.23,
+  "height": 2.2,
+  "footprint": [
+    1.2,
+    1.2
+  ],
+  "size_class": "large",
+  "triangles": 228,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

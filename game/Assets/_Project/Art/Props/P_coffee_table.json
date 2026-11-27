@@ -1,0 +1,19 @@
+{
+  "id": "coffee_table",
+  "name": "茶几",
+  "width": 1.08,
+  "depth": 0.54,
+  "height": 0.42,
+  "footprint": [
+    1.1,
+    0.55
+  ],
+  "size_class": "medium",
+  "triangles": 128,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

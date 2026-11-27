@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -28,6 +29,33 @@ namespace EscapeFromWork.EditorTools
             { "PropSmall", "BrushedMetal" },
             { "SightBreak", "PaintedWall" },
         };
+
+        // Texture sets used by FacilityProfile.FloorMaterial / WallMaterial. These are keyed by
+        // set name (EpoxyFloor, ServerPanel…), not by FloorMaterials slot, so the geometry can ask
+        // for a surface by the facility's slot string without knowing the slot table.
+        public static readonly string[] FacilitySets =
+        {
+            "CarpetTile", "VenueCarpet", "WoodFloor", "VinylFloor", "TileFloor", "ConcreteFloor",
+            "EpoxyFloor", "DiamondPlate", "RubberFloor", "CleanPanel", "ServerPanel", "ColdMetal",
+            "IndustrialPaint", "PaintedWall", "WoodPanel", "ConcreteWall", "CeramicWall", "PlasterWall",
+            "RubberStair", "MetalGrate", "HazardPaint",
+        };
+
+        static readonly HashSet<string> _warnedSets = new HashSet<string>();
+
+        /// <summary>Facility surface material by texture-set name; null when the set has no textures.</summary>
+        public static Material TryLoadSet(string set)
+        {
+            if (string.IsNullOrEmpty(set)) return null;
+            string albedoPath = TextureRoot + "/" + set + "/T_" + set + "_Albedo.png";
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(albedoPath) == null)
+            {
+                if (_warnedSets.Add(set))
+                    Debug.LogWarning("[Art] no textures for surface set " + set + " (" + albedoPath + ")");
+                return null;
+            }
+            return Build(set, set);
+        }
 
         // Texture repeat per metre of the texture set. One uv unit is one metre.
         static float TilingFor(string set)
@@ -102,8 +130,14 @@ namespace EscapeFromWork.EditorTools
                 Material m = Build(Slots[i, 0], Slots[i, 1]);
                 if (m != null) built++;
             }
+
+            // 设施面层：按纹理套名各建一份材质（EpoxyFloor.mat、ServerPanel.mat…）。
+            int surfaces = 0;
+            for (int i = 0; i < FacilitySets.Length; i++)
+                if (TryLoadSet(FacilitySets[i]) != null) surfaces++;
             AssetDatabase.SaveAssets();
-            Debug.Log("[Art] material library: " + built + " / " + Slots.GetLength(0) + " slots built");
+            Debug.Log("[Art] material library: " + built + " / " + Slots.GetLength(0)
+                + " slots, " + surfaces + " / " + FacilitySets.Length + " facility surfaces built");
         }
 
         [MenuItem("Escape From Work/Art/Rebuild Art Materials And Scenes")]

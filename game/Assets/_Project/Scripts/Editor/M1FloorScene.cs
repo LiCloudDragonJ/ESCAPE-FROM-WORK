@@ -801,6 +801,21 @@ namespace EscapeFromWork.EditorTools
             mats.LightPanel = Emissive("LightPanel", new Color(0.95f, 0.93f, 0.86f), new Color(5.0f, 4.8f, 4.2f));
             mats.Extraction = Emissive("Extraction", new Color(0.95f, 0.65f, 0.25f), new Color(1.1f, 0.55f, 0.15f));
             mats.Spawn = Emissive("Spawn", new Color(0.20f, 0.28f, 0.23f), new Color(0.05f, 0.12f, 0.07f));
+
+            // 设施面层：按纹理套名各加载一份；缺纹理的套名跳过（覆层便退回基础地面/墙面）。
+            List<string> surfaceSlots = new List<string>();
+            List<Material> surfaceMats = new List<Material>();
+            for (int i = 0; i < MaterialArtLibrary.FacilitySets.Length; i++)
+            {
+                string set = MaterialArtLibrary.FacilitySets[i];
+                Material surface = MaterialArtLibrary.TryLoadSet(set);
+                if (surface == null) continue;
+                surfaceSlots.Add(set);
+                surfaceMats.Add(surface);
+            }
+            mats.SurfaceSlots = surfaceSlots.ToArray();
+            mats.SurfaceMaterials = surfaceMats.ToArray();
+            Debug.Log("[M1] facility surfaces: " + surfaceMats.Count + " / " + MaterialArtLibrary.FacilitySets.Length);
             return mats;
         }
 

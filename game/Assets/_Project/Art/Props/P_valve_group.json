@@ -1,0 +1,19 @@
+{
+  "id": "valve_group",
+  "name": "阀门组",
+  "width": 0.7,
+  "depth": 0.75,
+  "height": 1.56,
+  "footprint": [
+    0.8,
+    0.8
+  ],
+  "size_class": "medium",
+  "triangles": 536,
+  "material_slots": [
+    "IndustrialPaint",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

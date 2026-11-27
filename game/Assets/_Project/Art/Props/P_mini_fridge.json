@@ -1,0 +1,19 @@
+{
+  "id": "mini_fridge",
+  "name": "小冰箱",
+  "width": 0.48,
+  "depth": 0.585,
+  "height": 0.84,
+  "footprint": [
+    0.5,
+    0.55
+  ],
+  "size_class": "small",
+  "triangles": 176,
+  "material_slots": [
+    "CleanPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

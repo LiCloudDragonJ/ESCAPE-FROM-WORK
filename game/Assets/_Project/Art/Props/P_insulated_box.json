@@ -1,0 +1,19 @@
+{
+  "id": "insulated_box",
+  "name": "保温箱",
+  "width": 0.84,
+  "depth": 0.605,
+  "height": 0.62,
+  "footprint": [
+    0.8,
+    0.6
+  ],
+  "size_class": "small",
+  "triangles": 196,
+  "material_slots": [
+    "CleanPanel",
+    "ColdMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

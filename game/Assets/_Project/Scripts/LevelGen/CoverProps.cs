@@ -23,6 +23,13 @@ namespace EscapeFromWork.LevelGen
         public int CorridorIndex;
         public bool FarSide;     // true = 走廊长轴的另一侧
         public PropSpec Spec;
+
+        /// <summary>
+        /// 绕 +Y 的偏航角（度），0 = 正面朝 +Z。生成器必须按"靠的是哪面墙"给出朝向：
+        /// 贴南墙朝北(+Z)=0、贴北墙朝南=180、贴西墙朝东=90、贴东墙朝西=270。
+        /// 之前 PropSpawner 用 rect.H &gt; rect.W 猜 90°，东西墙的家具全都背对墙。
+        /// </summary>
+        public float Yaw;
     }
 
     /// <summary>走廊掩体目录：大中小三档，每档多种办公用品。</summary>
@@ -236,6 +243,9 @@ namespace EscapeFromWork.LevelGen
                             CorridorIndex = ci,
                             FarSide = far,
                             Spec = ps,
+                            // 横向走廊：南墙(近)朝 +Z=0、北墙(远)朝 −Z=180；
+                            // 纵向走廊：西墙(近)朝 +X=90、东墙(远)朝 −X=270。
+                            Yaw = horiz ? (far ? 180f : 0f) : (far ? 270f : 90f),
                         });
                         used[(int)ps.Size]++;
                         if (!sizeHere[(int)ps.Size]) { sizeHere[(int)ps.Size] = true; distinctHere++; }

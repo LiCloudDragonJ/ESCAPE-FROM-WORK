@@ -1,0 +1,19 @@
+{
+  "id": "printer_unit",
+  "name": "打印机",
+  "width": 0.74,
+  "depth": 0.652,
+  "height": 1.08,
+  "footprint": [
+    0.76,
+    0.6
+  ],
+  "size_class": "medium",
+  "triangles": 216,
+  "material_slots": [
+    "CleanPanel",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

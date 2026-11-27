@@ -8,6 +8,14 @@
   P_<id>.fbx   —— pivot 在底面中心、正面朝 +Z、1 unit = 1 m，Unity 直接拖进场景
   P_<id>.json  —— 占地/高度/面数/材质槽，PropImporter 用它生成 prefab 与填 PropCatalog
 
+只重导某一批（不覆盖已有 FBX/JSON，清单里其他条目原样保留）：
+  & "F:\Tools\Blender\blender-4.2.9-windows-x64\blender.exe" -b -P tools/blender/gen_props.py -- ^
+      --only conference_chair,file_cabinet,... --out "game/Assets/_Project/Art/Props"
+
+抽查单件渲染（重新导入 FBX 再渲 512×512，灰底 3/4 视角）：
+  & "F:\Tools\Blender\blender-4.2.9-windows-x64\blender.exe" -b -P tools/blender/render_props.py -- ^
+      --props desk,conference_chair --out "docs/3d-rebuild/screenshots/props" --size 512
+
 设计约束（对 04-3d-assets.md）：
   - 大件 ≤1500 三角面、中件 ≤900、小件 ≤300；
   - 只用 box / cylinder 两种基元 + bevel 倒角，保证低面数且风格统一（办公/设施混搭的白盒质感）；
@@ -806,6 +814,762 @@ def gen_glass_partition():
     return o, (2.02, 0.22), 2.20, "large", ("GlassPanel", "BrushedMetal")
 
 
+# ---------------------------------------------------------------------------
+# 第四批（R4，2026-11-27）：设施道具族 A–F
+#   办公/行政、机房/中控、冷链/仓储、制造/设备、医疗/洁净、生活舱。
+#   约定与前三批完全一致：Blender 里正面朝 -Y，FBX 以 axis_forward=-Z / axis_up=Y 导出，
+#   到 Unity 里正面就是 +Z（04-3d-assets.md §2）；sidecar 写 "facing": "+Z"，
+#   PropSpawner 按墙朝向再转 0°/90°（PropSpec 的 W/D 决定长轴方向）。
+#   面数：large ≤1500 / medium ≤900 / small ≤300（build_one 逐件自检）。
+# ---------------------------------------------------------------------------
+
+def _scr():
+    """共享的"屏幕"材质（蓝灰自发光感），多件设备复用同一个材质块。"""
+    return material("M_PropScreen", (0.30, 0.45, 0.52, 1.0))
+
+
+# ---- A. 办公 / 行政 --------------------------------------------------------
+
+def gen_conference_chair():
+    """会议椅 0.54×0.50×0.98：四腿 + 座垫 + 靠背 + 扶手（区别于五星脚办公椅）。"""
+    o = []
+    o.append(box("seat", (0.50, 0.48, 0.09), (0.0, 0.0, 0.45), BODY, 0.012, 0.0, 1))
+    o.append(box("back", (0.46, 0.06, 0.44), (0.0, 0.20, 0.72), BODY, 0.012, 0.0, 1))
+    o.append(box("back_top", (0.48, 0.07, 0.05), (0.0, 0.20, 0.95), DARK, 0.0))
+    for x in (-0.20, 0.20):
+        for y in (-0.18, 0.18):
+            o.append(box("leg", (0.04, 0.04, 0.43), (x, y, 0.215), STEEL, 0.0, 0.0, 1))
+    for y in (-0.18, 0.18):
+        o.append(box("brace", (0.44, 0.03, 0.03), (0.0, y, 0.12), STEEL, 0.0))
+    for x in (-0.25, 0.25):
+        o.append(box("arm", (0.05, 0.24, 0.04), (x, -0.02, 0.66), DARK, 0.0))
+        o.append(box("arm_post", (0.04, 0.04, 0.16), (x, -0.02, 0.56), STEEL, 0.0))
+    return o, (0.54, 0.50), 0.98, "medium", ("FabricPanel", "BrushedMetal")
+
+
+def gen_file_cabinet():
+    """文件柜 0.9×0.5×1.68：三抽屉 + 标签框 + 顶板（生成器点名「文件柜」）。"""
+    o = []
+    o.append(box("body", (0.86, 0.46, 1.60), (0.0, 0.0, 0.86), BODY, 0.015, 0.0, 1))
+    o.append(box("plinth", (0.80, 0.40, 0.07), (0.0, 0.0, 0.035), DARK, 0.0))
+    o.append(box("top", (0.88, 0.48, 0.03), (0.0, 0.0, 1.665), DARK, 0.0))
+    for k in range(3):
+        z = 0.34 + k * 0.46
+        o.append(box("drawer_%d" % k, (0.78, 0.02, 0.40), (0.0, -0.235, z), WHITE, 0.0))
+        o.append(box("handle_%d" % k, (0.28, 0.03, 0.03), (0.0, -0.255, z + 0.12), STEEL, 0.0))
+        o.append(box("label_%d" % k, (0.18, 0.01, 0.07), (0.0, -0.251, z - 0.10), ACCENT, 0.0))
+    return o, (0.9, 0.5), 1.68, "medium", ("WoodPanel", "BrushedMetal")
+
+
+def gen_printer_unit():
+    """打印机 0.76×0.60×1.14：落地复合机，双纸盘 + 出纸口 + 扫描台 + 面板。"""
+    o = []
+    o.append(box("pedestal", (0.70, 0.56, 0.56), (0.0, 0.0, 0.30), WHITE, 0.012, 0.0, 1))
+    for k in range(2):
+        o.append(box("tray_%d" % k, (0.58, 0.02, 0.18), (0.0, -0.29, 0.20 + k * 0.24), DARK, 0.0))
+        o.append(box("tray_h_%d" % k, (0.16, 0.02, 0.03), (0.0, -0.305, 0.26 + k * 0.24), STEEL, 0.0))
+    o.append(box("body", (0.74, 0.58, 0.42), (0.0, 0.0, 0.79), DARK, 0.015, 0.0, 1))
+    o.append(box("output", (0.56, 0.30, 0.05), (0.0, -0.10, 1.02), STEEL, 0.0))
+    o.append(box("scanner", (0.68, 0.44, 0.08), (0.0, 0.02, 1.06), WHITE, 0.0))
+    panel = box("panel", (0.26, 0.06, 0.18), (0.20, -0.30, 1.00), WHITE, 0.008, 0.0, 1)
+    o.append(rot(panel, 0, -25))
+    o.append(box("screen", (0.18, 0.01, 0.10), (0.21, -0.328, 1.02), _scr(), 0.0))
+    return o, (0.76, 0.60), 1.14, "medium", ("CleanPanel", "DarkMetal")
+
+
+def gen_coffee_table():
+    """茶几 1.1×0.55×0.42：台面 + 下层板 + 四腿 + 横撑。"""
+    o = []
+    o.append(box("top", (1.08, 0.54, 0.05), (0.0, 0.0, 0.395), BODY, 0.01, 0.0, 1))
+    o.append(box("shelf", (0.92, 0.42, 0.03), (0.0, 0.0, 0.16), BODY, 0.0))
+    for x in (-0.47, 0.47):
+        for y in (-0.22, 0.22):
+            o.append(box("leg", (0.05, 0.05, 0.37), (x, y, 0.185), DARK, 0.0, 0.0, 1))
+    for x in (-0.47, 0.47):
+        o.append(box("rail", (0.05, 0.40, 0.04), (x, 0.0, 0.10), DARK, 0.0))
+    return o, (1.1, 0.55), 0.42, "medium", ("WoodPanel", "BrushedMetal")
+
+
+def gen_whiteboard():
+    """白板 1.5×0.14×1.28：板面 + 铝框 + 笔槽 + 支腿 + 马克笔。"""
+    o = []
+    o.append(box("board", (1.40, 0.03, 1.00), (0.0, 0.0, 0.72), WHITE, 0.008, 0.0, 1))
+    o.append(box("frame_t", (1.50, 0.06, 0.06), (0.0, 0.0, 1.245), STEEL, 0.0))
+    o.append(box("frame_b", (1.50, 0.06, 0.06), (0.0, 0.0, 0.195), STEEL, 0.0))
+    for x in (-0.73, 0.73):
+        o.append(box("frame_s", (0.06, 0.06, 1.08), (x, 0.0, 0.72), STEEL, 0.0))
+    o.append(box("tray", (0.90, 0.10, 0.03), (0.0, -0.06, 0.155), STEEL, 0.0))
+    for x in (-0.72, 0.72):
+        o.append(box("leg", (0.05, 0.09, 0.16), (x, 0.0, 0.08), DARK, 0.0))
+    for k, x in enumerate((-0.20, 0.02)):
+        o.append(box("marker_%d" % k, (0.14, 0.025, 0.025), (x, -0.08, 0.185),
+                     ACCENT if k else DARK, 0.0))
+    return o, (1.5, 0.14), 1.28, "medium", ("PaintedWall", "BrushedMetal")
+
+
+# ---- B. 机房 / 中控 --------------------------------------------------------
+
+def gen_precision_ac():
+    """精密空调 1.6×0.9×2.0：柜体 + 上部出风格栅 + 检修门 + 顶部双风机（09 §2.2 1.6×0.9×2.0）。"""
+    o = []
+    o.append(box("body", (1.56, 0.86, 1.84), (0.0, 0.0, 0.96), BODY, 0.02, 0.0, 1))
+    o.append(box("plinth", (1.44, 0.78, 0.10), (0.0, 0.0, 0.05), DARK, 0.0))
+    o.append(box("top", (1.62, 0.90, 0.07), (0.0, 0.0, 1.915), DARK, 0.0))
+    o.append(box("grille_frame", (1.30, 0.04, 0.46), (0.0, -0.445, 1.60), DARK, 0.0))
+    for k in range(3):
+        o.append(box("louvre_%d" % k, (1.22, 0.03, 0.09), (0.0, -0.465, 1.45 + k * 0.13), STEEL, 0.0))
+    o.append(box("door", (1.16, 0.03, 0.60), (0.0, -0.445, 0.56), DARK, 0.0))
+    o.append(box("handle", (0.05, 0.05, 0.18), (0.46, -0.465, 0.56), STEEL, 0.0))
+    o.append(box("panel", (0.28, 0.02, 0.26), (-0.38, -0.448, 1.34), DARK, 0.0))
+    o.append(box("screen", (0.18, 0.01, 0.12), (-0.38, -0.462, 1.36), _scr(), 0.0))
+    for k in range(3):
+        o.append(box("btn_%d" % k, (0.04, 0.01, 0.03), (-0.38, -0.462, 1.26 + k * 0.05), ACCENT, 0.0))
+    # 顶部双冷凝风机：并排沿 X，直径 0.54 < 柜深 0.9，不超出占地
+    for k, x in enumerate((-0.38, 0.38)):
+        o.append(cyl("fan_ring_%d" % k, 0.27, 0.07, (x, 0.0, 1.97), DARK, 16, 0.0))
+        for j in range(4):
+            a = math.radians(45 + 90 * j)
+            o.append(box("blade_%d_%d" % (k, j), (0.22, 0.05, 0.02),
+                         (x + math.cos(a) * 0.10, math.sin(a) * 0.10, 1.995), STEEL, 0.0, a))
+    return o, (1.6, 0.9), 2.0, "large", ("ServerPanel", "BrushedMetal")
+
+
+def gen_cable_tray():
+    """桥架段 2.0×0.5×0.60：梯式桥架 + 落地支腿 + 斜撑 + 三根电缆。"""
+    o = []
+    for y in (-0.22, 0.22):
+        o.append(box("rail", (1.96, 0.05, 0.10), (0.0, y, 0.50), STEEL, 0.0, 0.0, 1))
+    for k in range(7):
+        o.append(box("rung_%d" % k, (0.05, 0.44, 0.025), (-0.84 + k * 0.28, 0.0, 0.45), STEEL, 0.0))
+    for x in (-0.86, 0.86):
+        for y in (-0.22, 0.22):
+            o.append(box("leg", (0.05, 0.05, 0.45), (x, y, 0.225), DARK, 0.0, 0.0, 1))
+        o.append(box("brace", (0.05, 0.44, 0.04), (x, 0.0, 0.16), DARK, 0.0))
+    for k in range(3):
+        o.append(rot(cyl("cable_%d" % k, 0.05, 1.86, (0.0, -0.12 + k * 0.12, 0.57), DARK, 8, 0.0), 1, 90))
+    return o, (2.0, 0.5), 0.60, "medium", ("DiamondPlate", "BrushedMetal")
+
+
+def gen_main_console():
+    """主控台 2.4×1.0×1.22：三席位台体 + 斜面操作区 + 三联屏 + 键盘托（09 §2.2 预算 900）。"""
+    o = []
+    o.append(box("desk", (2.36, 0.96, 0.70), (0.0, 0.0, 0.36), DARK, 0.02, 0.0, 1))
+    o.append(box("plinth", (2.28, 0.88, 0.08), (0.0, 0.0, 0.04), STEEL, 0.0))
+    o.append(rot(box("panel", (2.28, 0.44, 0.06), (0.0, -0.26, 0.80), STEEL, 0.008, 0.0, 1), 0, 16))
+    o.append(box("riser", (2.30, 0.34, 0.06), (0.0, 0.28, 0.74), DARK, 0.0))
+    for k in range(3):
+        x = -0.74 + k * 0.74
+        o.append(box("monitor_%d" % k, (0.68, 0.06, 0.40), (x, 0.26, 0.97), DARK, 0.0))
+        o.append(box("screen_%d" % k, (0.60, 0.01, 0.32), (x, 0.225, 0.97), _scr(), 0.0))
+        o.append(box("keyboard_%d" % k, (0.40, 0.14, 0.02), (x, -0.20, 0.75), WHITE, 0.0))
+    for x in (-1.05, 1.05):
+        o.append(box("end", (0.06, 0.92, 0.72), (x, 0.0, 0.36), DARK, 0.0, 0.0, 1))
+    return o, (2.4, 1.0), 1.22, "large", ("BrushedMetal", "DarkMetal")
+
+
+def gen_big_screen_wall():
+    """大屏墙 3.0×0.22×1.78：3×3 拼接屏 + 背架 + 底座（09 §2.2 预算 600）。"""
+    o = []
+    o.append(box("back", (2.90, 0.10, 1.66), (0.0, 0.04, 0.92), DARK, 0.0, 0.0, 1))
+    for r in range(3):
+        for c in range(3):
+            x = -0.97 + c * 0.97
+            z = 0.32 + r * 0.56
+            o.append(box("bezel_%d_%d" % (r, c), (0.94, 0.06, 0.54), (x, -0.02, z), DARK, 0.0))
+            o.append(box("screen_%d_%d" % (r, c), (0.88, 0.01, 0.48), (x, -0.055, z), _scr(), 0.0))
+    o.append(box("base", (2.94, 0.18, 0.06), (0.0, 0.02, 0.03), STEEL, 0.0))
+    for x in (-1.42, 1.42):
+        o.append(box("trim", (0.06, 0.16, 1.74), (x, 0.02, 0.87), STEEL, 0.0, 0.0, 1))
+    return o, (3.0, 0.22), 1.78, "large", ("CleanPanel", "DarkMetal")
+
+
+def gen_floor_vent():
+    """地板送风口 0.6×0.6×0.07：方框 + 可调格栅叶片 + 内胆。"""
+    o = []
+    o.append(box("frame", (0.58, 0.58, 0.05), (0.0, 0.0, 0.035), STEEL, 0.006, 0.0, 1))
+    o.append(box("pan", (0.50, 0.50, 0.015), (0.0, 0.0, 0.015), DARK, 0.0))
+    for k in range(6):
+        o.append(box("blade_%d" % k, (0.46, 0.055, 0.012), (0.0, -0.20 + k * 0.08, 0.055), STEEL, 0.0))
+    return o, (0.6, 0.6), 0.07, "small", ("DiamondPlate", "DarkMetal")
+
+
+# ---- C. 冷链 / 仓储 --------------------------------------------------------
+
+def gen_chiller_unit():
+    """制冷机组 1.8×0.9×1.8：底座 + 压缩机箱 + 顶部双冷凝风机 + 立管 + 控制箱（预算 1200）。"""
+    o = []
+    o.append(box("skid", (1.74, 0.86, 0.10), (0.0, 0.0, 0.05), DARK, 0.0))
+    o.append(box("body", (1.66, 0.80, 1.56), (0.0, 0.0, 0.87), BODY, 0.02, 0.0, 1))
+    for k in range(4):
+        o.append(box("louvre_%d" % k, (1.40, 0.03, 0.10), (0.0, -0.415, 0.30 + k * 0.17), STEEL, 0.0))
+    o.append(box("panel", (0.28, 0.02, 0.22), (0.60, -0.415, 1.30), DARK, 0.0))
+    o.append(box("screen", (0.18, 0.01, 0.10), (0.60, -0.427, 1.31), _scr(), 0.0))
+    for k in range(3):
+        o.append(box("btn_%d" % k, (0.04, 0.01, 0.03), (0.60, -0.427, 1.18 + k * 0.05), ACCENT, 0.0))
+    o.append(box("top", (1.70, 0.86, 0.06), (0.0, 0.0, 1.69), DARK, 0.0))
+    # 顶部双风机沿 X 并排，直径 0.56 < 机深 0.9
+    for k, x in enumerate((-0.42, 0.42)):
+        o.append(cyl("fan_ring_%d" % k, 0.28, 0.07, (x, 0.0, 1.745), DARK, 16, 0.0))
+        for j in range(4):
+            a = math.radians(45 + 90 * j)
+            o.append(box("blade_%d_%d" % (k, j), (0.22, 0.05, 0.02),
+                         (x + math.cos(a) * 0.11, math.sin(a) * 0.11, 1.775), STEEL, 0.0, a))
+    for k, y in enumerate((-0.30, 0.30)):
+        o.append(cyl("pipe_%d" % k, 0.055, 1.30, (-0.72, y, 0.72), STEEL, 10, 0.0))
+    return o, (1.8, 0.9), 1.80, "large", ("ColdMetal", "IndustrialPaint")
+
+
+def gen_insulated_box():
+    """保温箱 0.8×0.6×0.63：厚壁箱体 + 盖 + 双卡扣 + 侧提手 + 角垫。"""
+    o = []
+    o.append(box("body", (0.76, 0.56, 0.50), (0.0, 0.0, 0.27), BODY, 0.02, 0.0, 1))
+    o.append(box("lid", (0.78, 0.58, 0.10), (0.0, 0.0, 0.57), WHITE, 0.015, 0.0, 1))
+    o.append(box("rim", (0.70, 0.50, 0.02), (0.0, 0.0, 0.51), DARK, 0.0))
+    for x in (-0.26, 0.26):
+        o.append(box("latch", (0.06, 0.04, 0.16), (x, -0.295, 0.48), ACCENT, 0.0))
+    for x in (-0.40, 0.40):
+        o.append(box("handle", (0.04, 0.16, 0.05), (x, 0.0, 0.36), STEEL, 0.0))
+    for x in (-0.34, 0.34):
+        for y in (-0.24, 0.24):
+            o.append(box("bumper", (0.06, 0.06, 0.06), (x, y, 0.03), DARK, 0.0))
+    return o, (0.8, 0.6), 0.63, "small", ("CleanPanel", "ColdMetal")
+
+
+def gen_wooden_crate():
+    """木箱 0.9×0.9×0.78：三层板条箱体 + 角柱 + 顶盖板条 + 对角加强条。"""
+    o = []
+    for k in range(3):
+        z = 0.14 + k * 0.21
+        for y in (-0.44, 0.44):
+            o.append(box("plank_%d" % k, (0.88, 0.03, 0.18), (0.0, y, z), BODY, 0.0))
+        for x in (-0.44, 0.44):
+            o.append(box("side_%d" % k, (0.03, 0.88, 0.18), (x, 0.0, z), BODY, 0.0))
+    for x in (-0.40, 0.40):
+        for y in (-0.40, 0.40):
+            o.append(box("post", (0.07, 0.07, 0.76), (x, y, 0.38), DARK, 0.0, 0.0, 1))
+    for k in range(3):
+        o.append(box("lid_%d" % k, (0.86, 0.26, 0.03), (0.0, -0.29 + k * 0.29, 0.765), BODY, 0.0))
+    o.append(rot(box("brace", (0.94, 0.04, 0.10), (0.0, -0.455, 0.40), ACCENT, 0.0), 1, 38))
+    return o, (0.9, 0.9), 0.78, "small", ("WoodPanel", "IndustrialPaint")
+
+
+def gen_plastic_crate():
+    """塑料周转箱 0.6×0.4×0.32：箱底 + 四壁 + 加强筋 + 叠放口 + 标签。"""
+    o = []
+    o.append(box("base", (0.56, 0.36, 0.03), (0.0, 0.0, 0.015), DARK, 0.0))
+    for y in (-0.17, 0.17):
+        o.append(box("wall", (0.56, 0.02, 0.28), (0.0, y, 0.17), ACCENT, 0.0))
+    for x in (-0.27, 0.27):
+        o.append(box("wall_s", (0.02, 0.36, 0.28), (x, 0.0, 0.17), ACCENT, 0.0))
+    for k in range(5):
+        x = -0.20 + k * 0.10
+        o.append(box("rib_%d" % k, (0.02, 0.015, 0.24), (x, -0.175, 0.18), DARK, 0.0))
+    o.append(box("rim", (0.58, 0.38, 0.02), (0.0, 0.0, 0.31), ACCENT, 0.0))
+    o.append(box("label", (0.16, 0.01, 0.08), (0.0, -0.181, 0.20), WHITE, 0.0))
+    return o, (0.6, 0.4), 0.32, "small", ("IndustrialPaint", "DarkMetal")
+
+
+def gen_compact_shelf():
+    """密集档案架 1.2×0.6×2.18：地轨 + 架体 + 五层板 + 摇柄 + 档案盒（09 §2.2 预算 800）。"""
+    o = []
+    for y in (-0.22, 0.22):
+        o.append(box("rail", (1.10, 0.06, 0.05), (0.0, y, 0.025), STEEL, 0.0))
+    for x in (-0.56, 0.56):
+        o.append(box("end", (0.06, 0.56, 2.06), (x, 0.0, 1.08), DARK, 0.0, 0.0, 1))
+    for k in range(5):
+        o.append(box("shelf_%d" % k, (1.08, 0.52, 0.035), (0.0, 0.0, 0.32 + k * 0.44), BODY, 0.0))
+    o.append(box("top", (1.16, 0.58, 0.05), (0.0, 0.0, 2.16), DARK, 0.0))
+    o.append(box("back", (1.16, 0.03, 1.96), (0.0, 0.27, 1.10), BODY, 0.0))
+    for k in range(3):
+        o.append(box("box_%d" % k, (0.26, 0.40, 0.30), (-0.34 + k * 0.34, -0.02, 1.02), WHITE, 0.0))
+    o.append(rot(cyl("wheel", 0.13, 0.04, (0.60, 0.0, 1.10), ACCENT, 12, 0.0), 1, 90))
+    o.append(box("crank", (0.04, 0.04, 0.20), (0.62, -0.10, 1.02), ACCENT, 0.0))
+    return o, (1.2, 0.6), 2.18, "large", ("PaintedWall", "WoodPanel")
+
+
+# ---- D. 制造 / 设备 --------------------------------------------------------
+
+def gen_machine_tool():
+    """机床 1.8×1.2×1.52：床身 + 立柱 + 主轴箱 + 工作台 + 防护拉门 + 数控面板（预算 1400）。"""
+    o = []
+    o.append(box("base", (1.76, 1.16, 0.52), (0.0, 0.0, 0.26), DARK, 0.02, 0.0, 1))
+    o.append(box("table", (1.10, 0.68, 0.10), (0.0, -0.06, 0.57), STEEL, 0.0))
+    o.append(box("column", (0.44, 0.34, 1.00), (0.0, 0.40, 1.02), BODY, 0.02, 0.0, 1))
+    o.append(box("head", (0.38, 0.46, 0.40), (0.0, 0.18, 1.10), BODY, 0.015, 0.0, 1))
+    o.append(box("spindle", (0.12, 0.12, 0.22), (0.0, -0.02, 0.94), STEEL, 0.0))
+    for x in (-0.88, 0.88):
+        o.append(box("side", (0.03, 0.90, 0.86), (x, -0.06, 0.86), BODY, 0.0, 0.0, 1))
+    o.append(box("top_beam", (1.76, 0.06, 0.06), (0.0, -0.56, 1.30), DARK, 0.0))
+    o.append(box("door", (0.62, 0.03, 0.78), (-0.36, -0.56, 0.90), WHITE, 0.008, 0.0, 1))
+    o.append(box("door_rail", (1.64, 0.04, 0.04), (0.0, -0.56, 1.26), STEEL, 0.0))
+    o.append(rot(box("panel", (0.34, 0.06, 0.30), (0.72, -0.52, 1.12), DARK, 0.008, 0.0, 1), 0, -20))
+    o.append(box("screen", (0.24, 0.01, 0.18), (0.73, -0.552, 1.13), _scr(), 0.0))
+    for k in range(3):
+        o.append(box("btn_%d" % k, (0.05, 0.01, 0.03), (0.70, -0.552, 1.00 + k * 0.05), ACCENT, 0.0))
+    o.append(box("chip_tray", (0.90, 0.16, 0.05), (0.0, -0.46, 0.42), STEEL, 0.0))
+    return o, (1.8, 1.2), 1.52, "large", ("IndustrialPaint", "DiamondPlate")
+
+
+def gen_material_rack():
+    """料架 1.6×0.8×2.0：四立柱 + 四层板 + 斜撑 + 料筐（09 §2.2 预算 900）。"""
+    o = []
+    for x in (-0.76, 0.76):
+        for y in (-0.36, 0.36):
+            o.append(box("post", (0.07, 0.07, 1.96), (x, y, 0.98), STEEL, 0.0, 0.0, 1))
+    for k in range(4):
+        o.append(box("shelf_%d" % k, (1.54, 0.74, 0.05), (0.0, 0.0, 0.26 + k * 0.50), BODY, 0.0, 0.0, 1))
+    for x in (-0.76, 0.76):
+        for z in (0.51, 1.01, 1.51):
+            o.append(box("brace", (0.05, 0.05, 0.46), (x, -0.36, z), DARK, 0.0))
+        o.append(box("rail", (0.05, 0.74, 0.05), (x, 0.0, 1.94), DARK, 0.0))
+    for k in range(3):
+        o.append(box("bin_%d" % k, (0.36, 0.32, 0.20), (-0.48 + k * 0.48, 0.0, 0.39),
+                     ACCENT if k % 2 else WHITE, 0.0))
+    for k in range(2):
+        o.append(box("bin_b_%d" % k, (0.36, 0.32, 0.18), (-0.24 + k * 0.48, 0.0, 0.89), BODY, 0.0))
+    return o, (1.6, 0.8), 2.0, "large", ("IndustrialPaint", "WoodPanel")
+
+
+def gen_valve_group():
+    """阀门组 0.8×0.8×1.56：立管 + 三层支管 + 三只闸阀 + 法兰 + 压力表（预算 400）。"""
+    o = []
+    o.append(box("base", (0.70, 0.70, 0.10), (0.0, 0.0, 0.05), DARK, 0.0))
+    o.append(cyl("riser", 0.085, 1.46, (0.0, 0.0, 0.83), STEEL, 12, 0.0))
+    for k, (z, s) in enumerate(((0.52, -1), (0.90, 1), (1.28, -1))):
+        y = 0.18 * s
+        o.append(rot(cyl("branch_%d" % k, 0.06, 0.36, (0.0, y, z), STEEL, 10, 0.0), 0, 90))
+        o.append(box("valve_%d" % k, (0.16, 0.16, 0.14), (0.0, y, z), ACCENT, 0.0))
+        o.append(cyl("handle_%d" % k, 0.11, 0.03, (0.0, y, z + 0.10), ACCENT, 12, 0.0))
+        o.append(rot(cyl("flange_%d" % k, 0.115, 0.03, (0.0, y + 0.18 * s, z), STEEL, 12, 0.0), 0, 90))
+    for k in range(2):
+        o.append(rot(cyl("gauge_%d" % k, 0.06, 0.05, (0.10, 0.0, 1.16 + k * 0.22), WHITE, 10, 0.0), 0, 90))
+    return o, (0.8, 0.8), 1.56, "medium", ("IndustrialPaint", "BrushedMetal")
+
+
+def gen_pipe_segment():
+    """管道组 4.0×0.6×0.88：三根平行管 + 法兰 + 门式支架 + 弯头（09 §2.2 预算 600）。"""
+    o = []
+    for k, (y, z, r) in enumerate(((-0.18, 0.66, 0.10), (0.02, 0.50, 0.08), (0.20, 0.68, 0.07))):
+        o.append(rot(cyl("pipe_%d" % k, r, 3.86, (0.0, y, z), ACCENT if k == 1 else BODY, 12, 0.0), 1, 90))
+        for sx in (-1.20, 1.20):
+            o.append(rot(cyl("flange_%d" % k, r + 0.045, 0.05, (sx, y, z), STEEL, 12, 0.0), 1, 90))
+    for x in (-1.60, 1.60):
+        for y in (-0.26, 0.26):
+            o.append(box("post", (0.07, 0.07, 0.80), (x, y, 0.40), STEEL, 0.0))
+        o.append(box("beam", (0.07, 0.62, 0.07), (x, 0.0, 0.80), STEEL, 0.0))
+        o.append(box("foot", (0.16, 0.66, 0.05), (x, 0.0, 0.025), DARK, 0.0))
+    o.append(cyl("bend", 0.10, 0.22, (1.86, -0.18, 0.78), BODY, 10, 0.0))
+    return o, (4.0, 0.6), 0.88, "large", ("IndustrialPaint", "BrushedMetal")
+
+
+def gen_transformer():
+    """变压器 1.8×1.2×1.60：油箱 + 八片散热器 + 三只套管 + 底座（09 §2.2 预算 1400）。"""
+    o = []
+    o.append(box("base", (1.70, 1.10, 0.14), (0.0, 0.0, 0.07), DARK, 0.0))
+    o.append(box("tank", (1.44, 0.92, 0.96), (0.0, 0.0, 0.62), BODY, 0.02, 0.0, 1))
+    for k in range(4):
+        y = -0.34 + k * 0.22
+        for sx in (-1, 1):
+            o.append(box("fin_%d" % k, (0.05, 0.16, 0.74), (sx * 0.745, y, 0.62), DARK, 0.0))
+    o.append(box("cover", (1.52, 1.00, 0.10), (0.0, 0.0, 1.15), DARK, 0.0))
+    for k in range(3):
+        x = -0.44 + k * 0.44
+        o.append(cyl("bushing_%d" % k, 0.075, 0.34, (x, 0.0, 1.37), WHITE, 10, 0.0))
+        o.append(cyl("cap_%d" % k, 0.05, 0.06, (x, 0.0, 1.57), STEEL, 8, 0.0))
+    o.append(box("panel", (0.26, 0.03, 0.34), (-0.52, -0.48, 0.62), STEEL, 0.0))
+    o.append(box("gauge", (0.10, 0.01, 0.10), (-0.52, -0.50, 0.70), WHITE, 0.0))
+    return o, (1.8, 1.2), 1.60, "large", ("ColdMetal", "IndustrialPaint")
+
+
+def gen_hv_cabinet():
+    """高压柜 1.0×0.6×2.10：柜体 + 单门 + 仪表窗 + 指示灯 + 观察窗 + 警示条（预算 700）。"""
+    o = []
+    o.append(box("body", (0.96, 0.56, 2.08), (0.0, 0.0, 1.06), BODY, 0.02, 0.0, 1))
+    o.append(box("plinth", (0.90, 0.50, 0.10), (0.0, 0.0, 0.05), DARK, 0.0))
+    o.append(box("door", (0.86, 0.03, 1.84), (0.0, -0.29, 1.04), DARK, 0.0))
+    o.append(box("handle", (0.04, 0.05, 0.22), (0.32, -0.305, 1.04), STEEL, 0.0))
+    o.append(box("meter", (0.40, 0.02, 0.30), (0.0, -0.305, 1.72), WHITE, 0.0))
+    for x in (-0.10, 0.10):
+        o.append(rot(cyl("gauge", 0.08, 0.03, (x, -0.318, 1.72), DARK, 10, 0.0), 0, 90))
+    for k in range(4):
+        o.append(box("lamp_%d" % k, (0.06, 0.02, 0.06), (-0.24 + k * 0.16, -0.305, 1.42), ACCENT, 0.0))
+    o.append(box("window", (0.36, 0.02, 0.34), (0.0, -0.305, 0.90), GLASS_MAT, 0.0))
+    o.append(box("hazard", (0.82, 0.01, 0.10), (0.0, -0.302, 0.22), ACCENT, 0.0))
+    return o, (1.0, 0.6), 2.10, "large", ("IndustrialPaint", "MetalDoor")
+
+
+def gen_forklift():
+    """叉车 1.1×2.2×1.60：车身 + 配重 + 门架 + 货叉 + 护顶架 + 四轮。
+
+    车头朝 -Y（Unity 里即 +Z），货叉向前伸出，方便沿装卸口摆放时"车头对外"。
+    """
+    o = []
+    o.append(box("chassis", (0.96, 1.24, 0.42), (0.0, -0.02, 0.46), ACCENT, 0.02, 0.0, 1))
+    o.append(box("counter", (0.94, 0.44, 0.58), (0.0, 0.72, 0.52), DARK, 0.02, 0.0, 1))
+    o.append(box("seat", (0.36, 0.40, 0.12), (0.0, 0.34, 0.74), DARK, 0.0))
+    o.append(box("back", (0.36, 0.10, 0.40), (0.0, 0.56, 0.96), DARK, 0.0))
+    for x in (-0.28, 0.28):
+        o.append(box("mast", (0.07, 0.07, 1.44), (x, -0.60, 0.72), STEEL, 0.0, 0.0, 1))
+    for z in (0.30, 0.86, 1.42):
+        o.append(box("cross", (0.60, 0.10, 0.06), (0.0, -0.60, z), STEEL, 0.0))
+    o.append(box("carriage", (0.62, 0.06, 0.56), (0.0, -0.70, 0.30), STEEL, 0.0, 0.0, 1))
+    for x in (-0.20, 0.20):
+        o.append(box("fork", (0.10, 0.55, 0.04), (x, -0.99, 0.06), STEEL, 0.0))
+        o.append(box("fork_bend", (0.10, 0.10, 0.26), (x, -0.74, 0.17), STEEL, 0.0))
+    for k, (x, y) in enumerate(((0.44, -0.40), (-0.44, -0.40), (0.44, 0.50), (-0.44, 0.50))):
+        o.append(rot(cyl("wheel_%d" % k, 0.22, 0.16, (x, y, 0.22), DARK, 12, 0.0), 1, 90))
+    for x in (-0.40, 0.40):
+        for y in (-0.26, 0.34):
+            o.append(box("guard_post", (0.05, 0.05, 0.70), (x, y, 1.20), STEEL, 0.0))
+    o.append(box("guard_roof", (0.94, 0.74, 0.05), (0.0, 0.04, 1.57), STEEL, 0.0))
+    o.append(rot(cyl("steer", 0.11, 0.04, (0.0, 0.24, 1.00), DARK, 10, 0.0), 0, 70))
+    return o, (1.1, 2.2), 1.60, "large", ("IndustrialPaint", "DiamondPlate")
+
+
+def gen_container():
+    """集装箱 2.4×1.2×2.40：波纹板 + 双开门 + 锁杆 + 角柱（预算 1500）。"""
+    o = []
+    o.append(box("shell", (2.32, 1.14, 2.28), (0.0, 0.0, 1.16), BODY, 0.02, 0.0, 1))
+    for k in range(9):
+        o.append(box("rib_%d" % k, (0.06, 0.02, 2.10), (-1.00 + k * 0.25, -0.585, 1.16), DARK, 0.0))
+    for x in (-0.56, 0.56):
+        o.append(box("door", (0.54, 0.03, 2.04), (x, -0.585, 1.14), DARK, 0.0))
+    for k in range(4):
+        o.append(box("lockbar_%d" % k, (0.05, 0.05, 1.90), (-0.86 + k * 0.573, -0.60, 1.14), STEEL, 0.0))
+    for x in (-1.18, 1.18):
+        for y in (-0.57, 0.57):
+            o.append(box("corner", (0.12, 0.12, 2.36), (x, y, 1.18), DARK, 0.0, 0.0, 1))
+    for z in (0.10, 2.28):
+        o.append(box("rail", (2.40, 1.16, 0.06), (0.0, 0.0, z), DARK, 0.0))
+    o.append(box("stencil", (0.70, 0.01, 0.22), (0.40, -0.596, 2.02), ACCENT, 0.0))
+    return o, (2.4, 1.2), 2.40, "large", ("IndustrialPaint", "MetalDoor")
+
+
+# ---- E. 医疗 / 洁净 --------------------------------------------------------
+
+def gen_isolation_pod():
+    """隔离舱 1.2×0.8×2.10：舱壳 + 观察玻璃 + 密封门 + 顶部过滤箱 + 舱内床垫（预算 700）。"""
+    o = []
+    o.append(box("base", (1.16, 0.76, 0.12), (0.0, 0.0, 0.06), DARK, 0.0))
+    o.append(box("back", (1.12, 0.04, 1.72), (0.0, 0.36, 0.98), WHITE, 0.0, 0.0, 1))
+    for x in (-0.55, 0.55):
+        o.append(box("side", (0.04, 0.74, 1.72), (x, 0.0, 0.98), WHITE, 0.0, 0.0, 1))
+    o.append(box("roof", (1.16, 0.78, 0.12), (0.0, 0.0, 1.90), WHITE, 0.0, 0.0, 1))
+    for k in range(2):
+        o.append(box("filter_%d" % k, (0.46, 0.46, 0.16), (-0.28 + k * 0.56, 0.0, 2.02), STEEL, 0.0))
+    o.append(box("glass", (0.96, 0.02, 1.40), (0.0, -0.37, 1.06), GLASS_MAT, 0.0))
+    for x in (-0.50, 0.50):
+        o.append(box("frame", (0.05, 0.04, 1.72), (x, -0.37, 0.98), STEEL, 0.0))
+    o.append(box("door_split", (0.03, 0.04, 1.44), (0.0, -0.375, 1.04), STEEL, 0.0))
+    o.append(box("handle", (0.04, 0.05, 0.24), (0.10, -0.395, 1.02), STEEL, 0.0))
+    o.append(box("mattress", (0.92, 0.62, 0.14), (0.0, 0.02, 0.56), LINEN_MAT, 0.0))
+    for x in (-0.35, 0.35):
+        o.append(box("rail", (0.04, 0.60, 0.04), (x, 0.02, 0.78), STEEL, 0.0))
+    return o, (1.2, 0.8), 2.10, "large", ("CleanPanel", "GlassPanel")
+
+
+def gen_washbasin():
+    """洗手台 0.6×0.45×1.72：落地台盆柱 + 台面 + 盆体 + 龙头 + 镜子 + 存水弯（小件）。"""
+    o = []
+    o.append(box("pedestal", (0.34, 0.34, 0.78), (0.0, 0.04, 0.41), WHITE, 0.012, 0.0, 1))
+    o.append(box("ped_foot", (0.44, 0.42, 0.04), (0.0, 0.04, 0.02), DARK, 0.0))
+    o.append(box("counter", (0.58, 0.44, 0.06), (0.0, 0.0, 0.82), WHITE, 0.01, 0.0, 1))
+    o.append(box("apron", (0.56, 0.06, 0.18), (0.0, -0.20, 0.72), WHITE, 0.0))
+    o.append(cyl("bowl", 0.19, 0.12, (0.0, -0.02, 0.86), WHITE, 12, 0.0))
+    o.append(cyl("drain", 0.03, 0.05, (0.0, -0.02, 0.80), DARK, 8, 0.0))
+    o.append(cyl("faucet", 0.025, 0.20, (0.0, 0.16, 0.94), STEEL, 8, 0.0))
+    o.append(box("spout", (0.03, 0.14, 0.03), (0.0, 0.10, 1.02), STEEL, 0.0))
+    o.append(box("mirror_frame", (0.54, 0.02, 0.64), (0.0, 0.20, 1.40), STEEL, 0.0))
+    o.append(box("mirror", (0.50, 0.03, 0.60), (0.0, 0.19, 1.40), GLASS_MAT, 0.0))
+    for x in (-0.22, 0.22):
+        o.append(box("bracket", (0.04, 0.12, 0.05), (x, 0.12, 0.76), STEEL, 0.0))
+    o.append(cyl("p_trap", 0.045, 0.30, (0.0, 0.02, 0.62), STEEL, 8, 0.0))
+    return o, (0.6, 0.45), 1.72, "small", ("CleanPanel", "GlassPanel")
+
+
+def gen_iv_stand():
+    """输液架 0.45×0.45×1.86：五爪底座 + 立杆 + 升降杆 + 双钩 + 输液袋。"""
+    o = []
+    for k in range(5):
+        a = math.radians(72 * k)
+        o.append(box("foot_%d" % k, (0.26, 0.05, 0.04),
+                     (math.cos(a) * 0.10, math.sin(a) * 0.10, 0.06), DARK, 0.0, a))
+        o.append(box("caster_%d" % k, (0.06, 0.06, 0.06),
+                     (math.cos(a) * 0.21, math.sin(a) * 0.21, 0.03), DARK, 0.0))
+    o.append(cyl("pole", 0.022, 1.52, (0.0, 0.0, 0.83), STEEL, 8, 0.0))
+    o.append(cyl("sleeve", 0.035, 0.18, (0.0, 0.0, 1.18), STEEL, 10, 0.0))
+    o.append(cyl("top_pole", 0.016, 0.30, (0.0, 0.0, 1.70), STEEL, 8, 0.0))
+    o.append(box("cross", (0.34, 0.03, 0.03), (0.0, 0.0, 1.84), STEEL, 0.0))
+    for x in (-0.17, 0.17):
+        o.append(box("hook", (0.03, 0.03, 0.10), (x, 0.0, 1.78), STEEL, 0.0))
+    o.append(box("bag", (0.14, 0.06, 0.20), (-0.14, 0.0, 1.64), WHITE, 0.0))
+    o.append(box("bag_label", (0.10, 0.01, 0.06), (-0.14, -0.032, 1.66), ACCENT, 0.0))
+    return o, (0.45, 0.45), 1.86, "small", ("CleanPanel", "BrushedMetal")
+
+
+def gen_air_shower():
+    """风淋室 1.2×1.2×2.24：双门舱体 + 侧壁喷嘴 + 顶部灯箱 + 底盘（09 §2.2 预算 600）。"""
+    o = []
+    o.append(box("floor", (1.16, 1.16, 0.06), (0.0, 0.0, 0.03), DARK, 0.0))
+    o.append(box("roof", (1.18, 1.18, 0.10), (0.0, 0.0, 2.15), WHITE, 0.0, 0.0, 1))
+    for x in (-0.58, 0.58):
+        o.append(box("side", (0.04, 1.16, 2.06), (x, 0.0, 1.06), WHITE, 0.0, 0.0, 1))
+        for k in range(4):
+            o.append(box("nozzle", (0.03, 0.05, 0.05), (x, -0.36 + k * 0.24, 1.30), STEEL, 0.0))
+    o.append(box("back", (1.12, 0.04, 2.06), (0.0, 0.56, 1.06), WHITE, 0.0))
+    for y, dy in ((-0.58, -0.02), (0.58, 0.02)):
+        o.append(box("door_frame", (0.94, 0.05, 1.90), (0.0, y, 1.02), STEEL, 0.0))
+        o.append(box("door", (0.80, 0.03, 1.80), (0.0, y + dy, 1.02), GLASS_MAT, 0.0))
+    o.append(box("lamp", (0.50, 0.10, 0.06), (0.30, 0.0, 2.10), ACCENT, 0.0))
+    o.append(box("switch", (0.16, 0.02, 0.24), (0.42, -0.60, 1.30), DARK, 0.0))
+    return o, (1.2, 1.2), 2.24, "large", ("CleanPanel", "GlassPanel")
+
+
+def gen_clean_bench():
+    """洁净工作台 1.5×0.8×1.66：台面 + 层流罩 + 玻璃侧挡 + 下架 + 风机箱（预算 700）。"""
+    o = []
+    o.append(box("top", (1.46, 0.76, 0.06), (0.0, 0.0, 0.86), WHITE, 0.01, 0.0, 1))
+    for x in (-0.68, 0.68):
+        for y in (-0.32, 0.32):
+            o.append(box("leg", (0.05, 0.05, 0.82), (x, y, 0.41), STEEL, 0.0, 0.0, 1))
+    o.append(box("shelf", (1.30, 0.60, 0.03), (0.0, 0.0, 0.24), STEEL, 0.0))
+    o.append(box("back", (1.46, 0.05, 0.56), (0.0, 0.36, 1.18), WHITE, 0.0))
+    o.append(box("hood_top", (1.46, 0.62, 0.08), (0.0, 0.02, 1.46), WHITE, 0.0))
+    o.append(box("filter", (1.30, 0.50, 0.06), (0.0, 0.02, 1.40), STEEL, 0.0))
+    o.append(box("fan_box", (0.90, 0.40, 0.16), (0.0, 0.30, 1.58), DARK, 0.0))
+    for x in (-0.70, 0.70):
+        o.append(box("glass", (0.02, 0.56, 0.50), (x, -0.08, 1.16), GLASS_MAT, 0.0))
+        o.append(box("post", (0.05, 0.05, 0.56), (x, 0.34, 1.20), WHITE, 0.0))
+    o.append(box("control", (0.24, 0.02, 0.14), (0.52, 0.37, 1.26), DARK, 0.0))
+    for k in range(3):
+        o.append(box("btn_%d" % k, (0.04, 0.01, 0.03), (0.52, 0.355, 1.18 + k * 0.05), ACCENT, 0.0))
+    return o, (1.5, 0.8), 1.66, "large", ("CleanPanel", "GlassPanel")
+
+
+def gen_changing_locker():
+    """更衣柜 0.9×0.6×1.80：双门挂衣柜 + 底部鞋格 + 通风百叶（09 §2.2 预算 500）。"""
+    o = []
+    o.append(box("body", (0.86, 0.56, 1.56), (0.0, 0.0, 0.98), WHITE, 0.015, 0.0, 1))
+    o.append(box("shoe", (0.88, 0.58, 0.18), (0.0, 0.0, 0.09), DARK, 0.0))
+    o.append(box("top", (0.90, 0.58, 0.04), (0.0, 0.0, 1.78), DARK, 0.0))
+    o.append(box("split", (0.02, 0.57, 1.50), (0.0, 0.0, 0.98), DARK, 0.0))
+    for x in (-0.22, 0.22):
+        o.append(box("door", (0.40, 0.02, 1.44), (x, -0.285, 0.96), WHITE, 0.0))
+        for k in range(3):
+            o.append(box("vent", (0.24, 0.01, 0.02), (x, -0.296, 1.50 + k * 0.06), DARK, 0.0))
+        o.append(box("handle", (0.04, 0.04, 0.16), (x + 0.15, -0.30, 0.96), STEEL, 0.0))
+    for k in range(2):
+        o.append(box("shoe_door", (0.40, 0.02, 0.16), (-0.22 + k * 0.44, -0.295, 0.09), DARK, 0.0))
+    return o, (0.9, 0.6), 1.80, "medium", ("PaintedWall", "BrushedMetal")
+
+
+# ---- F. 生活舱 -------------------------------------------------------------
+
+def gen_bunk_bed():
+    """双层床 2.0×0.9×1.80：四立柱 + 上下床架 + 床垫 + 护栏 + 侧梯（09 §2.2 预算 900）。"""
+    o = []
+    for x in (-0.94, 0.94):
+        for y in (-0.41, 0.41):
+            o.append(box("post", (0.06, 0.06, 1.76), (x, y, 0.88), STEEL, 0.0, 0.0, 1))
+    for z in (0.36, 1.30):
+        o.append(box("frame", (1.94, 0.86, 0.08), (0.0, 0.0, z), DARK, 0.0, 0.0, 1))
+        o.append(box("mattress", (1.86, 0.78, 0.14), (0.0, 0.0, z + 0.11), LINEN_MAT, 0.0, 0.0, 1))
+        o.append(box("pillow", (0.50, 0.68, 0.10), (-0.62, 0.0, z + 0.22), WHITE, 0.0))
+    for z in (1.56, 1.72):
+        o.append(box("rail", (1.86, 0.04, 0.04), (0.0, -0.40, z), STEEL, 0.0))
+    for x in (-0.60, 0.0, 0.60):
+        o.append(box("rail_post", (0.04, 0.04, 0.30), (x, -0.40, 1.60), STEEL, 0.0))
+    for x in (0.30, 0.42):
+        o.append(box("ladder", (0.04, 0.05, 1.28), (x, -0.46, 0.66), STEEL, 0.0))
+    for k in range(4):
+        o.append(box("rung_%d" % k, (0.14, 0.04, 0.04), (0.36, -0.46, 0.30 + k * 0.30), STEEL, 0.0))
+    return o, (2.0, 0.9), 1.80, "large", ("WoodPanel", "BrushedMetal")
+
+
+def gen_mini_fridge():
+    """小冰箱 0.5×0.55×0.81：柜体 + 门 + 密封条 + 把手 + 顶部散热格栅。"""
+    o = []
+    o.append(box("body", (0.48, 0.52, 0.74), (0.0, 0.0, 0.40), WHITE, 0.015, 0.0, 1))
+    o.append(box("door", (0.44, 0.03, 0.66), (0.0, -0.275, 0.42), WHITE, 0.0, 0.0, 1))
+    o.append(box("seal", (0.38, 0.01, 0.60), (0.0, -0.292, 0.42), DARK, 0.0))
+    o.append(box("handle", (0.04, 0.05, 0.24), (0.16, -0.30, 0.46), STEEL, 0.0))
+    o.append(box("top", (0.48, 0.52, 0.04), (0.0, 0.0, 0.79), DARK, 0.0))
+    for k in range(3):
+        o.append(box("vent_%d" % k, (0.40, 0.02, 0.02), (0.0, -0.29, 0.75 + k * 0.04), DARK, 0.0))
+    for x in (-0.18, 0.18):
+        for y in (-0.20, 0.20):
+            o.append(box("foot", (0.04, 0.04, 0.03), (x, y, 0.015), DARK, 0.0))
+    return o, (0.5, 0.55), 0.81, "small", ("CleanPanel", "BrushedMetal")
+
+
+def gen_microwave():
+    """微波炉 0.5×0.4×0.31：机身 + 门玻璃 + 控制面板 + 脚垫。"""
+    o = []
+    o.append(box("body", (0.48, 0.38, 0.28), (0.0, 0.0, 0.17), WHITE, 0.01, 0.0, 1))
+    o.append(box("door", (0.32, 0.02, 0.24), (-0.06, -0.195, 0.17), DARK, 0.0))
+    o.append(box("glass", (0.20, 0.01, 0.16), (-0.06, -0.208, 0.17), GLASS_MAT, 0.0))
+    o.append(box("panel", (0.12, 0.02, 0.24), (0.16, -0.195, 0.17), DARK, 0.0))
+    for k in range(3):
+        o.append(box("btn_%d" % k, (0.05, 0.01, 0.02), (0.16, -0.208, 0.12 + k * 0.05), STEEL, 0.0))
+    o.append(box("display", (0.06, 0.01, 0.02), (0.16, -0.208, 0.25), _scr(), 0.0))
+    for x in (-0.16, 0.16):
+        for y in (-0.12, 0.12):
+            o.append(box("foot", (0.03, 0.03, 0.03), (x, y, 0.015), DARK, 0.0))
+    return o, (0.5, 0.4), 0.31, "small", ("CleanPanel", "DarkMetal")
+
+
+def gen_dining_table():
+    """餐桌 1.2×0.8×0.74：台面 + 四腿 + 横撑（生活舱用餐）。"""
+    o = []
+    o.append(box("top", (1.18, 0.78, 0.05), (0.0, 0.0, 0.715), BODY, 0.01, 0.0, 1))
+    for x in (-0.52, 0.52):
+        for y in (-0.32, 0.32):
+            o.append(box("leg", (0.05, 0.05, 0.69), (x, y, 0.345), STEEL, 0.0, 0.0, 1))
+    for y in (-0.32, 0.32):
+        o.append(box("rail", (1.02, 0.04, 0.05), (0.0, y, 0.16), STEEL, 0.0))
+    return o, (1.2, 0.8), 0.74, "medium", ("WoodPanel", "BrushedMetal")
+
+
+# ---- G. 生成器点名、但还没有独立模型的配套件（FacilityGrammar.PropsOf） ---------
+
+def gen_row_header_cabinet():
+    """列头柜 0.8×0.6×2.02：机柜 + 前门 + 断路器排 + 指示灯（生成器点名「列头柜」）。"""
+    o = []
+    o.append(box("body", (0.78, 0.56, 1.94), (0.0, 0.0, 0.99), DARK, 0.02, 0.0, 1))
+    o.append(box("plinth", (0.72, 0.50, 0.08), (0.0, 0.0, 0.04), STEEL, 0.0))
+    o.append(box("door", (0.68, 0.03, 1.80), (0.0, -0.29, 1.00), STEEL, 0.0))
+    for k in range(4):
+        o.append(box("breaker_%d" % k, (0.52, 0.02, 0.07), (0.0, -0.305, 0.56 + k * 0.28), WHITE, 0.0))
+    for k in range(3):
+        o.append(box("lamp_%d" % k, (0.05, 0.01, 0.05), (-0.20 + k * 0.20, -0.305, 1.72), ACCENT, 0.0))
+    o.append(box("meter", (0.24, 0.02, 0.16), (0.0, -0.305, 1.46), WHITE, 0.0))
+    o.append(box("cable_entry", (0.36, 0.20, 0.06), (0.0, 0.0, 1.99), STEEL, 0.0))
+    o.append(box("handle", (0.03, 0.04, 0.18), (0.28, -0.31, 1.00), STEEL, 0.0))
+    return o, (0.8, 0.6), 2.02, "large", ("ServerPanel", "DarkMetal")
+
+
+def gen_patch_panel_rack():
+    """配线架 0.6×0.45×1.92：开放架 + 八层跳线盘 + 理线环 + 底座（生成器点名「配线架」）。"""
+    o = []
+    for x in (-0.26, 0.26):
+        o.append(box("post", (0.05, 0.05, 1.86), (x, 0.0, 0.93), STEEL, 0.0, 0.0, 1))
+    o.append(box("base", (0.58, 0.42, 0.05), (0.0, 0.0, 0.025), DARK, 0.0))
+    for k in range(8):
+        z = 0.30 + k * 0.20
+        o.append(box("panel_%d" % k, (0.46, 0.32, 0.025), (0.0, 0.0, z), DARK, 0.0))
+        for j in range(4):
+            o.append(box("port_%d_%d" % (k, j), (0.03, 0.02, 0.02),
+                         (-0.15 + j * 0.10, -0.17, z), WHITE, 0.0))
+        o.append(box("ring_%d" % k, (0.04, 0.10, 0.16), (0.24, 0.0, z), STEEL, 0.0))
+    return o, (0.6, 0.45), 1.92, "medium", ("ServerPanel", "BrushedMetal")
+
+
+def gen_tool_cabinet():
+    """工具柜 1.0×0.5×1.62：双门柜 + 门板工具挂具 + 踢脚（生成器点名「工具柜」）。"""
+    o = []
+    o.append(box("body", (0.96, 0.46, 1.50), (0.0, 0.0, 0.83), BODY, 0.015, 0.0, 1))
+    o.append(box("plinth", (0.90, 0.40, 0.08), (0.0, 0.0, 0.04), DARK, 0.0))
+    o.append(box("top", (0.98, 0.48, 0.04), (0.0, 0.0, 1.60), DARK, 0.0))
+    for x in (-0.24, 0.24):
+        o.append(box("door", (0.44, 0.02, 1.38), (x, -0.24, 0.84), DARK, 0.0))
+        o.append(box("handle", (0.03, 0.04, 0.18), (x + 0.17, -0.26, 0.84), STEEL, 0.0))
+    for k in range(3):
+        o.append(box("tool_%d" % k, (0.05, 0.04, 0.24), (-0.30 + k * 0.30, -0.255, 1.24), ACCENT, 0.0))
+    return o, (1.0, 0.5), 1.62, "medium", ("IndustrialPaint", "DiamondPlate")
+
+
+def gen_isolation_bed():
+    """隔离床 1.2×2.0×1.94：加宽床体 + 头尾板 + 四柱隔离罩 + 透明帘 + 脚轮（生成器点名「隔离床」）。"""
+    o = []
+    o.append(box("frame", (1.16, 1.96, 0.10), (0.0, 0.0, 0.48), STEEL, 0.0, 0.0, 1))
+    o.append(box("mattress", (1.10, 1.88, 0.16), (0.0, 0.0, 0.61), WHITE, 0.0, 0.0, 1))
+    o.append(box("pillow", (0.54, 0.34, 0.10), (0.0, -0.66, 0.74), LINEN_MAT, 0.0))
+    for y in (-0.98, 0.98):
+        o.append(box("board", (1.16, 0.05, 0.46), (0.0, y, 0.70), STEEL, 0.0))
+    for x in (-0.56, 0.56):
+        for y in (-0.92, 0.92):
+            o.append(box("canopy_post", (0.04, 0.04, 1.10), (x, y, 1.40), STEEL, 0.0, 0.0, 1))
+    for x in (-0.56, 0.56):
+        o.append(box("canopy_rail", (0.04, 1.84, 0.04), (x, 0.0, 1.92), STEEL, 0.0))
+        o.append(box("curtain", (0.01, 1.84, 1.00), (x, 0.0, 1.40), GLASS_MAT, 0.0))
+    for y in (-0.92, 0.92):
+        o.append(box("canopy_cross", (1.12, 0.04, 0.04), (0.0, y, 1.92), STEEL, 0.0))
+    for x in (-0.50, 0.50):
+        for y in (-0.86, 0.86):
+            o.append(rot(cyl("wheel", 0.06, 0.05, (x, y, 0.06), DARK, 8, 0.0), 0, 90))
+    return o, (1.2, 2.0), 1.94, "large", ("CleanPanel", "GlassPanel")
+
+
+def gen_pass_box():
+    """传递柜 0.9×0.5×1.78：双面互锁传递窗 + 两扇门 + 紫外灯 + 控制面板（生成器点名「传递柜」）。"""
+    o = []
+    o.append(box("body", (0.86, 0.46, 1.72), (0.0, 0.0, 0.87), WHITE, 0.02, 0.0, 1))
+    o.append(box("plinth", (0.80, 0.40, 0.08), (0.0, 0.0, 0.04), DARK, 0.0))
+    for z in (0.52, 1.24):
+        o.append(box("hatch_frame", (0.68, 0.02, 0.54), (0.0, -0.235, z), STEEL, 0.0))
+        o.append(box("hatch", (0.60, 0.03, 0.46), (0.0, -0.24, z), GLASS_MAT, 0.0))
+        o.append(box("handle", (0.16, 0.03, 0.04), (0.0, -0.255, z - 0.20), STEEL, 0.0))
+    o.append(box("uv", (0.50, 0.02, 0.04), (0.0, -0.245, 1.66), ACCENT, 0.0))
+    o.append(box("panel", (0.20, 0.02, 0.26), (0.28, -0.245, 0.90), DARK, 0.0))
+    for k in range(3):
+        o.append(box("btn_%d" % k, (0.04, 0.01, 0.03), (0.28, -0.257, 0.82 + k * 0.07), ACCENT, 0.0))
+    o.append(box("interlock", (0.10, 0.06, 0.10), (-0.34, 0.0, 0.90), STEEL, 0.0))
+    return o, (0.9, 0.5), 1.78, "medium", ("CleanPanel", "GlassPanel")
+
+
+def gen_toilet_stall():
+    """隔间 1.0×1.4×2.05：三面隔板 + 门 + 门锁 + 立柱（生成器点名「隔间」）。"""
+    o = []
+    o.append(box("back", (0.98, 0.03, 2.00), (0.0, 0.68, 1.05), BODY, 0.0, 0.0, 1))
+    for x in (-0.48, 0.48):
+        o.append(box("side", (0.03, 1.36, 2.00), (x, 0.0, 1.05), BODY, 0.0, 0.0, 1))
+    o.append(box("door", (0.70, 0.03, 1.92), (-0.08, -0.66, 1.04), BODY, 0.0))
+    for x in (-0.44, 0.44):
+        o.append(box("pilaster", (0.05, 0.05, 2.06), (x, -0.66, 1.03), DARK, 0.0, 0.0, 1))
+    o.append(box("top_rail", (0.92, 0.04, 0.05), (0.0, -0.66, 2.02), DARK, 0.0))
+    o.append(box("latch", (0.06, 0.03, 0.10), (0.24, -0.68, 1.00), STEEL, 0.0))
+    for z in (0.40, 1.72):
+        o.append(box("hinge", (0.04, 0.03, 0.08), (-0.42, -0.68, z), STEEL, 0.0))
+    o.append(box("foot", (0.92, 1.30, 0.04), (0.0, 0.02, 0.02), DARK, 0.0))
+    return o, (1.0, 1.4), 2.05, "medium", ("PaintedWall", "BrushedMetal")
+
+
+def gen_storage_rack():
+    """货架 1.4×0.6×2.0：四层横板 + 立柱 + 斜撑 + 纸箱（生成器点名「货架」）。"""
+    o = []
+    for x in (-0.66, 0.66):
+        for y in (-0.26, 0.26):
+            o.append(box("post", (0.06, 0.06, 1.96), (x, y, 0.98), STEEL, 0.0, 0.0, 1))
+    for k in range(4):
+        o.append(box("shelf_%d" % k, (1.32, 0.54, 0.04), (0.0, 0.0, 0.24 + k * 0.50), BODY, 0.0, 0.0, 1))
+    for y in (-0.26, 0.26):
+        o.append(box("rail", (1.28, 0.04, 0.04), (0.0, y, 1.94), STEEL, 0.0))
+    for k in range(2):
+        o.append(box("brace", (0.90, 0.04, 0.04), (0.0, -0.28, 0.70 + k * 0.60), DARK, 0.0))
+    for k in range(3):
+        o.append(box("carton_%d" % k, (0.36, 0.40, 0.26), (-0.44 + k * 0.44, 0.0, 0.39),
+                     WHITE if k % 2 else BODY, 0.0))
+    for k in range(2):
+        o.append(box("carton_b_%d" % k, (0.36, 0.40, 0.24), (-0.22 + k * 0.44, 0.0, 0.90), BODY, 0.0))
+    return o, (1.4, 0.6), 2.0, "large", ("IndustrialPaint", "WoodPanel")
+
+
+def gen_riser_rack():
+    """管井架 0.6×0.6×1.96：立管束 + 三道卡箍 + 底盘 + 顶板 + 手轮（生成器点名「管井架」）。"""
+    o = []
+    o.append(box("base", (0.56, 0.56, 0.06), (0.0, 0.0, 0.03), DARK, 0.0))
+    for x in (-0.18, 0.18):
+        for y in (-0.18, 0.18):
+            o.append(cyl("pipe", 0.06, 1.86, (x, y, 0.99), BODY, 10, 0.0))
+    o.append(cyl("pipe_c", 0.09, 1.86, (0.0, 0.0, 0.99), ACCENT, 10, 0.0))
+    for k in range(3):
+        o.append(box("clamp_%d" % k, (0.50, 0.50, 0.05), (0.0, 0.0, 0.42 + k * 0.56), STEEL, 0.0))
+    o.append(box("top", (0.56, 0.56, 0.05), (0.0, 0.0, 1.94), STEEL, 0.0))
+    o.append(rot(cyl("wheel", 0.11, 0.03, (0.26, 0.0, 1.20), ACCENT, 10, 0.0), 1, 90))
+    o.append(box("flange", (0.42, 0.05, 0.05), (0.0, 0.0, 1.62), STEEL, 0.0))
+    return o, (0.6, 0.6), 1.96, "medium", ("ColdMetal", "BrushedMetal")
+
+
 BUILDERS = {
     "cabinet_group": gen_cabinet_group,
     "desk": gen_desk,
@@ -849,6 +1613,55 @@ BUILDERS = {
     "tool_cart": gen_tool_cart,
     "workbench_v2": gen_workbench_v2,
     "glass_partition": gen_glass_partition,
+    # R4 追加（2026-11-27）：设施道具族 A–F + 生成器点名的配套件
+    #   A 办公/行政
+    "conference_chair": gen_conference_chair,
+    "file_cabinet": gen_file_cabinet,
+    "printer_unit": gen_printer_unit,
+    "coffee_table": gen_coffee_table,
+    "whiteboard": gen_whiteboard,
+    #   B 机房/中控
+    "precision_ac": gen_precision_ac,
+    "cable_tray": gen_cable_tray,
+    "main_console": gen_main_console,
+    "big_screen_wall": gen_big_screen_wall,
+    "floor_vent": gen_floor_vent,
+    #   C 冷链/仓储
+    "chiller_unit": gen_chiller_unit,
+    "insulated_box": gen_insulated_box,
+    "wooden_crate": gen_wooden_crate,
+    "plastic_crate": gen_plastic_crate,
+    "compact_shelf": gen_compact_shelf,
+    #   D 制造/设备
+    "machine_tool": gen_machine_tool,
+    "material_rack": gen_material_rack,
+    "valve_group": gen_valve_group,
+    "pipe_segment": gen_pipe_segment,
+    "transformer": gen_transformer,
+    "hv_cabinet": gen_hv_cabinet,
+    "forklift": gen_forklift,
+    "container": gen_container,
+    #   E 医疗/洁净
+    "isolation_pod": gen_isolation_pod,
+    "washbasin": gen_washbasin,
+    "iv_stand": gen_iv_stand,
+    "air_shower": gen_air_shower,
+    "clean_bench": gen_clean_bench,
+    "changing_locker": gen_changing_locker,
+    #   F 生活舱
+    "bunk_bed": gen_bunk_bed,
+    "mini_fridge": gen_mini_fridge,
+    "microwave": gen_microwave,
+    "dining_table": gen_dining_table,
+    #   G 生成器点名但缺独立模型的配套件
+    "row_header_cabinet": gen_row_header_cabinet,
+    "patch_panel_rack": gen_patch_panel_rack,
+    "tool_cabinet": gen_tool_cabinet,
+    "isolation_bed": gen_isolation_bed,
+    "pass_box": gen_pass_box,
+    "toilet_stall": gen_toilet_stall,
+    "storage_rack": gen_storage_rack,
+    "riser_rack": gen_riser_rack,
 }
 
 # 导出名 -> PropCatalog 里的中文名（生成器 PropSpec.Name 必须与之一致）
@@ -895,6 +1708,55 @@ DISPLAY_NAME = {
     "tool_cart": "工具车",
     "workbench_v2": "加固工作台",
     "glass_partition": "玻璃隔断",
+    # R4 追加（2026-11-27）
+    #   A 办公/行政
+    "conference_chair": "会议椅",
+    "file_cabinet": "文件柜",
+    "printer_unit": "打印机",
+    "coffee_table": "茶几",
+    "whiteboard": "白板",
+    #   B 机房/中控
+    "precision_ac": "精密空调",
+    "cable_tray": "桥架段",
+    "main_console": "主控台",
+    "big_screen_wall": "大屏墙",
+    "floor_vent": "地板送风口",
+    #   C 冷链/仓储
+    "chiller_unit": "制冷机组",
+    "insulated_box": "保温箱",
+    "wooden_crate": "木箱",
+    "plastic_crate": "塑料周转箱",
+    "compact_shelf": "密集档案架",
+    #   D 制造/设备
+    "machine_tool": "机床",
+    "material_rack": "料架",
+    "valve_group": "阀门组",
+    "pipe_segment": "管道组",
+    "transformer": "变压器",
+    "hv_cabinet": "高压柜",
+    "forklift": "叉车",
+    "container": "集装箱",
+    #   E 医疗/洁净
+    "isolation_pod": "隔离舱",
+    "washbasin": "洗手台",
+    "iv_stand": "输液架",
+    "air_shower": "风淋室",
+    "clean_bench": "洁净工作台",
+    "changing_locker": "更衣柜",
+    #   F 生活舱
+    "bunk_bed": "双层床",
+    "mini_fridge": "小冰箱",
+    "microwave": "微波炉",
+    "dining_table": "餐桌",
+    #   G 生成器点名但缺独立模型的配套件
+    "row_header_cabinet": "列头柜",
+    "patch_panel_rack": "配线架",
+    "tool_cabinet": "工具柜",
+    "isolation_bed": "隔离床",
+    "pass_box": "传递柜",
+    "toilet_stall": "隔间",
+    "storage_rack": "货架",
+    "riser_rack": "管井架",
 }
 
 
@@ -942,6 +1804,11 @@ def build_one(key, out_dir):
         "size_class": size_class,
         "triangles": tris,
         "material_slots": list(slots),
+        # 04-3d-assets.md §2 轴约定：Blender 里正面朝 -Y，以 axis_forward=-Z 导出，
+        # 到 Unity 即正面朝 +Z。PropSpawner/PropPipeline 只用 x/z 尺寸，不读 facing，
+        # 这里写进 sidecar 是给 Unity 端按墙朝向再旋转 0°/90° 的说明（不参与解析）。
+        "facing": "+Z",
+        "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal",
     }
     with open(os.path.join(out_dir, "P_%s.json" % key), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)

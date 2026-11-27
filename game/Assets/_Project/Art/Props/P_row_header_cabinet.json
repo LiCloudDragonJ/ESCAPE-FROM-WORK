@@ -1,0 +1,19 @@
+{
+  "id": "row_header_cabinet",
+  "name": "列头柜",
+  "width": 0.78,
+  "depth": 0.61,
+  "height": 2.02,
+  "footprint": [
+    0.8,
+    0.6
+  ],
+  "size_class": "large",
+  "triangles": 188,
+  "material_slots": [
+    "ServerPanel",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

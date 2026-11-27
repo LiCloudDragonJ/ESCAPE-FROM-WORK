@@ -1,0 +1,19 @@
+{
+  "id": "tool_cabinet",
+  "name": "工具柜",
+  "width": 0.98,
+  "depth": 0.52,
+  "height": 1.62,
+  "footprint": [
+    1.0,
+    0.5
+  ],
+  "size_class": "medium",
+  "triangles": 152,
+  "material_slots": [
+    "IndustrialPaint",
+    "DiamondPlate"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

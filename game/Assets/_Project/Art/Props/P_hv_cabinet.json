@@ -1,0 +1,19 @@
+{
+  "id": "hv_cabinet",
+  "name": "高压柜",
+  "width": 0.96,
+  "depth": 0.613,
+  "height": 2.1,
+  "footprint": [
+    1.0,
+    0.6
+  ],
+  "size_class": "large",
+  "triangles": 236,
+  "material_slots": [
+    "IndustrialPaint",
+    "MetalDoor"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

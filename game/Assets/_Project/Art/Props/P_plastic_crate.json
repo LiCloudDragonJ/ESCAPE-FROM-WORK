@@ -1,0 +1,19 @@
+{
+  "id": "plastic_crate",
+  "name": "塑料周转箱",
+  "width": 0.58,
+  "depth": 0.38,
+  "height": 0.32,
+  "footprint": [
+    0.6,
+    0.4
+  ],
+  "size_class": "small",
+  "triangles": 144,
+  "material_slots": [
+    "IndustrialPaint",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "pipe_segment",
+  "name": "管道组",
+  "width": 3.885,
+  "depth": 0.66,
+  "height": 0.89,
+  "footprint": [
+    4.0,
+    0.6
+  ],
+  "size_class": "large",
+  "triangles": 528,
+  "material_slots": [
+    "IndustrialPaint",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

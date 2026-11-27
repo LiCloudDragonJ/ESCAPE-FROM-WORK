@@ -1,0 +1,19 @@
+{
+  "id": "wooden_crate",
+  "name": "木箱",
+  "width": 0.91,
+  "depth": 0.93,
+  "height": 0.78,
+  "footprint": [
+    0.9,
+    0.9
+  ],
+  "size_class": "small",
+  "triangles": 240,
+  "material_slots": [
+    "WoodPanel",
+    "IndustrialPaint"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

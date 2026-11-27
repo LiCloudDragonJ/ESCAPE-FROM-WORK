@@ -1,0 +1,19 @@
+{
+  "id": "precision_ac",
+  "name": "精密空调",
+  "width": 1.62,
+  "depth": 0.94,
+  "height": 2.005,
+  "footprint": [
+    1.6,
+    0.9
+  ],
+  "size_class": "large",
+  "triangles": 416,
+  "material_slots": [
+    "ServerPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

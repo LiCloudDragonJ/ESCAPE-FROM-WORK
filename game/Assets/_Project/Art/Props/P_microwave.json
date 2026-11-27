@@ -1,0 +1,19 @@
+{
+  "id": "microwave",
+  "name": "微波炉",
+  "width": 0.48,
+  "depth": 0.403,
+  "height": 0.31,
+  "footprint": [
+    0.5,
+    0.4
+  ],
+  "size_class": "small",
+  "triangles": 174,
+  "material_slots": [
+    "CleanPanel",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

@@ -32,6 +32,7 @@ namespace EscapeFromWork.LevelGen
             FloorGeometry.Emit(root, "Floor", floor, mats.Floor, true);
             FloorGeometry.Emit(root, "Ceiling", ceiling, mats.Ceiling, false);
             FloorGeometry.Emit(root, "OuterWalls", shellWalls, mats.Wall, true);
+            FloorGeometry.EmitRoomSurfaces(plan, mats, root);
             return root;
         }
 

@@ -1,0 +1,19 @@
+{
+  "id": "file_cabinet",
+  "name": "文件柜",
+  "width": 0.88,
+  "depth": 0.51,
+  "height": 1.68,
+  "footprint": [
+    0.9,
+    0.5
+  ],
+  "size_class": "medium",
+  "triangles": 176,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

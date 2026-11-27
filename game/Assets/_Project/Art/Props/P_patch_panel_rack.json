@@ -1,0 +1,19 @@
+{
+  "id": "patch_panel_rack",
+  "name": "配线架",
+  "width": 0.58,
+  "depth": 0.42,
+  "height": 1.86,
+  "footprint": [
+    0.6,
+    0.45
+  ],
+  "size_class": "medium",
+  "triangles": 612,
+  "material_slots": [
+    "ServerPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

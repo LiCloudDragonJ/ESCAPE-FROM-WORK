@@ -1,0 +1,19 @@
+{
+  "id": "machine_tool",
+  "name": "机床",
+  "width": 1.79,
+  "depth": 1.177,
+  "height": 1.52,
+  "footprint": [
+    1.8,
+    1.2
+  ],
+  "size_class": "large",
+  "triangles": 352,
+  "material_slots": [
+    "IndustrialPaint",
+    "DiamondPlate"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

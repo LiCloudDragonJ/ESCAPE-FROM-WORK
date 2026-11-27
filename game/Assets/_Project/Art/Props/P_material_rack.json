@@ -1,0 +1,19 @@
+{
+  "id": "material_rack",
+  "name": "料架",
+  "width": 1.59,
+  "depth": 0.79,
+  "height": 1.965,
+  "footprint": [
+    1.6,
+    0.8
+  ],
+  "size_class": "large",
+  "triangles": 252,
+  "material_slots": [
+    "IndustrialPaint",
+    "WoodPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

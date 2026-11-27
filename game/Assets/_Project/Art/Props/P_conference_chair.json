@@ -1,0 +1,19 @@
+{
+  "id": "conference_chair",
+  "name": "会议椅",
+  "width": 0.55,
+  "depth": 0.48,
+  "height": 0.975,
+  "footprint": [
+    0.54,
+    0.5
+  ],
+  "size_class": "medium",
+  "triangles": 220,
+  "material_slots": [
+    "FabricPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

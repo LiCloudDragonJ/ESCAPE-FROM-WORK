@@ -1,0 +1,19 @@
+{
+  "id": "whiteboard",
+  "name": "白板",
+  "width": 1.52,
+  "depth": 0.155,
+  "height": 1.275,
+  "footprint": [
+    1.5,
+    0.14
+  ],
+  "size_class": "medium",
+  "triangles": 152,
+  "material_slots": [
+    "PaintedWall",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

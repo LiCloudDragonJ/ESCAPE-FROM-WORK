@@ -1,0 +1,19 @@
+{
+  "id": "main_console",
+  "name": "主控台",
+  "width": 2.36,
+  "depth": 0.96,
+  "height": 1.17,
+  "footprint": [
+    2.4,
+    1.0
+  ],
+  "size_class": "large",
+  "triangles": 244,
+  "material_slots": [
+    "BrushedMetal",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

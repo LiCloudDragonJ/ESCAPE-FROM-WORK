@@ -1,0 +1,19 @@
+{
+  "id": "clean_bench",
+  "name": "洁净工作台",
+  "width": 1.46,
+  "depth": 0.88,
+  "height": 1.66,
+  "footprint": [
+    1.5,
+    0.8
+  ],
+  "size_class": "large",
+  "triangles": 248,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

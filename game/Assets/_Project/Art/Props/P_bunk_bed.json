@@ -1,0 +1,19 @@
+{
+  "id": "bunk_bed",
+  "name": "双层床",
+  "width": 1.94,
+  "depth": 0.925,
+  "height": 1.76,
+  "footprint": [
+    2.0,
+    0.9
+  ],
+  "size_class": "large",
+  "triangles": 252,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

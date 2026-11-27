@@ -1,0 +1,19 @@
+{
+  "id": "chiller_unit",
+  "name": "制冷机组",
+  "width": 1.74,
+  "depth": 0.862,
+  "height": 1.785,
+  "footprint": [
+    1.8,
+    0.9
+  ],
+  "size_class": "large",
+  "triangles": 456,
+  "material_slots": [
+    "ColdMetal",
+    "IndustrialPaint"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

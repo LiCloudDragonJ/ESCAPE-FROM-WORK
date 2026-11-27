@@ -25,8 +25,11 @@ namespace EscapeFromWork.LevelGen
             [Tooltip("期望占地的 宽/高/深（米）。与预制体渲染包围盒不符时打警告，但不缩放")]
             public Vector3 Size = new Vector3(1f, 1f, 1f);
 
-            [Tooltip("沿 +Z 的前后偏移与高度微调（米）")]
+            [Tooltip("沿本地 +Z 的前后偏移与高度微调（米）")]
             public Vector3 Offset = Vector3.zero;
+
+            [Tooltip("预制体自身的朝向修正（度）。FBX 正面应朝 +Z；个别建模反了就填 180")]
+            public float YawOffset;
 
             [Tooltip("预制体自带碰撞体时勾掉，避免叠一层 BoxCollider")]
             public bool AddBoxCollider = true;
@@ -79,12 +82,14 @@ namespace EscapeFromWork.LevelGen
             PropCatalog.Entry entry;
             if (!catalog.TryGet(p.Spec.Name, out entry)) return false;
 
-            bool alongZ = p.Rect.H > p.Rect.W;
+            // 朝向由生成器按墙面给出（0/90/180/270），再叠预制体自身修正；偏移在本地坐标里转。
+            float yaw = p.Yaw + entry.YawOffset;
+            Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
+            Vector3 offset = rotation * entry.Offset;
             Vector3 position = new Vector3(
-                p.Rect.Center.x + (alongZ ? 0f : entry.Offset.x),
-                entry.Offset.y,
-                p.Rect.Center.y + (alongZ ? entry.Offset.z : entry.Offset.x));
-            Quaternion rotation = Quaternion.Euler(0f, alongZ ? 90f : 0f, 0f);
+                p.Rect.Center.x + offset.x,
+                offset.y,
+                p.Rect.Center.y + offset.z);
 
             GameObject go = UnityEngine.Object.Instantiate(entry.Prefab, position, rotation, parent);
             go.name = "Prop_" + entry.Name;

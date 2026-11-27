@@ -1,0 +1,19 @@
+{
+  "id": "riser_rack",
+  "name": "管井架",
+  "width": 0.56,
+  "depth": 0.56,
+  "height": 1.965,
+  "footprint": [
+    0.6,
+    0.6
+  ],
+  "size_class": "medium",
+  "triangles": 288,
+  "material_slots": [
+    "ColdMetal",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

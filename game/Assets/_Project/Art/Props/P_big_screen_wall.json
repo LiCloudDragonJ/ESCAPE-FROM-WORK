@@ -1,0 +1,19 @@
+{
+  "id": "big_screen_wall",
+  "name": "大屏墙",
+  "width": 2.94,
+  "depth": 0.18,
+  "height": 1.75,
+  "footprint": [
+    3.0,
+    0.22
+  ],
+  "size_class": "large",
+  "triangles": 264,
+  "material_slots": [
+    "CleanPanel",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

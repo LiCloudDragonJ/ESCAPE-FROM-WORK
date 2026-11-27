@@ -1,0 +1,19 @@
+{
+  "id": "transformer",
+  "name": "变压器",
+  "width": 1.7,
+  "depth": 1.1,
+  "height": 1.6,
+  "footprint": [
+    1.8,
+    1.2
+  ],
+  "size_class": "large",
+  "triangles": 380,
+  "material_slots": [
+    "ColdMetal",
+    "IndustrialPaint"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

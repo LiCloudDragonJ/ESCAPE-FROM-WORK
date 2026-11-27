@@ -1,0 +1,19 @@
+{
+  "id": "cable_tray",
+  "name": "桥架段",
+  "width": 1.96,
+  "depth": 0.49,
+  "height": 0.62,
+  "footprint": [
+    2.0,
+    0.5
+  ],
+  "size_class": "medium",
+  "triangles": 264,
+  "material_slots": [
+    "DiamondPlate",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

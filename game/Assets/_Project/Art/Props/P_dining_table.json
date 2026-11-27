@@ -1,0 +1,19 @@
+{
+  "id": "dining_table",
+  "name": "餐桌",
+  "width": 1.18,
+  "depth": 0.78,
+  "height": 0.74,
+  "footprint": [
+    1.2,
+    0.8
+  ],
+  "size_class": "medium",
+  "triangles": 116,
+  "material_slots": [
+    "WoodPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

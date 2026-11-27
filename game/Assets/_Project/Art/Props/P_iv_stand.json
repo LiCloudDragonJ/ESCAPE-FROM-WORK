@@ -1,0 +1,19 @@
+{
+  "id": "iv_stand",
+  "name": "输液架",
+  "width": 0.45,
+  "depth": 0.459,
+  "height": 1.855,
+  "footprint": [
+    0.45,
+    0.45
+  ],
+  "size_class": "small",
+  "triangles": 272,
+  "material_slots": [
+    "CleanPanel",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

@@ -394,7 +394,8 @@ namespace EscapeFromWork.LevelGen
 
                 PropSpec[] set = PropsOf(room.Facility);
                 int count = Mathf.Clamp(Mathf.RoundToInt(area / 24f), 2, 14);
-                RectF inner = room.Rect.Inflate(-1.0f);
+                // 贴墙摆：inset 只留踢脚/墙面的量。以前是 -1.0，家具悬在离墙 1m 的位置。
+                RectF inner = room.Rect.Inflate(-0.15f);
                 if (inner.W < 1.4f || inner.H < 1.4f) continue;
 
                 // 四面墙轮流试：先短边（更像"沿着墙摆一排"），再长边。
@@ -405,30 +406,44 @@ namespace EscapeFromWork.LevelGen
                     for (int attempt = 0; attempt < 8 && !placed; attempt++)
                     {
                         int wall = rng.Next(4);
-                        float w = Mathf.Min(ps.Width, 2.4f);
-                        float d = Mathf.Min(ps.Depth, 2.2f);
+                        // 贴东西墙时占地方向要转 90°：沿墙永远是 Width，垂直墙面是 Depth，
+                        // 所以东西墙的 rect 宽高互换，否则 2.2m 的桌子会拿短边顶墙、长边戳进房间。
+                        // 进深还要夹到房间净尺寸内，2m 的床塞进 3.6m 的小房间否则会穿墙。
+                        float maxAlong = wall >= 2 ? inner.H : inner.W;
+                        float maxInto = wall >= 2 ? inner.W : inner.H;
+                        float w = Mathf.Min(ps.Width, Mathf.Min(2.4f, maxAlong));
+                        float d = Mathf.Min(ps.Depth, Mathf.Min(2.2f, maxInto));
+                        if (w < 0.3f || d < 0.3f) continue;
                         float x, y;
+                        float yaw;
                         switch (wall)
                         {
-                            case 0: // 南墙
+                            case 0: // 南墙 → 朝 +Y(+Z)
                                 x = Mathf.Lerp(inner.X + w * 0.5f, inner.XMax - w * 0.5f, (float)rng.NextDouble());
                                 y = inner.Y + d * 0.5f;
+                                yaw = 0f;
                                 break;
-                            case 1: // 北墙
+                            case 1: // 北墙 → 朝 −Y(−Z)
                                 x = Mathf.Lerp(inner.X + w * 0.5f, inner.XMax - w * 0.5f, (float)rng.NextDouble());
                                 y = inner.YMax - d * 0.5f;
+                                yaw = 180f;
                                 break;
-                            case 2: // 西墙
-                                x = inner.X + w * 0.5f;
-                                y = Mathf.Lerp(inner.Y + d * 0.5f, inner.YMax - d * 0.5f, (float)rng.NextDouble());
+                            case 2: // 西墙 → 朝 +X
+                                x = inner.X + d * 0.5f;
+                                y = Mathf.Lerp(inner.Y + w * 0.5f, inner.YMax - w * 0.5f, (float)rng.NextDouble());
+                                yaw = 90f;
                                 break;
-                            default: // 东墙
-                                x = inner.XMax - w * 0.5f;
-                                y = Mathf.Lerp(inner.Y + d * 0.5f, inner.YMax - d * 0.5f, (float)rng.NextDouble());
+                            default: // 东墙 → 朝 −X
+                                x = inner.XMax - d * 0.5f;
+                                y = Mathf.Lerp(inner.Y + w * 0.5f, inner.YMax - w * 0.5f, (float)rng.NextDouble());
+                                yaw = 270f;
                                 break;
                         }
 
-                        RectF rect = new RectF(x - w * 0.5f, y - d * 0.5f, w, d);
+                        // along 是沿墙的长度、into 是垂直墙面的深度：南北墙 w×d，东西墙 d×w。
+                        RectF rect = wall >= 2
+                            ? new RectF(x - d * 0.5f, y - w * 0.5f, d, w)
+                            : new RectF(x - w * 0.5f, y - d * 0.5f, w, d);
                         if (!room.Rect.Inflate(-0.05f).Contains(rect.Center)) continue;
                         if (RoomShape.BlockedInFloor(plan, rect.Center)) continue;
                         if (rect.Overlaps(plan.Core)) continue;
@@ -447,6 +462,7 @@ namespace EscapeFromWork.LevelGen
                         pp.CorridorIndex = -1;
                         pp.FarSide = false;
                         pp.Spec = ps;
+                        pp.Yaw = yaw;
                         plan.Props.Add(pp);
                         placed = true;
                     }

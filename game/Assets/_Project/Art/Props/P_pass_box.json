@@ -1,0 +1,19 @@
+{
+  "id": "pass_box",
+  "name": "传递柜",
+  "width": 0.86,
+  "depth": 0.5,
+  "height": 1.73,
+  "footprint": [
+    0.9,
+    0.5
+  ],
+  "size_class": "medium",
+  "triangles": 200,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

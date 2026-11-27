@@ -1,0 +1,19 @@
+{
+  "id": "isolation_bed",
+  "name": "隔离床",
+  "width": 1.16,
+  "depth": 2.01,
+  "height": 1.95,
+  "footprint": [
+    1.2,
+    2.0
+  ],
+  "size_class": "large",
+  "triangles": 292,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

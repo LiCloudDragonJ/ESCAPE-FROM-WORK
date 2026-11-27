@@ -1,0 +1,19 @@
+{
+  "id": "washbasin",
+  "name": "洗手台",
+  "width": 0.58,
+  "depth": 0.48,
+  "height": 1.72,
+  "footprint": [
+    0.6,
+    0.45
+  ],
+  "size_class": "small",
+  "triangles": 300,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

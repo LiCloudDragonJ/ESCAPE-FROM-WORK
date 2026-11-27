@@ -1,0 +1,19 @@
+{
+  "id": "toilet_stall",
+  "name": "隔间",
+  "width": 0.99,
+  "depth": 1.39,
+  "height": 2.06,
+  "footprint": [
+    1.0,
+    1.4
+  ],
+  "size_class": "medium",
+  "triangles": 132,
+  "material_slots": [
+    "PaintedWall",
+    "BrushedMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

@@ -20,6 +20,21 @@ namespace EscapeFromWork.LevelGen
         public Material LightPanel;
         public Material Extraction;
         public Material Spawn;
+
+        /// <summary>
+        /// 设施材质：FacilityProfile.FloorMaterial / WallMaterial 是纹理套名（CarpetTile、
+        /// EpoxyFloor、ServerPanel…），这里按套名查运行时材质。空 = 退回 Floor/Wall。
+        /// </summary>
+        public string[] SurfaceSlots;
+        public Material[] SurfaceMaterials;
+
+        public Material Surface(string slot, Material fallback)
+        {
+            if (string.IsNullOrEmpty(slot) || SurfaceSlots == null || SurfaceMaterials == null) return fallback;
+            for (int i = 0; i < SurfaceSlots.Length && i < SurfaceMaterials.Length; i++)
+                if (SurfaceSlots[i] == slot && SurfaceMaterials[i] != null) return SurfaceMaterials[i];
+            return null; // 有槽名但没材质：宁可不画覆层，也别拿地毯色冒充环氧地坪
+        }
     }
 
     /// <summary>
@@ -241,6 +256,161 @@ namespace EscapeFromWork.LevelGen
             ceiling.AddBox(new Vector3(width * 0.5f, CeilingY + 0.03f, depth * 0.5f), new Vector3(width, 0.06f, depth));
         }
 
+        /// <summary>
+        /// 设施分区的地面覆层：把房间地面裁到建筑外廓内，再铺一层 12 mm 的薄棱柱。
+        /// 结构楼板仍是整层一整块（否则房间缝里会露天空），覆层只是贴在它上面的面层。
+        /// </summary>
+        public static void AddRoomFloor(FloorPlan plan, Room room, MeshAccum acc)
+        {
+            List<Vector2[]> polys;
+            if (plan.Envelope != null && plan.Envelope.Outline != null && plan.Envelope.Outline.Length >= 3)
+            {
+                polys = FloorEnvelope.ClipRect(plan.Envelope, room.Rect);
+            }
+            else
+            {
+                RectF r = room.Rect;
+                polys = new List<Vector2[]>
+                {
+                    new[] { new Vector2(r.X, r.Y), new Vector2(r.XMax, r.Y), new Vector2(r.XMax, r.YMax), new Vector2(r.X, r.YMax) },
+                };
+            }
+
+            for (int i = 0; i < polys.Count; i++)
+            {
+                Vector2[] poly = polys[i];
+                if (poly == null || poly.Length < 3) continue;
+                List<int> tris = FloorEnvelope.Triangulate(poly);
+                if (tris == null || tris.Count < 3) continue;
+                acc.AddPrism(poly, tris, 0.003f, 0.015f);
+            }
+        }
+
+        /// <summary>房间内侧 1 m 高的墙裙带：按设施换墙面，遇到门洞断开。</summary>
+        public static void AddRoomWallBand(Room room, MeshAccum acc, float height = 1.02f)
+        {
+            RectF r = room.Rect;
+            Door primary = room.HasDoor ? room.Door : default(Door);
+            AddBand(acc, r, DoorSide.South, primary, room.ExtraDoors, height);
+            AddBand(acc, r, DoorSide.North, primary, room.ExtraDoors, height);
+            AddBand(acc, r, DoorSide.West, primary, room.ExtraDoors, height);
+            AddBand(acc, r, DoorSide.East, primary, room.ExtraDoors, height);
+        }
+
+        static void AddBand(MeshAccum acc, RectF r, DoorSide side, Door primary, List<Door> extra, float height)
+        {
+            bool horizontal = side == DoorSide.South || side == DoorSide.North;
+            float from = horizontal ? r.X : r.Y;
+            float to = horizontal ? r.XMax : r.YMax;
+            if (to - from < 0.3f) return;
+
+            // 门洞在墙上的区间（墙线坐标 = 沿墙轴），加了 4 cm 余量让门框看起来是"切开的"。
+            List<Vector2> gaps = new List<Vector2>();
+            AddGap(gaps, side, primary);
+            if (extra != null) for (int i = 0; i < extra.Count; i++) AddGap(gaps, side, extra[i]);
+            gaps.Sort((a, b) => a.x.CompareTo(b.x));
+
+            float cursor = from;
+            for (int i = 0; i <= gaps.Count; i++)
+            {
+                float segmentEnd = i < gaps.Count
+                    ? Mathf.Clamp(gaps[i].x - gaps[i].y * 0.5f - 0.04f, from, to)
+                    : to;
+                float a = Mathf.Max(cursor, from);
+                if (segmentEnd - a > 0.18f) AddBandSegment(acc, r, side, a, segmentEnd, height);
+                if (i < gaps.Count) cursor = Mathf.Clamp(gaps[i].x + gaps[i].y * 0.5f + 0.04f, from, to);
+                if (cursor >= to) break;
+            }
+        }
+
+        static void AddGap(List<Vector2> gaps, DoorSide side, Door door)
+        {
+            if (door.Width <= 0.01f || door.Side != side) return;
+            bool horizontal = side == DoorSide.South || side == DoorSide.North;
+            gaps.Add(new Vector2(horizontal ? door.Center.x : door.Center.y, door.Width));
+        }
+
+        static void AddBandSegment(MeshAccum acc, RectF r, DoorSide side, float from, float to, float height)
+        {
+            const float thickness = 0.03f;
+            float mid = (from + to) * 0.5f;
+            float length = to - from;
+            Vector3 center;
+            Vector3 size;
+            switch (side)
+            {
+                case DoorSide.South:
+                    center = new Vector3(mid, height * 0.5f, r.Y + thickness * 0.5f);
+                    size = new Vector3(length, height, thickness);
+                    break;
+                case DoorSide.North:
+                    center = new Vector3(mid, height * 0.5f, r.YMax - thickness * 0.5f);
+                    size = new Vector3(length, height, thickness);
+                    break;
+                case DoorSide.West:
+                    center = new Vector3(r.X + thickness * 0.5f, height * 0.5f, mid);
+                    size = new Vector3(thickness, height, length);
+                    break;
+                default:
+                    center = new Vector3(r.XMax - thickness * 0.5f, height * 0.5f, mid);
+                    size = new Vector3(thickness, height, length);
+                    break;
+            }
+            acc.AddBox(center, size);
+        }
+
+        static MeshAccum Bucket(Dictionary<string, MeshAccum> buckets, string slot)
+        {
+            if (string.IsNullOrEmpty(slot)) slot = "Default";
+            MeshAccum acc;
+            if (!buckets.TryGetValue(slot, out acc))
+            {
+                acc = new MeshAccum();
+                buckets[slot] = acc;
+            }
+            return acc;
+        }
+
+        /// <summary>
+        /// 把每个房间的地面面层与墙裙按材质槽合并后挂到 <paramref name="root"/> 下。
+        /// 一次性 bake 与流式加载的 shell 共用：面层很薄，放进常驻壳里就不必按块裁切。
+        /// </summary>
+        public static void EmitRoomSurfaces(FloorPlan plan, FloorMaterials mats, GameObject root)
+        {
+            if (plan == null || mats == null || root == null) return;
+            if (mats.SurfaceMaterials == null || mats.SurfaceMaterials.Length == 0) return;
+
+            Dictionary<string, MeshAccum> floorBuckets = new Dictionary<string, MeshAccum>();
+            Dictionary<string, MeshAccum> bandBuckets = new Dictionary<string, MeshAccum>();
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                Room room = plan.Rooms[i];
+                FacilityProfile profile = FacilityGrammar.Get(room.Facility);
+                AddRoomFloor(plan, room, Bucket(floorBuckets, profile.FloorMaterial));
+                AddRoomWallBand(room, Bucket(bandBuckets, profile.WallMaterial));
+            }
+
+            foreach (KeyValuePair<string, MeshAccum> kv in floorBuckets)
+                Emit(root, "RoomFloor_" + kv.Key, kv.Value, mats.Surface(kv.Key, mats.Floor), false);
+            foreach (KeyValuePair<string, MeshAccum> kv in bandBuckets)
+                Emit(root, "RoomBand_" + kv.Key, kv.Value, mats.Surface(kv.Key, mats.Wall), false);
+        }
+
+        /// <summary>整个楼层用到的设施材质槽（地面 + 墙面），给测试与材质预检用。</summary>
+        public static List<string> RoomSurfaceSlots(FloorPlan plan)
+        {
+            List<string> slots = new List<string>();
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                FacilityProfile profile = FacilityGrammar.Get(plan.Rooms[i].Facility);
+                if (!string.IsNullOrEmpty(profile.FloorMaterial) && !slots.Contains(profile.FloorMaterial))
+                    slots.Add(profile.FloorMaterial);
+                if (!string.IsNullOrEmpty(profile.WallMaterial) && !slots.Contains(profile.WallMaterial))
+                    slots.Add(profile.WallMaterial);
+            }
+            return slots;
+        }
+
         public static GameObject Build(FloorPlan plan, FloorMaterials mats, Transform parent)
         {
             return Build(plan, mats, parent, null);
@@ -321,6 +491,9 @@ namespace EscapeFromWork.LevelGen
                 MeshAccum target = p.Spec.Size == PropSize.Large ? large : p.Spec.Size == PropSize.Medium ? medium : small;
                 target.AddBox(Center(p.Rect, h * 0.5f), size);
             }
+
+            // ---- 设施分区：按房间用途铺地面、刷墙裙 -----------------------------------
+            EmitRoomSurfaces(plan, mats, root);
 
             // ---- extraction pads and spawn pads --------------------------------------
             for (int i = 0; i < plan.Extractions.Count; i++)

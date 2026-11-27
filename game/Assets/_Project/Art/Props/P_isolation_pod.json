@@ -1,0 +1,19 @@
+{
+  "id": "isolation_pod",
+  "name": "隔离舱",
+  "width": 1.16,
+  "depth": 0.81,
+  "height": 2.1,
+  "footprint": [
+    1.2,
+    0.8
+  ],
+  "size_class": "large",
+  "triangles": 180,
+  "material_slots": [
+    "CleanPanel",
+    "GlassPanel"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}

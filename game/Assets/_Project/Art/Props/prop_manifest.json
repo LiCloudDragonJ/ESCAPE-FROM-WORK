@@ -696,6 +696,785 @@
         "GlassPanel",
         "BrushedMetal"
       ]
+    },
+    {
+      "id": "conference_chair",
+      "name": "会议椅",
+      "width": 0.55,
+      "depth": 0.48,
+      "height": 0.975,
+      "footprint": [
+        0.54,
+        0.5
+      ],
+      "size_class": "medium",
+      "triangles": 220,
+      "material_slots": [
+        "FabricPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "file_cabinet",
+      "name": "文件柜",
+      "width": 0.88,
+      "depth": 0.51,
+      "height": 1.68,
+      "footprint": [
+        0.9,
+        0.5
+      ],
+      "size_class": "medium",
+      "triangles": 176,
+      "material_slots": [
+        "WoodPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "printer_unit",
+      "name": "打印机",
+      "width": 0.74,
+      "depth": 0.652,
+      "height": 1.08,
+      "footprint": [
+        0.76,
+        0.6
+      ],
+      "size_class": "medium",
+      "triangles": 216,
+      "material_slots": [
+        "CleanPanel",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "coffee_table",
+      "name": "茶几",
+      "width": 1.08,
+      "depth": 0.54,
+      "height": 0.42,
+      "footprint": [
+        1.1,
+        0.55
+      ],
+      "size_class": "medium",
+      "triangles": 128,
+      "material_slots": [
+        "WoodPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "whiteboard",
+      "name": "白板",
+      "width": 1.52,
+      "depth": 0.155,
+      "height": 1.275,
+      "footprint": [
+        1.5,
+        0.14
+      ],
+      "size_class": "medium",
+      "triangles": 152,
+      "material_slots": [
+        "PaintedWall",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "precision_ac",
+      "name": "精密空调",
+      "width": 1.62,
+      "depth": 0.94,
+      "height": 2.005,
+      "footprint": [
+        1.6,
+        0.9
+      ],
+      "size_class": "large",
+      "triangles": 416,
+      "material_slots": [
+        "ServerPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "cable_tray",
+      "name": "桥架段",
+      "width": 1.96,
+      "depth": 0.49,
+      "height": 0.62,
+      "footprint": [
+        2.0,
+        0.5
+      ],
+      "size_class": "medium",
+      "triangles": 264,
+      "material_slots": [
+        "DiamondPlate",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "main_console",
+      "name": "主控台",
+      "width": 2.36,
+      "depth": 0.96,
+      "height": 1.17,
+      "footprint": [
+        2.4,
+        1.0
+      ],
+      "size_class": "large",
+      "triangles": 244,
+      "material_slots": [
+        "BrushedMetal",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "big_screen_wall",
+      "name": "大屏墙",
+      "width": 2.94,
+      "depth": 0.18,
+      "height": 1.75,
+      "footprint": [
+        3.0,
+        0.22
+      ],
+      "size_class": "large",
+      "triangles": 264,
+      "material_slots": [
+        "CleanPanel",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "floor_vent",
+      "name": "地板送风口",
+      "width": 0.58,
+      "depth": 0.58,
+      "height": 0.054,
+      "footprint": [
+        0.6,
+        0.6
+      ],
+      "size_class": "small",
+      "triangles": 128,
+      "material_slots": [
+        "DiamondPlate",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "chiller_unit",
+      "name": "制冷机组",
+      "width": 1.74,
+      "depth": 0.862,
+      "height": 1.785,
+      "footprint": [
+        1.8,
+        0.9
+      ],
+      "size_class": "large",
+      "triangles": 456,
+      "material_slots": [
+        "ColdMetal",
+        "IndustrialPaint"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "insulated_box",
+      "name": "保温箱",
+      "width": 0.84,
+      "depth": 0.605,
+      "height": 0.62,
+      "footprint": [
+        0.8,
+        0.6
+      ],
+      "size_class": "small",
+      "triangles": 196,
+      "material_slots": [
+        "CleanPanel",
+        "ColdMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "wooden_crate",
+      "name": "木箱",
+      "width": 0.91,
+      "depth": 0.93,
+      "height": 0.78,
+      "footprint": [
+        0.9,
+        0.9
+      ],
+      "size_class": "small",
+      "triangles": 240,
+      "material_slots": [
+        "WoodPanel",
+        "IndustrialPaint"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "plastic_crate",
+      "name": "塑料周转箱",
+      "width": 0.58,
+      "depth": 0.38,
+      "height": 0.32,
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "size_class": "small",
+      "triangles": 144,
+      "material_slots": [
+        "IndustrialPaint",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "compact_shelf",
+      "name": "密集档案架",
+      "width": 1.23,
+      "depth": 0.58,
+      "height": 2.185,
+      "footprint": [
+        1.2,
+        0.6
+      ],
+      "size_class": "large",
+      "triangles": 224,
+      "material_slots": [
+        "PaintedWall",
+        "WoodPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "machine_tool",
+      "name": "机床",
+      "width": 1.79,
+      "depth": 1.177,
+      "height": 1.52,
+      "footprint": [
+        1.8,
+        1.2
+      ],
+      "size_class": "large",
+      "triangles": 352,
+      "material_slots": [
+        "IndustrialPaint",
+        "DiamondPlate"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "material_rack",
+      "name": "料架",
+      "width": 1.59,
+      "depth": 0.79,
+      "height": 1.965,
+      "footprint": [
+        1.6,
+        0.8
+      ],
+      "size_class": "large",
+      "triangles": 252,
+      "material_slots": [
+        "IndustrialPaint",
+        "WoodPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "valve_group",
+      "name": "阀门组",
+      "width": 0.7,
+      "depth": 0.75,
+      "height": 1.56,
+      "footprint": [
+        0.8,
+        0.8
+      ],
+      "size_class": "medium",
+      "triangles": 536,
+      "material_slots": [
+        "IndustrialPaint",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "pipe_segment",
+      "name": "管道组",
+      "width": 3.885,
+      "depth": 0.66,
+      "height": 0.89,
+      "footprint": [
+        4.0,
+        0.6
+      ],
+      "size_class": "large",
+      "triangles": 528,
+      "material_slots": [
+        "IndustrialPaint",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "transformer",
+      "name": "变压器",
+      "width": 1.7,
+      "depth": 1.1,
+      "height": 1.6,
+      "footprint": [
+        1.8,
+        1.2
+      ],
+      "size_class": "large",
+      "triangles": 380,
+      "material_slots": [
+        "ColdMetal",
+        "IndustrialPaint"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "hv_cabinet",
+      "name": "高压柜",
+      "width": 0.96,
+      "depth": 0.613,
+      "height": 2.1,
+      "footprint": [
+        1.0,
+        0.6
+      ],
+      "size_class": "large",
+      "triangles": 236,
+      "material_slots": [
+        "IndustrialPaint",
+        "MetalDoor"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "forklift",
+      "name": "叉车",
+      "width": 1.04,
+      "depth": 2.205,
+      "height": 1.595,
+      "footprint": [
+        1.1,
+        2.2
+      ],
+      "size_class": "large",
+      "triangles": 504,
+      "material_slots": [
+        "IndustrialPaint",
+        "DiamondPlate"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "container",
+      "name": "集装箱",
+      "width": 2.48,
+      "depth": 1.26,
+      "height": 2.36,
+      "footprint": [
+        2.4,
+        1.2
+      ],
+      "size_class": "large",
+      "triangles": 308,
+      "material_slots": [
+        "IndustrialPaint",
+        "MetalDoor"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "isolation_pod",
+      "name": "隔离舱",
+      "width": 1.16,
+      "depth": 0.81,
+      "height": 2.1,
+      "footprint": [
+        1.2,
+        0.8
+      ],
+      "size_class": "large",
+      "triangles": 180,
+      "material_slots": [
+        "CleanPanel",
+        "GlassPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "washbasin",
+      "name": "洗手台",
+      "width": 0.58,
+      "depth": 0.48,
+      "height": 1.72,
+      "footprint": [
+        0.6,
+        0.45
+      ],
+      "size_class": "small",
+      "triangles": 300,
+      "material_slots": [
+        "CleanPanel",
+        "GlassPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "iv_stand",
+      "name": "输液架",
+      "width": 0.45,
+      "depth": 0.459,
+      "height": 1.855,
+      "footprint": [
+        0.45,
+        0.45
+      ],
+      "size_class": "small",
+      "triangles": 272,
+      "material_slots": [
+        "CleanPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "air_shower",
+      "name": "风淋室",
+      "width": 1.2,
+      "depth": 1.23,
+      "height": 2.2,
+      "footprint": [
+        1.2,
+        1.2
+      ],
+      "size_class": "large",
+      "triangles": 228,
+      "material_slots": [
+        "CleanPanel",
+        "GlassPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "clean_bench",
+      "name": "洁净工作台",
+      "width": 1.46,
+      "depth": 0.88,
+      "height": 1.66,
+      "footprint": [
+        1.5,
+        0.8
+      ],
+      "size_class": "large",
+      "triangles": 248,
+      "material_slots": [
+        "CleanPanel",
+        "GlassPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "changing_locker",
+      "name": "更衣柜",
+      "width": 0.9,
+      "depth": 0.61,
+      "height": 1.8,
+      "footprint": [
+        0.9,
+        0.6
+      ],
+      "size_class": "medium",
+      "triangles": 224,
+      "material_slots": [
+        "PaintedWall",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "bunk_bed",
+      "name": "双层床",
+      "width": 1.94,
+      "depth": 0.925,
+      "height": 1.76,
+      "footprint": [
+        2.0,
+        0.9
+      ],
+      "size_class": "large",
+      "triangles": 252,
+      "material_slots": [
+        "WoodPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "mini_fridge",
+      "name": "小冰箱",
+      "width": 0.48,
+      "depth": 0.585,
+      "height": 0.84,
+      "footprint": [
+        0.5,
+        0.55
+      ],
+      "size_class": "small",
+      "triangles": 176,
+      "material_slots": [
+        "CleanPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "microwave",
+      "name": "微波炉",
+      "width": 0.48,
+      "depth": 0.403,
+      "height": 0.31,
+      "footprint": [
+        0.5,
+        0.4
+      ],
+      "size_class": "small",
+      "triangles": 174,
+      "material_slots": [
+        "CleanPanel",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "dining_table",
+      "name": "餐桌",
+      "width": 1.18,
+      "depth": 0.78,
+      "height": 0.74,
+      "footprint": [
+        1.2,
+        0.8
+      ],
+      "size_class": "medium",
+      "triangles": 116,
+      "material_slots": [
+        "WoodPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "row_header_cabinet",
+      "name": "列头柜",
+      "width": 0.78,
+      "depth": 0.61,
+      "height": 2.02,
+      "footprint": [
+        0.8,
+        0.6
+      ],
+      "size_class": "large",
+      "triangles": 188,
+      "material_slots": [
+        "ServerPanel",
+        "DarkMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "patch_panel_rack",
+      "name": "配线架",
+      "width": 0.58,
+      "depth": 0.42,
+      "height": 1.86,
+      "footprint": [
+        0.6,
+        0.45
+      ],
+      "size_class": "medium",
+      "triangles": 612,
+      "material_slots": [
+        "ServerPanel",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "tool_cabinet",
+      "name": "工具柜",
+      "width": 0.98,
+      "depth": 0.52,
+      "height": 1.62,
+      "footprint": [
+        1.0,
+        0.5
+      ],
+      "size_class": "medium",
+      "triangles": 152,
+      "material_slots": [
+        "IndustrialPaint",
+        "DiamondPlate"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "isolation_bed",
+      "name": "隔离床",
+      "width": 1.16,
+      "depth": 2.01,
+      "height": 1.95,
+      "footprint": [
+        1.2,
+        2.0
+      ],
+      "size_class": "large",
+      "triangles": 292,
+      "material_slots": [
+        "CleanPanel",
+        "GlassPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "pass_box",
+      "name": "传递柜",
+      "width": 0.86,
+      "depth": 0.5,
+      "height": 1.73,
+      "footprint": [
+        0.9,
+        0.5
+      ],
+      "size_class": "medium",
+      "triangles": 200,
+      "material_slots": [
+        "CleanPanel",
+        "GlassPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "toilet_stall",
+      "name": "隔间",
+      "width": 0.99,
+      "depth": 1.39,
+      "height": 2.06,
+      "footprint": [
+        1.0,
+        1.4
+      ],
+      "size_class": "medium",
+      "triangles": 132,
+      "material_slots": [
+        "PaintedWall",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "storage_rack",
+      "name": "货架",
+      "width": 1.38,
+      "depth": 0.59,
+      "height": 1.96,
+      "footprint": [
+        1.4,
+        0.6
+      ],
+      "size_class": "large",
+      "triangles": 204,
+      "material_slots": [
+        "IndustrialPaint",
+        "WoodPanel"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+    },
+    {
+      "id": "riser_rack",
+      "name": "管井架",
+      "width": 0.56,
+      "depth": 0.56,
+      "height": 1.965,
+      "footprint": [
+        0.6,
+        0.6
+      ],
+      "size_class": "medium",
+      "triangles": 288,
+      "material_slots": [
+        "ColdMetal",
+        "BrushedMetal"
+      ],
+      "facing": "+Z",
+      "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
     }
   ]
 }

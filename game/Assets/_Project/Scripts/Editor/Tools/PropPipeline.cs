@@ -159,11 +159,19 @@ namespace EscapeFromWork.EditorTools
             EnsureFolder(PrefabDir);
             string prefabPath = PrefabDir + "/P_" + meta.Id + ".prefab";
 
-            GameObject go = Object.Instantiate(model);
-            go.name = "P_" + meta.Id;
+            // 有的 FBX 以 Z-up 存盘，Unity 导入时把 -90° X 校正烘在模型根节点的 rotation 上。
+            // 以前这里把根节点 rotation 清成 identity，等于把校正扔掉 —— 那批道具就躺平了。
+            // 现在包一层空根：根永远 identity（摆放只吃 yaw），模型作为子节点保留导入旋转。
+            GameObject go = new GameObject("P_" + meta.Id);
             go.transform.position = Vector3.zero;
             go.transform.rotation = Quaternion.identity;
             go.transform.localScale = Vector3.one;
+
+            GameObject visual = Object.Instantiate(model, go.transform, false);
+            visual.name = "Visual";
+            visual.transform.localPosition = Vector3.zero;
+            // 保留 visual 的导入旋转（不要清零），只在它上面做缩放归一。
+            visual.transform.localScale = Vector3.one;
 
             Material body = PropMaterial(SlotFor(meta));
             if (body != null)

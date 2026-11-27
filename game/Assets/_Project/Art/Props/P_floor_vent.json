@@ -1,0 +1,19 @@
+{
+  "id": "floor_vent",
+  "name": "地板送风口",
+  "width": 0.58,
+  "depth": 0.58,
+  "height": 0.054,
+  "footprint": [
+    0.6,
+    0.6
+  ],
+  "size_class": "small",
+  "triangles": 128,
+  "material_slots": [
+    "DiamondPlate",
+    "DarkMetal"
+  ],
+  "facing": "+Z",
+  "facing_note": "front faces +Z in Unity (modelled -Y in Blender); rotate by wall normal"
+}
