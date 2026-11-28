@@ -4,6 +4,7 @@
   "references": [
     "EscapeFromWork.Core",
     "EscapeFromWork.Data",
+    "EscapeFromWork.LevelGen",
     "Unity.InputSystem"
   ],
   "includePlatforms": [],

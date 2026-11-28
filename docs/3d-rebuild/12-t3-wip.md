@@ -1,31 +1,38 @@
-# T3 进行中（2026-11-28 13:20 暂停，等重启）
+# T3 运行时多楼层（2026-11-28 打通）
 
-## 为什么停
+## 现在是什么状态
 
-Windows 的 **Smart App Control** 从 12:52 起开始拦截团结编辑器的编译宿主：
+四层已经真的在运行时里叠起来了，出包能跑：
+
+- `game/Assets/_Project/Scripts/Gameplay/TowerRuntime.cs`：`SlicePlanner.Generate(seed)` 拿到 4 层 `RaidPlan`，按 `FloorGeometry.FloorToFloor`（4.2m）逐层建几何；`ActiveRadius`/`NeighbourRadius` 控制只留当前层（±邻居）；NavMesh 每层用 `NavMesh.AddNavMeshData(data, Vector3.up * LevelY, identity)` 偏移，层与层之间互不串路；切层统一走 `SwitchTo(index)`，`FirstPersonController.Teleport` 到该层电梯中心并清速度。
+- `game/Assets/_Project/Scripts/Gameplay/EscapeFromWork.Gameplay.asmdef`：references 加 `EscapeFromWork.LevelGen`（T3 之前编译失败的原因）。
+- `game/Assets/_Project/Scripts/Editor/TowerSetup.cs`：菜单 `Escape From Work/T3/Build Tower Test Scene` 生成 `Assets/_Project/Scenes/TowerTest.unity`（Player + CameraRig + TowerRuntime，材质 `M1FloorScene.BuildMaterials()`，Catalog `PropCatalog.LoadOrCreateDefault()`）；菜单 `Escape From Work/T3/Build Windows Player` 出 `Builds/Windows/EFW_Tower.exe`。
+- `game/Assets/_Project/Scripts/Editor/TowerCapture.cs`：菜单 `Escape From Work/T3/Capture Tower Screenshots` 出四张剖视图（每层隐藏天花板与灯盘、3/4 俯视）+ 一张爆炸视图；菜单 `Escape From Work/T3/Capture Wall Plan` 出语义平面图（白=墙、红=实心、蓝=地面）。
+- `game/Assets/tests/EditMode/TowerPlanTests.cs`：四层连续、四层电梯同 rect、每对相邻层 1 电梯+2 楼梯、四层独立 seed、`LevelY(i)=i*4.2`。
+
+## 实机证据
+
+出包后带 `-towerCapture` 自动跑：逐层 `SwitchTo` → 传送到该层最长走廊中段 → 截图 `tower-run-f1..f4.png` → 退出。日志：
 
 ```
-CodeIntegrity 事件 3077/3033（12:56/12:57 等）：
-netcorerun.exe 尝试加载 ...\Editor\Data\Tools\BuildPipeline\Bee.Tools.dll，
-未满足签名要求/被应用程序控制策略阻止 (0x800711C7)
+[Tower] F0 (world 45F) built in 566 ms
+[Tower] F1 (world 46F) built in 581 ms
+[Tower] F2 (world 47F) built in 572 ms
+[Tower] F3 (world 48F) built in 523 ms
+[Tower] autoplay capture done
 ```
 
-表现是编辑器只报一句 `Scripts have compiler errors`，日志里没有任何 `error CS`；清 `Library/Bee`、整个 `Library` 重建、直接跑 `ScriptCompilationBuildProgram.exe` 都是同一个报错。当前账号不是管理员，改不了该策略。用户已决定去关 Smart App Control 并重启。
+四层建造 0.5–0.6s/层，进程正常退出（exit 0）。
 
-## 本地未提交的 T3 代码（重启后继续）
+## 打包时的坑
 
-- `game/Assets/_Project/Scripts/Gameplay/TowerRuntime.cs`：四层按 `FloorGeometry.FloorToFloor`（4.2m）叠放，`NeighbourRadius` 控制只留当前层；在核心筒内按 E/Q 上下一层；切层时 `FirstPersonController.Teleport` 到电梯中心；`FloorGeometry.BuildNavMesh` 的 NavMeshData 用 `NavMesh.AddNavMeshData(data, Vector3.up * LevelY, identity)` 按层高偏移。
-- `game/Assets/_Project/Scripts/Gameplay/EscapeFromWork.Gameplay.asmdef`：references 加 `EscapeFromWork.LevelGen`（之前 T3 编译失败的原因之一）。
-- `game/Assets/_Project/Scripts/Editor/TowerSetup.cs`：菜单 `Escape From Work/T3/Build Tower Test Scene` 生成 `Assets/_Project/Scenes/TowerTest.unity`（Player + CameraRig + TowerRuntime，材质用 `M1FloorScene.BuildMaterials()`，Catalog 用 `PropCatalog.LoadOrCreateDefault()`）；另一个菜单出 Windows 包。
-- `game/Assets/_Project/Scripts/Editor/TowerCapture.cs`：菜单 `Escape From Work/T3/Capture Tower Screenshots`，四层叠放后每层从电梯口拍一张 `tower-f1..f4.png`，外加 `tower-stack.png` 外观。
-- `game/Assets/tests/EditMode/TowerPlanTests.cs`：四层连续、电梯四层同 rect、每对相邻层 1 电梯+2 楼梯、四层 seed 独立、`TowerRuntime.LevelY(i) = i*4.2`。
+Player 里 `Shader.Find("Unlit/Transparent")` 会拿到 null（shader 只被字符串引用，打包时被剥离），标识牌直接抛
+`InvalidOperationException: Signage requires the Unlit/Transparent shader.`。
+现在 `SignageRenderer` 先 `Resources.Load<Material>("SignageUnlit")`，材质由菜单 `Escape From Work/Art/Rebuild Signage Material`
+生成在 `Assets/_Project/Resources/SignageUnlit.mat`；拿不到才退 `Shader.Find`。
 
-以上都还没编译过（被 SAC 拦住），所以没有提交。
+## 下一步
 
-## 重启后的第一步
-
-1. 全量编译（Tuanjie batchmode smoke），确认 `NO COMPILE ERRORS`；
-2. `TowerPlanTests` 过滤跑；
-3. `TowerSetup.Build` 生成 TowerTest 场景，`TowerCapture` 出五张图；
-4. 进 TowerTest 里实机走一遍切层（E/Q）与电梯对位；
-5. 全量 EditMode + 提交推送，再回到 goal 的剩余项（分区覆盖、道具密度、出包）。
+1. 电梯井现在四面是墙，玩家进层后要自己走出来；下一步给核心筒开电梯门（或把电梯厅并进走廊）。
+2. 智能体/怪物 NavMesh 要按层登记，T9 的每块 NavMesh 与 T3 的层偏移共用一套。
+3. `TowerTest.unity` 目前只验证切层，没接 HUD（楼层条属 T4）。

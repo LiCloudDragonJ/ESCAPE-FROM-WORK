@@ -63,9 +63,21 @@ namespace EscapeFromWork.LevelGen
                 }
             }
 
-            Shader shader = Shader.Find("Unlit/Transparent");
-            if (shader == null) throw new System.InvalidOperationException("Signage requires the Unlit/Transparent shader.");
-            Material material = new Material(shader);
+            // A packaged player may strip the built-in Unlit/Transparent shader; the editor keeps a
+            // Resources material so sign quads still render after a build (see SignageResources).
+            Material baseMaterial = Resources.Load<Material>("SignageUnlit");
+            Material material;
+            if (baseMaterial != null)
+            {
+                material = new Material(baseMaterial);
+            }
+            else
+            {
+                Shader shader = Shader.Find("Unlit/Transparent");
+                if (shader == null) shader = Shader.Find("Sprites/Default");
+                if (shader == null) throw new System.InvalidOperationException("Signage requires the Unlit/Transparent shader.");
+                material = new Material(shader);
+            }
             material.name = "Signage_" + index + "_" + sign.Kind;
             material.mainTexture = surface;
             cleanup.Initialize(material, generated);

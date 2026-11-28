@@ -452,11 +452,13 @@ namespace EscapeFromWork.LevelGen
             boxes.Clear();
             CollectShellBoxes(plan, boxes);
             CollectWallBoxes(plan, boxes);
+            FillWallSlivers(plan, boxes);
+            List<BoxSpec> wallBoxes = new List<BoxSpec>(boxes);
             AddBoxes(wall, boxes);
 
             // ---- solid mass in the non-walkable parts of the footprint ----------------
             boxes.Clear();
-            CollectVoidBoxes(plan, boxes);
+            CollectVoidBoxes(plan, boxes, wallBoxes);
             MeshAccum solidMass = new MeshAccum();
             AddBoxes(solidMass, boxes);
 
@@ -586,6 +588,18 @@ namespace EscapeFromWork.LevelGen
         /// </summary>
         public static void CollectVoidBoxes(FloorPlan plan, List<BoxSpec> boxes)
         {
+            CollectVoidBoxes(plan, boxes, null);
+        }
+
+        /// <summary>
+        /// Same as <see cref="CollectVoidBoxes(FloorPlan,List{BoxSpec})"/>, but cells that a wall
+        /// body already occupies stay out of the solid mass. Walls stand at
+        /// <c>room.Rect.Inflate(WallInset)</c>, so their 0.4 m footprint covers exactly the strip
+        /// between two room rects; without this the solid mass is emitted co-planar with the wall
+        /// body and shows up as a second, darker wall face (and z-fights at the top).
+        /// </summary>
+        public static void CollectVoidBoxes(FloorPlan plan, List<BoxSpec> boxes, List<BoxSpec> wallBoxes)
+        {
             const float cell = 0.2f;
             float width = plan.Bounds.W, depth = plan.Bounds.H;
             int cols = Mathf.Max(1, Mathf.CeilToInt(width / cell));
@@ -602,6 +616,15 @@ namespace EscapeFromWork.LevelGen
             for (int i = 0; i < plan.Stairs.Count; i++) Rasterise(walkable, cols, rows, cell, plan.Stairs[i], 0f);
             if (plan.Core.W > 0f) Rasterise(walkable, cols, rows, cell, plan.Core, 0f);
             for (int i = 0; i < plan.SpawnZones.Count; i++) Rasterise(walkable, cols, rows, cell, plan.SpawnZones[i], 0f);
+            if (wallBoxes != null)
+            {
+                for (int i = 0; i < wallBoxes.Count; i++)
+                {
+                    BoxSpec w = wallBoxes[i];
+                    RectF footprint = new RectF(w.Center.x - w.Size.x * 0.5f, w.Center.z - w.Size.z * 0.5f, w.Size.x, w.Size.z);
+                    Rasterise(walkable, cols, rows, cell, footprint, 0f);
+                }
+            }
 
             // Outside the envelope is open air, not hidden structure: only fill cells that are
             // actually inside the floor plate, otherwise the notches get bricked back up.
@@ -743,9 +766,9 @@ namespace EscapeFromWork.LevelGen
             Dictionary<int, List<Vector2>> vertical = new Dictionary<int, List<Vector2>>();
 
             for (int i = 0; i < plan.Rooms.Count; i++) AddEdges(horizontal, vertical, plan.Rooms[i].Rect.Inflate(inset));
-            for (int i = 0; i < plan.Corridors.Count; i++) AddEdges(horizontal, vertical, plan.Corridors[i].Rect);
-            for (int i = 0; i < plan.Stairs.Count; i++) AddEdges(horizontal, vertical, plan.Stairs[i]);
-            AddEdges(horizontal, vertical, plan.Core);
+            for (int i = 0; i < plan.Corridors.Count; i++) AddEdgesSkippingFake(horizontal, vertical, plan, plan.Corridors[i].Rect, SpaceKind.Corridor, i);
+            for (int i = 0; i < plan.Stairs.Count; i++) AddEdgesSkippingFake(horizontal, vertical, plan, plan.Stairs[i], SpaceKind.Stair, i);
+            AddEdgesSkippingFake(horizontal, vertical, plan, plan.Core, SpaceKind.Core, 0);
             // 出生区只是地面标记（10×10 地贴），不是房间：给它砌墙会在房间中间凭空冒出一个封闭盒子
 
             CombineAll(horizontal);
@@ -775,6 +798,91 @@ namespace EscapeFromWork.LevelGen
                 boxes.Add(new BoxSpec(new Vector3(b.Center.x, CeilingY * 0.5f, b.Center.y),
                     new Vector3(b.W, CeilingY, b.H), 0f));
             }
+        }
+
+        /// <summary>
+        /// Real buildings do not leave a 0.3–1.8 m hollow slot between two parallel partition walls:
+        /// either the rooms share one wall, or that band is a solid service chase. The BSP/clip
+        /// pipeline still produces such slots (leftover strips too narrow to become rooms are
+        /// dropped), so two walls end up facing each other across a dead gap. Fill those slots with
+        /// wall mass so the plan reads as one thick shared wall instead of a double wall around
+        /// nothing.
+        /// </summary>
+        public static void FillWallSlivers(FloorPlan plan, List<BoxSpec> boxes)
+        {
+            int count = boxes.Count;
+            if (count < 2) return;
+
+            List<BoxSpec> fills = new List<BoxSpec>();
+            for (int i = 0; i < count; i++)
+            {
+                BoxSpec a = boxes[i];
+                bool ah = Mathf.Abs(a.Size.x) >= Mathf.Abs(a.Size.z);
+                float lineA = ah ? a.Center.z : a.Center.x;
+                float a0 = ah ? a.Center.x - a.Size.x * 0.5f : a.Center.z - a.Size.z * 0.5f;
+                float a1 = ah ? a.Center.x + a.Size.x * 0.5f : a.Center.z + a.Size.z * 0.5f;
+
+                for (int j = i + 1; j < count; j++)
+                {
+                    BoxSpec b = boxes[j];
+                    bool bh = Mathf.Abs(b.Size.x) >= Mathf.Abs(b.Size.z);
+                    if (ah != bh) continue;
+                    if (Mathf.Abs(a.Center.y - b.Center.y) > 0.05f) continue;
+                    if (Mathf.Abs(a.Size.y - b.Size.y) > 0.05f) continue;
+
+                    float lineB = bh ? b.Center.z : b.Center.x;
+                    float gap = Mathf.Abs(lineA - lineB);
+                    if (gap < 0.06f || gap > 2.8f) continue;
+
+                    float b0 = bh ? b.Center.x - b.Size.x * 0.5f : b.Center.z - b.Size.z * 0.5f;
+                    float b1 = bh ? b.Center.x + b.Size.x * 0.5f : b.Center.z + b.Size.z * 0.5f;
+                    float lo = Mathf.Max(a0, b0);
+                    float hi = Mathf.Min(a1, b1);
+                    float overlap = hi - lo;
+                    if (overlap < 0.9f) continue;
+
+                    float midLine = (lineA + lineB) * 0.5f;
+                    float mu = (lo + hi) * 0.5f;
+                    Vector2 mid = ah ? new Vector2(mu, midLine) : new Vector2(midLine, mu);
+                    bool midOpen = OpenSpaceAt(plan, mid);
+                    // 开放空间里也可能夹着 0.5–0.75 m 的死缝（两道墙夹一条人进不去的槽），
+                    // 真实建筑不会有这种"墙中缝"；窄于 1.15 m（净宽 0.75 m）一律并成一道厚墙。
+                    // 更宽的缝先不动：那可能是走廊/门厅，贸然砖死会把两半层切断。
+                    if (midOpen && gap > 1.15f) continue;
+
+                    fills.Add(ah
+                        ? new BoxSpec(mu, CeilingY * 0.5f, midLine, overlap + 0.04f, CeilingY, gap + 0.04f)
+                        : new BoxSpec(midLine, CeilingY * 0.5f, mu, gap + 0.04f, CeilingY, overlap + 0.04f));
+                }
+            }
+
+            for (int i = 0; i < fills.Count; i++)
+            {
+                bool duplicate = false;
+                for (int k = 0; k < boxes.Count && !duplicate; k++)
+                {
+                    BoxSpec o = boxes[k];
+                    duplicate = Mathf.Abs(o.Center.x - fills[i].Center.x) < 0.45f
+                        && Mathf.Abs(o.Center.z - fills[i].Center.z) < 0.45f
+                        && Mathf.Abs(o.Size.y - fills[i].Size.y) < 0.05f
+                        && o.Size.x >= fills[i].Size.x - 0.05f
+                        && o.Size.z >= fills[i].Size.z - 0.05f;
+                }
+                if (!duplicate) boxes.Add(fills[i]);
+            }
+            if (fills.Count > 0)
+                Debug.Log(string.Format("[Walls] sliver fills: {0} (seed {1})", fills.Count, plan.Spec.Seed));
+        }
+
+        static bool OpenSpaceAt(FloorPlan plan, Vector2 p)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+                if (plan.Rooms[i].Rect.Contains(p)) return true;
+            for (int i = 0; i < plan.Corridors.Count; i++)
+                if (plan.Corridors[i].Rect.Contains(p)) return true;
+            for (int i = 0; i < plan.Stairs.Count; i++)
+                if (plan.Stairs[i].Contains(p)) return true;
+            return plan.Core.Contains(p);
         }
 
         static void MergeLintels(List<BoxSpec> lintels)
@@ -849,6 +957,71 @@ namespace EscapeFromWork.LevelGen
             PushSpan(vertical, LineKey(r.XMax), r.Y, r.YMax);
             PushSpan(horizontal, LineKey(r.Y), r.X, r.XMax);
             PushSpan(horizontal, LineKey(r.YMax), r.X, r.XMax);
+        }
+
+        enum SpaceKind { Corridor, Stair, Core }
+
+        /// <summary>
+        /// 走廊/楼梯/核心筒的边只有在"另一侧不是开放空间"时才是真墙。生成器里这些矩形互相
+        /// 重叠、或门洞连接段（connector）整段落在另一条走廊里时，会凭空多出两堵平行墙夹一条
+        /// 谁也进不去的窄槽——剖视图上就是"相邻很近的两个墙面"。这里按边采样：一条边如果大半
+        /// 落在别的开放空间（房间/走廊/楼梯/核心筒）内部，就整条丢掉，让那两个空间连成一片。
+        /// </summary>
+        static void AddEdgesSkippingFake(Dictionary<int, List<Vector2>> horizontal, Dictionary<int, List<Vector2>> vertical,
+            FloorPlan plan, RectF r, SpaceKind kind, int index)
+        {
+            if (r.W <= 0.05f || r.H <= 0.05f) return;
+            AddEdgeIfReal(vertical, plan, kind, index, true, LineKey(r.X), r.Y, r.YMax, r.X);
+            AddEdgeIfReal(vertical, plan, kind, index, true, LineKey(r.XMax), r.Y, r.YMax, r.XMax);
+            AddEdgeIfReal(horizontal, plan, kind, index, false, LineKey(r.Y), r.X, r.XMax, r.Y);
+            AddEdgeIfReal(horizontal, plan, kind, index, false, LineKey(r.YMax), r.X, r.XMax, r.YMax);
+        }
+
+        static void AddEdgeIfReal(Dictionary<int, List<Vector2>> lines, FloorPlan plan, SpaceKind kind, int index,
+            bool vertical, int key, float from, float to, float line)
+        {
+            if (to - from < 0.05f) return;
+            const int samples = 5;
+            int inside = 0;
+            for (int s = 0; s < samples; s++)
+            {
+                float t = (s + 0.5f) / samples;
+                float along = Mathf.Lerp(from, to, t);
+                Vector2 p = vertical ? new Vector2(line, along) : new Vector2(along, line);
+                if (InsideOtherSpace(plan, kind, index, p, 0.06f, vertical)) inside++;
+            }
+            // 边大半落在另一块开放空间里（且与该空间的长轴平行：走廊的侧边埋进另一条走廊/门厅）
+            // 这条边是假的，丢掉。垂直穿过对方长轴的横边不丢——那是路口/门洞位置的隔断，
+            // 丢掉会在走廊交汇处捅出一条几十米的直视线（SightlineTests 45m 上限会挂）。
+            if (inside >= samples) return;
+            PushSpan(lines, key, from, to);
+        }
+
+        static bool InsideOtherSpace(FloorPlan plan, SpaceKind kind, int index, Vector2 p, float shrink, bool edgeVertical)
+        {
+            for (int i = 0; i < plan.Rooms.Count; i++)
+            {
+                RectF r = plan.Rooms[i].Rect;
+                if (r.W > shrink * 2f && r.H > shrink * 2f && r.Inflate(-shrink).Contains(p) &&
+                    edgeVertical == (r.H >= r.W)) return true;
+            }
+            for (int i = 0; i < plan.Corridors.Count; i++)
+            {
+                if (kind == SpaceKind.Corridor && i == index) continue;
+                RectF r = plan.Corridors[i].Rect;
+                if (r.W > shrink * 2f && r.H > shrink * 2f && r.Inflate(-shrink).Contains(p) &&
+                    edgeVertical == (r.H >= r.W)) return true;
+            }
+            for (int i = 0; i < plan.Stairs.Count; i++)
+            {
+                if (kind == SpaceKind.Stair && i == index) continue;
+                RectF r = plan.Stairs[i];
+                if (r.W > shrink * 2f && r.H > shrink * 2f && r.Inflate(-shrink).Contains(p) &&
+                    edgeVertical == (r.H >= r.W)) return true;
+            }
+            if (kind != SpaceKind.Core && plan.Core.W > shrink * 2f && plan.Core.H > shrink * 2f &&
+                plan.Core.Inflate(-shrink).Contains(p) && edgeVertical == (plan.Core.H >= plan.Core.W)) return true;
+            return false;
         }
 
         static void PushSpan(Dictionary<int, List<Vector2>> lines, int key, float a, float b)

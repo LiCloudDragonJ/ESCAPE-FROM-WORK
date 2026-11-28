@@ -2,13 +2,13 @@
 
 > 用途：给下一个接手的人/模型一份**待办总表**。仓库现状、已完成项、血泪教训、资源清单见 [07-handoff.md](07-handoff.md)；本文件只回答：**接下来做什么、卡在哪、怎么验收**。
 >
-> 状态快照：`main` 含 `1c8e5a9`（2026-11-27 晚：修家具躺平/贴墙朝向、房间按设施铺面层、补 41 件道具）；EditMode **220/220 已本机复跑验证**（`game/TestResults/editmode-20261127-props.xml`，见 §10.1）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
+> 状态快照：`main` 含 2026-11-27 的三笔与 2026-11-28 的 T3/共享墙/出包这批（HEAD 见 `git log -1`）；EditMode 基线见 §10.1（2026-11-28 复跑，含 `TowerPlanTests` 5 条）。 2026-11-27 三轮共 29 项对局结构已拍板（06 §8.1 / §8.2 / §8.4）。
 
 ---
 
 ## 0. 一分钟结论
 
-- 生成器主线 **R1–R11 全部完成**（R9/R10/R11 于 2026-11-27 收尾并提交 `a9d20d5`）；M1 只剩 **60fps/灯池实测（需高性能机）、灰盒补齐、分块 LOD+每块 NavMesh、多边形化第 3–4 步**，以及运行时侧的多楼层装载（T3）——**运行时目前仍是单层沙盒**。
+- 生成器主线 **R1–R11 全部完成**（R9/R10/R11 于 2026-11-27 收尾并提交 `a9d20d5`）；M1 只剩 **60fps/灯池实测（需高性能机）、灰盒补齐、分块 LOD+每块 NavMesh、多边形化第 3–4 步**；运行时侧 **T3 多楼层已于 2026-11-28 打通**（`TowerRuntime` 四层叠放 + 出包 `-towerCapture` 验证，见 §10.6）。
 - **不依赖拍板、现在就能做**：T3（运行时多楼层）→ T4（MapHud 规则）→ T5（材质槽接渲染）→ T9/T10/T12。R10/T13/R9（T1/T13/T2）、文档冲突（T6）与三轮拍板写回（T11）已于 2026-11-27 完成。
 - **2026-11-27 已定稿**（06 §8.1 结构 5 项 + §8.2 细节 9 项 + §8.4 第三轮 15 项 = 三轮 29 项）：不设楼层总数、**每局固定 4 层**、单局 30 分钟、**最多 16 人 = 4–6 队（含 AI 队）× 每队 1–4 人、真人 ≥8 开局**、**两端出生对端撤离**、**每对相邻层 2 条单层楼梯 + 中心电梯**、取消深度=难度、TTK 按护甲 × 子弹、封死只做围挡+封锁带、AI ≤4、允许单/双排、楼层号取真实随机号、Boss 每层 20%、价值梯度保留（只影响价值场）、同 buildingSeed 跨局复用同楼、死胡同 ≤8%、撤离点按 02 §5.5 揭示。**剩余待定**（06 §8.3）：经济数值、首发武器清单、AI 难度分档、美术采购、200×160 确认、Boss 战斗形式/掉落、TTK 数值。
 - **两个隐藏缺口**（文档没写进 R9/R10，但会卡住后续）：
@@ -23,7 +23,7 @@
 |---|---|---|---|---|---|---|
 | T1 | **R10 体检器接回归**：把 06 §10 指标变成 EditMode 测试 | 无 | 否 | 新 `LevelGen/LevelAudit.cs` + `tests/EditMode/LevelAuditTests.cs` | ✅ **2026-11-27 已完成**：`LevelAudit.cs` + `LevelAuditTests.cs`；走廊 30m / 侧出口 / 死路 / 房间挂接 / 环数 / 切片视线全部进全量回归 | 已完 |
 | T2 | **R9 标识牌**：`SignageGenerator` + 场景渲染 | 无（素材已就绪） | 否 | 新 `LevelGen/Signage.cs`（或 `SignageGenerator.cs`）+ `FloorPlan.Signs` + 渲染层 | ✅ **2026-11-27 已完成**：`Signage.cs` + `SignageRenderer.cs` + `Resources/Signage/`；每层 ≥1 处 YOU ARE HERE，测试出图 `game/TestResults/r9-signage.png` 可读；**同日晚 `M1FloorScene.Capture` 出场景内图 `docs/3d-rebuild/screenshots/m1-floor3d-signage.png` 可读**（修掉了"牌按 rect 边偏移、被 0.4m 墙心线覆盖"的埋牌 bug） | 已完 |
-| T3 | **运行时多楼层**：`RaidPlan` 进运行时，竖向核与切层 | T1（护栏） | 否 | `FloorRuntime`/`FloorStreamingRuntime` + 新的楼层管理 | 固定 4 层同场景按真实标高叠放；2 条单层楼梯 + 中心电梯可跨层；切层后小地图换图 | 3–5 天 |
+| T3 | **运行时多楼层**：`RaidPlan` 进运行时，竖向核与切层 | T1（护栏） | 否 | `FloorRuntime`/`FloorStreamingRuntime` + 新的楼层管理 | 固定 4 层同场景按真实标高叠放；2 条单层楼梯 + 中心电梯可跨层；切层后小地图换图 | 🟡 **2026-11-28 运行时打通**：`TowerRuntime`（4 层 × 4.2m、NavMesh 按层偏移、E/Q 切层）+ `TowerSetup`/`TowerCapture`/`TowerPlanTests`（5/5）；出包 `Builds/Windows/EFW_Tower.exe -towerCapture` 四层建造 0.52–0.58s/层、自动截图后正常退出；剖视图 `tower-f1..f4.png` + `tower-stack.png`；剩电梯门洞、小地图换图（T4） | 3–5 天（🟡 骨架完成） |
 | T4 | **MapHud 按 02 §5.5 改**：楼层条 / 拉闸房 / 撤离点门控 | T3（楼层数据） | 否 | `UI/MapHud.cs` + `FloorPlan` 数据补齐 | 进层只给本端可用数量；远层免费点到层自动标出、近层拉闸后标出并全楼广播；对端免费点不显示、对端拉闸点显示不可用；楼梯/电梯无迷雾 | 1–2 天 |
 | T5 | **材质槽接渲染**：主题材质 + 9 套未接材质 + per-room | T1 | 否 | `FloorMaterials` 扩槽 + `FloorChunkGeometry`/`FloorChunkManifest` 分槽 | 09 §5 MaterialSlotCoverage ≥14/19；机房/冷库/医疗一眼可辨 | 2–3 天（🟡 2026-11-27 部分完成：21 套设施面层 + 每房间地板/墙裙已接，见 §10.4；剩 19 槽覆盖清单核对与机房/冷库/医疗出图验收） |
 | T6 | **文档冲突修正**（只改文档） | 无 | 否 | 见 §7 | ✅ 2026-11-27 已完成（两轮 7 处 + 第三轮 06/02/00 再统一） | 已完 |
@@ -227,7 +227,7 @@
   -executeMethod EscapeFromWork.EditorTools.MaterialArtLibrary.BuildAll -quit
 ```
 
-- EditMode 基线：**220/220 通过**（2026-11-27 晚道具/面层后，结果 `game/TestResults/editmode-20261127-props.xml`；纯测试约 9 分 57 秒，本机 9800X3D/4070TiS）。上一基线 208/208 见 `game/TestResults/editmode-20261127-signage.xml`，更早 207/207 见 `game/TestResults/t1-t13-r9-full-fix4-20261127.xml`，148/148 见 `game/TestResults/editmode-t1-baseline-20261127.xml`。
+- EditMode 基线：**226/226 通过**（2026-11-28 15:09，T3 + 共享墙体这批后，结果 `game/TestResults/editmode-20261128-t3.xml`，623.7s；新增 `TowerPlanTests` 5 条）。上一基线 220/220 见 `game/TestResults/editmode-20261127-props.xml`，208/208 见 `editmode-20261127-signage.xml`，更早 207/207 见 `t1-t13-r9-full-fix4-20261127.xml`，148/148 见 `editmode-t1-baseline-20261127.xml`。
 - **结果判定**：XML 的 `testcasecount/result` 才是结论；Unity batch 在编辑器退出前就已写好 XML，可轮询文件出现。`-testResults` 尽量传绝对路径（相对路径会落到 `game/game/...`）。
 - 测试结果 XML 里 `testcasecount` 才是用例数（`[Test]` 特性只有 95 个，参数化 `[TestCase]` 才会到 148）。
 
@@ -262,7 +262,16 @@
 - 新工具 `game/Assets/_Project/Scripts/Editor/FacilityCapture.cs`（菜单 `Escape From Work/M1/Capture Facility Rooms`）按 FacilityKind 各拍一张 `docs/3d-rebuild/screenshots/facility-<kind>.png`；seed=1 本层只有 12 类设施（无 ServerHall/CleanRoom/IsolationRoom/Archive/PipeGallery），机房/医疗主题要靠主题配比补。
 - 办公区墙裙材质改成 `WoodPanel`（原来是 PaintedWall，和底墙同色看不出踢脚）；facility-office.png 已换成木色墙裙。
 - 办公区 `PaintedWall` 墙裙与基础墙同色，1.02m 踢脚几乎看不出来（待换色/换材质）。
-- T3 多楼层运行时只起了骨架（`TowerRuntime`/`TowerSetup`/`TowerCapture`），因 Gameplay→LevelGen 的 asmdef 引用与 `FloorPlan.Width/Height` 编译问题在 21:30 前回滚，未提交；下次从「阶 assembly 引用 + FloorPlan 尺寸取 Spec」重新开始。
+- T3 多楼层运行时已在 2026-11-28 打通（见 §10.6），不再是"回滚未提交骨架"状态。
+
+### 10.6 2026-11-28 这批（T3 运行时多楼层 + 共享墙体）
+
+- **T3 打通**：`Gameplay/TowerRuntime.cs`（4 层 × `FloorToFloor`=4.2m、NavMesh 用 `NavMesh.AddNavMeshData(data, Vector3.up*LevelY, identity)` 分层偏移、E/Q 在核心筒里切层、`SwitchTo` 统一走 `Teleport`）；`Editor/TowerSetup.cs` 生成 `Scenes/TowerTest.unity` 与 Windows 包；`Editor/TowerCapture.cs` 出 `tower-f1..f4.png`、`tower-stack.png`、语义平面图 `tower-plan-f3.png`；`TowerPlanTests` 5/5。出包后 `EFW_Tower.exe -towerCapture` 实测四层 0.52–0.58s/层、正常退出。详见 `12-t3-wip.md`。
+- **打包 shader 坑**：`Shader.Find("Unlit/Transparent")` 在 player 里返回 null（被剥离），标识牌抛 `InvalidOperationException`。现在 `SignageRenderer` 先取 `Resources/SignageUnlit.mat`（菜单 `Escape From Work/Art/Rebuild Signage Material` 生成），`Shader.Find` 只作兜底。
+- **"两道墙夹窄缝"**：3D 上是两件事叠加。① `SolidMass` 与 0.4m 墙体重叠共面（z-fighting）→ `CollectVoidBoxes` 现在排除墙盒占位（`Build` 里先复制 wallBoxes 再传进去）；② 走廊/楼梯/核心筒的边落在另一块开放空间里时（connector 整段落进走廊等），会凭空切出两堵平行墙 → `AddEdgesSkippingFake` 沿边采样，**全部 5 个采样点都落在另一块空间内、且边与该空间长轴平行**才丢掉（横穿路口的横边必须保留，否则走廊交汇处会捅出 50m+ 直视线，`SightlineTests`/`LevelAudit` 会挂）。修完 `WallGapProbe` 的 0.9/1.4m 档清零，只剩 2.3m（服务廊）与 ≥2.7m（支廊）合法值。
+- **相邻房间共墙本来就成立**：`RoomGapProbe` 量到四层 65/96/79/70 对相邻房间 gap 恒 0.40m（= `WallBodyThickness`）；每层只有 1–2.5m 的无名夹缝。试过 `AbsorbDeadGaps` 把夹缝并进较大房间，但这会改 plan，四条视线/撤离点不变量直接挂（`Batch1000` extractions 7>6、`SightlineTests` 53.1m、`LevelAudit` 56.2m、`ExtractionSpread` 远点 1<2），已回滚；夹缝改由几何层 `FillWallSlivers`（缝中点不在开放空间时放宽到 2.8m）视觉填死，不动 plan。
+- **走廊薄片**：`EmitCorridorBand` 把 <1.2m 的碎片踢出走廊登记（与 LevelAudit 口径一致），交给 `CollectVoidBoxes` 砖成实体，避免 0.5m 死缝。
+- 本批新增/改动的诊断工具：`Editor/WallGapProbe.cs`、`Editor/RoomGapProbe.cs`、`Editor/DeadSpaceProbe.cs`（菜单都在 `Escape From Work/Debug/`）。
 
 ---
 
@@ -270,7 +279,7 @@
 
 1. 先读 [07-handoff.md](07-handoff.md)（现状 / 教训 / 禁区 / 资源）→ 本文件（待办）。
 2. `git log --oneline -8` 对齐 HEAD（本机最新 = `1c8e5a9`「道具/分区: 修家具躺平与朝向、房间按设施铺面层、补 41 件道具」；其前 `149af02` R9 出图修复、`b020cd5` 交接表同步、`a9d20d5` R9/R10/R11）；`git status` 应干净。
-3. 先跑 §10.1 的 EditMode 确认 **220/220** 基线，再动手。
+3. 先跑 §10.1 的 EditMode 确认 **226/226** 基线，再动手。
 4. 下一步按 **T3（运行时多楼层）→ T4（MapHud）→ T5（材质槽）**；T7（60fps 实测）/T9（LOD+NavMesh）需要高性能机，T10（多边形化）与 T12（战斗原型）按需穿插。每完成一项在 §1 表里改状态并提交（commit message 沿用 `生成器(Rx): ...` / `文档: ...` 风格）。
 5. 06 已定稿（§8.1/§8.2/§8.4 共 29 项）；剩余待定见 06 §8.3，未定前不要改「经济数值 / 首发武器 / AI 难度分档 / Boss 战斗形式」相关实现。
 6. 本轮踩过的坑：改完 `.cs` 必须 touch（`ops_edit_file` 保留旧 mtime，Unity 会跑旧 DLL）；测试前先 `Stop-Process` 残留的 Tuanjie 进程，否则报 “Multiple Tuanjie instances cannot open the same project” 直接崩；日志常是无效 UTF8，用 PowerShell `Select-String` 取行。
